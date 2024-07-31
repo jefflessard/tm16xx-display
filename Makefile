@@ -6,6 +6,9 @@ obj-m += tm16xx.o
 # Path to the kernel source tree
 KDIR ?= /lib/modules/$(shell uname -r)/build
 
+CFLAGS += -g -DDEBUG
+CC += ${CFLAGS}
+
 # Module name
 MODULE_NAME = tm16xx
 
@@ -13,8 +16,8 @@ MODULE_NAME = tm16xx
 INSTALL_MOD_PATH ?= /
 
 # Device Tree parameters
-DTB_FILE ?= meson-gxl-s905x-p212.dtb
-ORIGINAL_DTS ?= meson-gxl-s905x-p212.dts
+DTB_FILE = meson-gxl-s905x-p212.dtb
+ORIGINAL_DTS = meson-gxl-s905x-p212.dts
 OVERLAY_DTS = overlay.dts
 PREPROCESS_DTS = overlay.preprocess.dts
 OVERLAY_DTBO = overlay.dtbo
@@ -28,9 +31,9 @@ module:
 
 clean:
 	make -C $(KDIR) M=$(shell pwd) clean
-	$(RM) $(PREPROCESS_DTS) $(OVERLAY_DTBO) $(NEW_DTB)
+	$(RM) $(PREPROCESS_DTS) $(OVERLAY_DTBO)
 
-install:
+install: module
 	$(MAKE) -C $(KDIR) M=$(shell pwd) modules_install INSTALL_MOD_PATH=$(INSTALL_MOD_PATH)
 	depmod -a
 
@@ -38,7 +41,7 @@ dtbo:
 	$(CPP) -I $(KDIR)/include -undef -x assembler-with-cpp $(OVERLAY_DTS) -o $(PREPROCESS_DTS)
 	dtc -I dts -O dtb -i $(ORIGINAL_DTS) $(PREPROCESS_DTS) -o $(OVERLAY_DTBO)
 
-merge: dtbo $(DTB_FILE)
+mergedtb: dtbo
 	fdtoverlay -i $(DTB_FILE) -o $(NEW_DTB) $(OVERLAY_DTBO)
 
-.PHONY: all module clean install dtbo merge
+.PHONY: all module clean install dtbo mergedtb

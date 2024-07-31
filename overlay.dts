@@ -18,15 +18,15 @@
 				#size-cells = <0>;
 
 				led-controller@24 {
-					compatible = "titan,tm1650";
+					compatible = "fuda,fd6551";
 					reg = <0x24>;
-					titan,grids = [01 02 03 04];
-					titan,segment-mapping = [06 05 04 03 02 01 00];
+					titan,digits = [01 02 03 04];
+					titan,segment-mapping = [03 04 05 00 01 02 06];
 					#address-cells = <2>;
 					#size-cells = <0>;
 
 					led@0,0 {
-						reg = <0>;
+						reg = <0 0>;
 						function = LED_FUNCTION_ALARM;
 					};
 
@@ -37,12 +37,12 @@
 
 					led@0,2 {
 						reg = <0 2>;
-						function = "pause";
+						function = "play";
 					};
 
 					led@0,3 {
 						reg = <0 3>;
-						function = "play";
+						function = "pause";
 					};
 
 					led@0,4 {
