@@ -12,36 +12,36 @@ display_modules() {
 
 display_init() {
 
-	cat /sys/class/leds/tm16xx/max_brightness > /sys/class/leds/tm16xx/brightness
+	cat /sys/class/leds/display/max_brightness > /sys/class/leds/display/brightness
 
-	echo timer > /sys/class/leds/tm16xx::colon/trigger
+	echo timer > /sys/class/leds/display::colon/trigger
 
-	echo usbport > /sys/class/leds/tm16xx::usb/trigger
-	for port in /sys/class/leds/tm16xx::usb/ports/*; do
+	echo usbport > /sys/class/leds/display::usb/trigger
+	for port in /sys/class/leds/display::usb/ports/*; do
 		echo 1 > $port
 	done
 
-	echo netdev > /sys/class/leds/tm16xx::lan/trigger
-	echo eth0 > /sys/class/leds/tm16xx::lan/device_name
-	echo 1 > /sys/class/leds/tm16xx::lan/link
+	echo netdev > /sys/class/leds/display::lan/trigger
+	echo eth0 > /sys/class/leds/display::lan/device_name
+	echo 1 > /sys/class/leds/display::lan/link
 
-	echo netdev > /sys/class/leds/tm16xx::wlan/trigger
-	echo wlan0 > /sys/class/leds/tm16xx::wlan/device_name
-	echo 1 > /sys/class/leds/tm16xx::wlan/link
+	echo netdev > /sys/class/leds/display::wlan/trigger
+	echo wlan0 > /sys/class/leds/display::wlan/device_name
+	echo 1 > /sys/class/leds/display::wlan/link
 }
 
 display_update() {
-	date +%H%M > /sys/class/leds/tm16xx/display_value
+	date +%H%M > /sys/class/leds/display/display_value
 }
 
 display_cleanup() {
 	kill %1
-	echo none > /sys/class/leds/tm16xx::colon/trigger
-	echo none > /sys/class/leds/tm16xx::usb/trigger
-	echo none > /sys/class/leds/tm16xx::lan/trigger
-	echo none > /sys/class/leds/tm16xx::wlan/trigger
-	echo > /sys/class/leds/tm16xx/display_value
-	echo 0 > /sys/class/leds/tm16xx/brightness
+	echo none > /sys/class/leds/display::colon/trigger
+	echo none > /sys/class/leds/display::usb/trigger
+	echo none > /sys/class/leds/display::lan/trigger
+	echo none > /sys/class/leds/display::wlan/trigger
+	echo > /sys/class/leds/display/display_value
+	echo 0 > /sys/class/leds/display/brightness
 }
 
 

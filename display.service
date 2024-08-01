@@ -1,13 +1,10 @@
 [Unit]
 Description=Display Service
-#After=network.target
-ConditionPathExists=/sys/class/leds/tm16xx/
+ConditionPathExists=/sys/class/leds/display/
 
 [Service]
-#ExecStartPre=/sbin/modprobe -a tm16xx ledtrig-timer ledtrig-netdev
 ExecStart=/sbin/display-service
 ExecStop=/bin/kill -s SIGTERM $MAINPID
-#ExecStopPost=/sbin/modprobe -r -a tm16xx ledtrig-timer ledtrig-netdev
 Restart=always
 User=root
 Type=simple

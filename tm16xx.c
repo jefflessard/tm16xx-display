@@ -20,6 +20,7 @@
 #include <linux/map_to_7segment.h>
 
 #define TM16XX_DRIVER_NAME "tm16xx"
+#define TM16XX_DEVICE_NAME "display"
 
 struct tm16xx_display;
 
@@ -121,7 +122,7 @@ static u8 tm16xx_ascii_to_segments(struct tm16xx_display *display, char c)
 
 static int tm16xx_i2c_write(struct tm16xx_display *display, u8 *data, size_t len)
 {
-	dev_info(display->dev, "i2c_write %*ph", (char)len, data);
+	dev_dbg(display->dev, "i2c_write %*ph", (char)len, data);
 
 	struct i2c_msg msg = {
 		.addr = data[0] >> 1,
@@ -411,7 +412,7 @@ static int tm16xx_probe(struct tm16xx_display *display)
 		return ret;
 	}
 
-	display->main_led.name = TM16XX_DRIVER_NAME;
+	display->main_led.name = TM16XX_DEVICE_NAME;
 	display->main_led.brightness = display->chip_info->max_brightness;
 	display->main_led.max_brightness = display->chip_info->max_brightness;
 	display->main_led.brightness_set = tm16xx_brightness_set;
@@ -433,7 +434,7 @@ static int tm16xx_probe(struct tm16xx_display *display)
 		struct tm16xx_led *led = &display->leds[i];
 		struct led_init_data led_init = {
 			.fwnode = child,
-			.devicename = TM16XX_DRIVER_NAME,
+			.devicename = display->main_led.name,
 			.devname_mandatory =  true,
 		};
 		u32 reg[2];
