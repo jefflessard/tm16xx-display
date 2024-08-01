@@ -1,0 +1,58 @@
+#!/bin/bash
+
+set -e
+
+display_modules() {
+	set -x
+	modprobe ledtrig-timer
+	modprobe ledtrig-netdev
+	modprobe tm16xx
+	{ set +x; } 2>/dev/null
+}
+
+display_init() {
+
+	cat /sys/class/leds/tm16xx/max_brightness > /sys/class/leds/tm16xx/brightness
+
+	echo timer > /sys/class/leds/tm16xx::colon/trigger
+
+	echo usbport > /sys/class/leds/tm16xx::usb/trigger
+	for port in /sys/class/leds/tm16xx::usb/ports/*; do
+		echo 1 > $port
+	done
+
+	echo netdev > /sys/class/leds/tm16xx::lan/trigger
+	echo eth0 > /sys/class/leds/tm16xx::lan/device_name
+	echo 1 > /sys/class/leds/tm16xx::lan/link
+
+	echo netdev > /sys/class/leds/tm16xx::wlan/trigger
+	echo wlan0 > /sys/class/leds/tm16xx::wlan/device_name
+	echo 1 > /sys/class/leds/tm16xx::wlan/link
+}
+
+display_update() {
+	date +%H%M > /sys/class/leds/tm16xx/display_value
+}
+
+display_cleanup() {
+	kill %1
+	echo none > /sys/class/leds/tm16xx::colon/trigger
+	echo none > /sys/class/leds/tm16xx::usb/trigger
+	echo none > /sys/class/leds/tm16xx::lan/trigger
+	echo none > /sys/class/leds/tm16xx::wlan/trigger
+	echo > /sys/class/leds/tm16xx/display_value
+	echo 0 > /sys/class/leds/tm16xx/brightness
+}
+
+
+trap display_cleanup SIGHUP SIGTERM SIGQUIT SIGKILL SIGINT
+
+#display_modules
+display_init
+display_update
+sleep $((60-$(date +%S)))
+while true; do
+	sleep 60 &
+	display_update
+	wait
+done
