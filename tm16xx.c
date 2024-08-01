@@ -17,6 +17,7 @@
 #include <linux/of_device.h>
 #include <linux/leds.h>
 #include <linux/delay.h>
+#include <linux/workqueue.h>
 #include <linux/map_to_7segment.h>
 
 #define TM16XX_DRIVER_NAME "tm16xx"
@@ -60,6 +61,8 @@ struct tm16xx_display {
 	u8 *display_data;
 	size_t display_data_len;
 	struct mutex lock;
+	struct work_struct flush_brightness;
+	struct work_struct flush_display;
 	int (*client_write)(struct tm16xx_display *display, u8 *data, size_t len);
 };
 
@@ -141,43 +144,47 @@ static int tm16xx_i2c_write(struct tm16xx_display *display, u8 *data, size_t len
 
 static int tm16xx_spi_write(struct tm16xx_display *display, u8 *data, size_t len)
 {
+	dev_dbg(display->dev, "spi_write %*ph", (char)len, data);
+
 	struct spi_device *spi = display->client.spi;
 	return spi_write(spi, data, len);
 }
 
-static int tm16xx_display_set_brightness(struct tm16xx_display *display, u8 brightness)
-{
+static void tm16xx_display_flush_brightness(struct work_struct * work) {
+	struct tm16xx_display *display = container_of(work, struct tm16xx_display, flush_brightness);
 	u8 cmd[] = {
 		display->chip_info->cmd_write_mode,
-		display->chip_info->brightness_map(brightness),
+		display->chip_info->brightness_map(display->main_led.brightness),
 	};
 	int ret;
 
+	mutex_lock(&display->lock);
 	ret = display->client_write(display, cmd, sizeof(cmd));
+	mutex_unlock(&display->lock);
 	if (ret < 0)
 		dev_err(display->dev, "Failed to set brightness: %d\n", ret);
-
-	return ret;
 }
 
-static int tm16xx_display_write_data(struct tm16xx_display *display, u8 *data, size_t len)
-{
+static void tm16xx_display_flush_data(struct work_struct * work) {
+	struct tm16xx_display *display = container_of(work, struct tm16xx_display, flush_display);
+
 	u8 cmd[2];
 	int i;
 	int ret;
 
-	for(i=0; i<len; i++) {
+	mutex_lock(&display->lock);
+
+	for(i=0; i<display->display_data_len; i++) {
 		cmd[0] = display->chip_info->cmd_base_addr + i * sizeof(u8) * 2;
-		cmd[1] = data[i];
+		cmd[1] = display->display_data[i];
 
 		ret = display->client_write(display, cmd, sizeof(cmd));
 		if (ret < 0) {
 			dev_err(display->dev, "Failed to write display data: %d\n", ret);
-			return ret;
 		}
 	}
 
-	return 0;
+	mutex_unlock(&display->lock);
 }
 
 static int tm16xx_display_init(struct tm16xx_display *display)
@@ -186,52 +193,43 @@ static int tm16xx_display_init(struct tm16xx_display *display)
 	int ret;
 
 	if (cmd) {
+		mutex_lock(&display->lock);
 		ret = display->client_write(display, &cmd, sizeof(cmd));
+		mutex_unlock(&display->lock);
 		if (ret < 0)
 			return ret;
 	}
 
-	ret = tm16xx_display_set_brightness(display, display->main_led.brightness);
-	if (ret < 0)
-		return ret;
+	schedule_work(&display->flush_brightness);
+	flush_work(&display->flush_brightness);
 
 	memset(display->display_data, 0xFF, display->display_data_len);
-	ret = tm16xx_display_write_data(display, display->display_data, display->display_data_len);
+	schedule_work(&display->flush_display);
+	flush_work(&display->flush_display);
 	memset(display->display_data, 0x00, display->display_data_len);
-
-	return ret;
-	if (ret < 0)
-		dev_err(display->dev, "Failed to initialize TM16xx chip: %d\n", ret);
-	else
-		dev_info(display->dev, "TM16xx chip initialized successfully\n");
 
 	return ret;
 }
 
 static void tm16xx_display_remove(struct tm16xx_display *display)
 {
-	int ret;
-
 	memset(display->display_data, 0x00, display->display_data_len);
-	ret = tm16xx_display_write_data(display, display->display_data, display->display_data_len);
+	schedule_work(&display->flush_display);
+	flush_work(&display->flush_display);
 
-	if (ret >= 0)
-		ret = tm16xx_display_set_brightness(display, LED_OFF);
+	display->main_led.brightness = LED_OFF;
+	schedule_work(&display->flush_brightness);
+	flush_work(&display->flush_brightness);
 
-	if (ret < 0)
-		dev_err(display->dev, "Failed to turn off display: %d\n", ret);
-	else
-		dev_info(display->dev, "Display turned off\n");
+	dev_info(display->dev, "Display turned off\n");
 }
 
 static void tm16xx_brightness_set(struct led_classdev *led_cdev, enum led_brightness brightness)
 {
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
 
-	mutex_lock(&display->lock);
 	led_cdev->brightness = brightness;
-	tm16xx_display_set_brightness(display, brightness);
-	mutex_unlock(&display->lock);
+	schedule_work(&display->flush_brightness);
 }
 
 static void tm16xx_led_set(struct led_classdev *led_cdev, enum led_brightness status)
@@ -239,16 +237,12 @@ static void tm16xx_led_set(struct led_classdev *led_cdev, enum led_brightness st
 	struct tm16xx_led *led = container_of(led_cdev, struct tm16xx_led, cdev);
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
 
-	mutex_lock(&display->lock);
-
 	if (status)
 		display->display_data[led->grid] |= (1 << led->segment);
 	else
 		display->display_data[led->grid] &= ~(1 << led->segment);
 
-	tm16xx_display_write_data(display, display->display_data, display->display_data_len);
-
-	mutex_unlock(&display->lock);
+	schedule_work(&display->flush_display);
 }
 
 static ssize_t tm16xx_display_value_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -257,12 +251,10 @@ static ssize_t tm16xx_display_value_show(struct device *dev, struct device_attri
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
 	int i;
 
-	mutex_lock(&display->lock);
 	for (i = 0; i < display->num_digits && i < PAGE_SIZE - 1; i++) {
 		buf[i] = display->digits[i].value;
 	}
 	buf[i++] = '\n';
-	mutex_unlock(&display->lock);
 
 	return i;
 }
@@ -275,8 +267,6 @@ static ssize_t tm16xx_display_value_store(struct device *dev, struct device_attr
 	struct tm16xx_digit *digit;
 	int i;
 	u8 data;
-
-	mutex_lock(&display->lock);
 
 	for (i = 0; i < display->num_digits; i++) {
 		digit = &display->digits[i];
@@ -292,9 +282,7 @@ static ssize_t tm16xx_display_value_store(struct device *dev, struct device_attr
 		display->display_data[digit->grid] = data;
 	}
 
-	tm16xx_display_write_data(display, display->display_data, display->display_data_len);
-
-	mutex_unlock(&display->lock);
+	schedule_work(&display->flush_display);
 
 	return count;
 }
@@ -312,8 +300,6 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 	struct fwnode_handle *child;
 	int ret, i, max_grid = 0;
 	u8 *digits;
-
-	dev_info(dev, "Parsing device tree for TM16XX display\n");
 
 	ret = device_property_count_u8(dev, "titan,digits");
 	if (ret < 0) {
@@ -394,7 +380,6 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 		return -ENOMEM;
 	}
 
-	dev_info(dev, "Device tree parsing complete\n");
 	return 0;
 }
 
@@ -403,8 +388,6 @@ static int tm16xx_probe(struct tm16xx_display *display)
 	struct device *dev = display->dev;
 	struct fwnode_handle *child;
 	int ret, i;
-
-	mutex_init(&display->lock);
 
 	ret = tm16xx_parse_dt(dev, display);
 	if (ret < 0) {
@@ -462,13 +445,18 @@ static int tm16xx_probe(struct tm16xx_display *display)
 		i++;
 	}
 
+	mutex_init(&display->lock);
+	mutex_init(&display->lock);
+	INIT_WORK(&display->flush_brightness, tm16xx_display_flush_brightness);
+	INIT_WORK(&display->flush_display, tm16xx_display_flush_data);
+
 	ret = tm16xx_display_init(display);
 	if (ret < 0) {
-		dev_err(display->dev, "Failed to initialize TM16xx chip: %d\n", ret);
+		dev_err(display->dev, "Failed to initialize display: %d\n", ret);
 		return ret;
 	}
-
-	dev_info(display->dev, "TM16xx chip initialized successfully\n");
+	
+	dev_info(display->dev, "Display initialized successfully\n");
 	return 0;
 }
 
