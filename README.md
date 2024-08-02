@@ -67,7 +67,7 @@ make merge-overlay
 #cp updated.dtb /boot/dtb/{YOUR_DTB_PATH}.dtb
 ```
 
-7. Reboot to apply changes
+5. Reboot to apply changes
 ```sh
 reboot
 ```
