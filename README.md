@@ -18,18 +18,18 @@ Linux kernel driver for auxiliary displays based on led controllers such as tm16
 git clone https://github.com/jefflessard/tm16xx-display.git
 ```
 
-## tm16xx kernel module
-### Build and install module
+## Kernel module
+1. Build and install module
 ```sh
 make install
 ```
 
-### Load module
+2. Load module
 ```sh
 modprobe tm16xx
 ```
 
-### Check module logs
+3  Check module logs
 ```sh
 dmesg | grep tm16xx
 ```
@@ -52,17 +52,17 @@ You can refer to https://github.com/arthur-liberman/vfd-configurations/ to find 
     * 'function': sysfs name of the led
 
 2. Copy your current dtb file
-  * **KEEP A BACKUP OF YOUR CUREENT DTB**
-  * Decompile your dtb (binary blob) to dts (source)
-```sh
-dtc -I dtb -O dts {YOUR_DTB}.dtb -o {YOUR_DTB}.dts
-```
+**KEEP A BACKUP OF YOUR CUREENT DTB**
+Copy to `original.dtb`
 
-3. Edit `Makefile` variables to point to your current dtb and dts files
+3. Decompile your dtb (binary blob) to dts (source)
+```sh
+make dts
+```
 
 4. Compile the device tree binary overlay
 ```sh
-make dtbo
+make overlay
 ```
 
 5. Option 1: Use the `overlay.dtbo` binary overlay directly, if supported
@@ -71,6 +71,7 @@ make dtbo
 ```sh
 make mergedtbo
 ```
+the  replace your current dtb with `updated.dtb`
 
 7. Reboot to apply changes
 
