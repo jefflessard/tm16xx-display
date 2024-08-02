@@ -47,26 +47,21 @@ You can refer to https://github.com/arthur-liberman/vfd-configurations/ to find 
     * `reg`: must match `<X Y>` above
     * `function`: sysfs name of the led
 
-2. Copy your current dtb file to `original.dtb`, for example:
+2. Copy your current dtb file to `original.dtb`:
 ```sh
-dtc -I fs -O dtb /sys/firmware/devicetree/base -o original.dtb
+make extract-dtb
 ```
 
-4. Decompile your dtb (binary blob) to dts (source)
-```sh
-make dts
-```
-
-4. Compile the device tree binary overlay
+3. Compile the device tree binary overlay
 ```sh
 make overlay
 ```
 
-5. Update DTB
+4. Update DTB
   * Option 1: Use the `overlay.dtbo` binary overlay directly, if supported
   * Option 2: Merge the overlay with your current dtb
 ```sh
-make mergedtb
+make merge-overlay
 
 # Replace your current dtb with updated.dtb, for example:
 #cp updated.dtb /boot/dtb/{YOUR_DTB_PATH}.dtb
@@ -80,7 +75,7 @@ reboot
 ## Kernel module
 1. Build and install module
 ```sh
-make install
+make install-module
 ```
 
 2. Load module
@@ -101,18 +96,18 @@ watch for something like
 
 ## Install the display service
 ```sh
-./install.sh
+make install-service
 ```
 
 # Usage
-
-## Customize display service
-Just edit the bash script at `/sbin/display-service`
 
 ## Restart display service
 ```sh
 systemctl restart display
 ```
+
+## Customize display service
+Just edit the bash script at `/sbin/display-service`
 
 ## Customize display from shell
 ```sh
