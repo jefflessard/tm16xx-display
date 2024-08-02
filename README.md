@@ -49,7 +49,7 @@ You can refer to https://github.com/arthur-liberman/vfd-configurations/ to find 
     * `compatible`: your display controller chip
   * `led@X,Y` nodes: X=grid index, Y=segment index
     * `reg`: must match <X Y> above
-    * 'function`: sysfs name of the led
+    * `function`: sysfs name of the led
 
 2. Copy your current dtb file
   * **KEEP A BACKUP OF YOUR CUREENT DTB**
