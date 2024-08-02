@@ -12,6 +12,9 @@ Linux kernel driver for auxiliary displays based on led controllers such as tm16
 
 ## Prerequisites
 * Linux kernel headers installed
+```sh
+apt-get install "linux-headers-$(uname -r | sed -E 's/^[^-]+-//')"
+```
 
 ## Download
 ```sh
