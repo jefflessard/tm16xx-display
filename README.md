@@ -39,7 +39,7 @@ You can refer to https://github.com/arthur-liberman/vfd-configurations/ to find 
 
 1. Edit the `overlay.dts` according to your device
   * Option 1 : SPI device
-    * `compatible = "spi-gpio"
+    * `compatible = "spi-gpio"`
     * TBC
   * Option 2 : I2C device
     * `compatible = "i2c-gpio"`
@@ -49,11 +49,11 @@ You can refer to https://github.com/arthur-liberman/vfd-configurations/ to find 
     * `compatible`: your display controller chip
   * `led@X,Y` nodes: X=grid index, Y=segment index
     * `reg`: must match <X Y> above
-    * 'function': sysfs name of the led
+    * 'function`: sysfs name of the led
 
 2. Copy your current dtb file
-**KEEP A BACKUP OF YOUR CUREENT DTB**
-Copy to `original.dtb`
+  * **KEEP A BACKUP OF YOUR CUREENT DTB**
+  * Copy to `original.dtb`
 
 3. Decompile your dtb (binary blob) to dts (source)
 ```sh
