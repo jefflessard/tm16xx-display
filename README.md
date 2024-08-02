@@ -40,21 +40,24 @@ dmesg | grep tm16xx
 You can refer to https://github.com/arthur-liberman/vfd-configurations/ to find your specific device OpenVFD configuration and use the corresponding values.
 
 1. Edit the `overlay.dts` according to your device
-  * Option 1 : SPI device
-    * `compatible = "spi-gpio"`
-    * `mosi-gpios`: data gpio pin
-    * `gpio-sck`: clock gpio pin
-    * `cs-gpios`: chip select gpio pin
-  * Option 2 : I2C device
-    * `compatible = "i2c-gpio"`
-    * `sda-gpios`: data gpio pin
-    * `scl-gpios`: clock gpio pin
-  * `led-controller`
+  * `display-client`
+    * Option 1 : SPI device
+      * `compatible = "spi-gpio"`
+      * `mosi-gpios`: data gpio pin
+      * `gpio-sck`: clock gpio pin
+      * `cs-gpios`: chip select gpio pin
+    * Option 2 : I2C device
+      * `compatible = "i2c-gpio"`
+      * `sda-gpios`: data gpio pin
+      * `scl-gpios`: clock gpio pin
+  * `display-controller`
     * `compatible`: your display controller chip
     * `titan,digits`: variable lengh byte array determining the number of text grid cells and their index position 
     * `titan,segment-mapping`: array of 7 bytes specifying which bit of a grid digit should be used for each ascii map segment
-  * `led@X,Y` nodes: X=grid cell index, Y=segment index
-    * `reg`: must match <X Y> above
+  * `led@X,Y`
+    * X: grid cell index
+    * Y: segment index
+    * `reg`: must match `<X Y>` above
     * `function`: sysfs name of the led
 
 2. Copy your current dtb file to `original.dtb`
