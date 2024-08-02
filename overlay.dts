@@ -9,17 +9,36 @@
 		target-path = "/";
 		__overlay__ {
 
-			i2c_gpio: i2c_gpio {
+			display-client {
+// choose one of the following block depending on the chip client protocol 
+// i2c client: "titan,tm1650" | "titan,fd6551"
+/*
 				compatible = "i2c-gpio";
 				sda-gpios = <&gpio_ao 0x05 GPIO_ACTIVE_HIGH>;
 				scl-gpios = <&gpio_ao 0x04 GPIO_ACTIVE_HIGH>;
 				i2c-gpio,delay-us = <5>;
+*/
+// spi client: "titan,tm1628"
+/*
+				compatible = "spi-gpio";
+				sck-gpios = <&gpio 4 GPIO_ACTIVE_HIGH>;
+				mosi-gpios = <&gpio 3 GPIO_ACTIVE_HIGH>;
+				cs-gpios = <&gpio 2 GPIO_ACTIVE_LOW>;
+				num-chipselects = <1>;
+*/
 				#address-cells = <1>;
 				#size-cells = <0>;
 
-				led-controller@24 {
+				display-controller@24 {
 					compatible = "fuda,fd6551";
 					reg = <0x24>;
+// spi specific block
+/*
+					spi-3wire;
+					spi-lsb-first;
+					spi-rx-delay-us = <1>;
+					spi-max-frequency = <500000>;
+*/
 					titan,digits = [01 02 03 04];
 					titan,segment-mapping = [03 04 05 00 01 02 06];
 					#address-cells = <2>;
