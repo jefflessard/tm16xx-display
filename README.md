@@ -21,22 +21,6 @@ apt-get install "linux-headers-$(uname -r | sed -E 's/^[^-]+-//')"
 git clone https://github.com/jefflessard/tm16xx-display.git
 ```
 
-## Kernel module
-1. Build and install module
-```sh
-make install
-```
-
-2. Load module
-```sh
-modprobe tm16xx
-```
-
-3. Check module logs
-```sh
-dmesg | grep tm16xx
-```
-
 ## Configure the device tree
 :warning: **KEEP A BACKUP OF YOUR CUREENT DTB**
 
@@ -63,9 +47,12 @@ You can refer to https://github.com/arthur-liberman/vfd-configurations/ to find 
     * `reg`: must match `<X Y>` above
     * `function`: sysfs name of the led
 
-2. Copy your current dtb file to `original.dtb`
+2. Copy your current dtb file to `original.dtb`, for example:
+```sh
+dtc -I fs -O dtb /sys/firmware/devicetree/base -o original.dtb
+```
 
-3. Decompile your dtb (binary blob) to dts (source)
+4. Decompile your dtb (binary blob) to dts (source)
 ```sh
 make dts
 ```
@@ -75,15 +62,42 @@ make dts
 make overlay
 ```
 
-5. Option 1: Use the `overlay.dtbo` binary overlay directly, if supported
-
-6. Option 2: Merge the overlay with your current dtb
+5. Update DTB
+  * Option 1: Use the `overlay.dtbo` binary overlay directly, if supported
+  * Option 2: Merge the overlay with your current dtb
 ```sh
-make mergedtbo
+make mergedtb
+
+# Replace your current dtb with updated.dtb, for example:
+#cp updated.dtb /boot/dtb/{YOUR_DTB_PATH}.dtb
 ```
-the  replace your current dtb with `updated.dtb`
 
 7. Reboot to apply changes
+```sh
+reboot
+```
+
+## Kernel module
+1. Build and install module
+```sh
+make install
+```
+
+2. Load module
+```sh
+modprobe tm16xx
+```
+
+3. Check module logs
+```sh
+dmesg | grep tm16xx
+```
+watch for something like 
+> [   10.074360] tm16xx 1-0024: Number of digits: 4  
+[   10.074412] tm16xx 1-0024: Number of segments: 7  
+[   10.074435] tm16xx 1-0024: Number of LEDs: 7  
+[   10.074442] tm16xx 1-0024: Number of display grids: 5  
+[   10.078710] tm16xx 1-0024: Display initialized successfully
 
 ## Install the display service
 ```sh
