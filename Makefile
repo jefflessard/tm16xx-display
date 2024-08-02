@@ -28,24 +28,33 @@ NEW_DTB = updated.dtb
 all: module
 
 module:
-	make -C $(KDIR) M=$(shell pwd) modules
+        make -C $(KDIR) M=$(shell pwd) modules
 
 clean:
-	make -C $(KDIR) M=$(shell pwd) clean
-	$(RM) $(PREPROCESS_DTS) $(OVERLAY_DTBO)
+        make -C $(KDIR) M=$(shell pwd) clean
+        $(RM) $(PREPROCESS_DTS) $(OVERLAY_DTBO)
 
-install: module
-	$(MAKE) -C $(KDIR) M=$(shell pwd) modules_install INSTALL_MOD_PATH=$(INSTALL_MOD_PATH)
-	depmod -a
+install-module: module
+        $(MAKE) -C $(KDIR) M=$(shell pwd) modules_install INSTALL_MOD_PATH=$(INSTALL_MOD_PATH)
+        depmod -a
 
 dts:
-	dtc -I dtb -O dts $(DTB_FILE) -o $(ORIGINAL_DTS)
+        dtc -I dtb -O dts $(DTB_FILE) -o $(ORIGINAL_DTS)
 
 overlay:
-	$(CPP) -I $(KDIR)/include -undef -x assembler-with-cpp $(OVERLAY_DTS) -o $(PREPROCESS_DTS)
-	dtc -I dts -O dtb -i $(ORIGINAL_DTS) $(PREPROCESS_DTS) -o $(OVERLAY_DTBO)
+        $(CPP) -I $(KDIR)/include -undef -x assembler-with-cpp $(OVERLAY_DTS) -o $(PREPROCESS_DTS)
+        dtc -I dts -O dtb -i $(ORIGINAL_DTS) $(PREPROCESS_DTS) -o $(OVERLAY_DTBO)
 
 mergedtb: overlay
-	fdtoverlay -i $(DTB_FILE) -o $(NEW_DTB) $(OVERLAY_DTBO)
+        fdtoverlay -i $(DTB_FILE) -o $(NEW_DTB) $(OVERLAY_DTBO)
 
-.PHONY: all module install dts overlay mergedtb clean
+install-service:
+        modprobe -a ledtrig_timer ledtrig_netdev tm16xx
+        echo "softdep tm16xx pre: ledtrig_timer ledtrig_netdev" > /etc/modprobe.d/tm16xx.conf
+        cp display-service /usr/sbin/
+        cp display.service /lib/systemd/system/
+        systemctl daemon-reload
+        systemctl enable display
+        systemctl start display
+
+.PHONY: all module install-module dts overlay mergedtb install-service clean
