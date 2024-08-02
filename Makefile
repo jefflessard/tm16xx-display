@@ -17,12 +17,12 @@ MODULE_NAME = tm16xx
 INSTALL_MOD_PATH ?= /
 
 # Device Tree parameters
-DTB_FILE = original.dtb
+ORIGINAL_DTB = original.dtb
 ORIGINAL_DTS = original.dts
 OVERLAY_DTS = overlay.dts
 PREPROCESS_DTS = overlay.preprocess.dts
 OVERLAY_DTBO = overlay.dtbo
-NEW_DTB = updated.dtb
+MERGED_DTB = updated.dtb
 
 # Make targets
 all: module
@@ -38,15 +38,16 @@ install-module: module
 	$(MAKE) -C $(KDIR) M=$(shell pwd) modules_install INSTALL_MOD_PATH=$(INSTALL_MOD_PATH)
 	depmod -a
 
-dts:
-	dtc -I dtb -O dts $(DTB_FILE) -o $(ORIGINAL_DTS)
+extract-dtb:
+	dtc -I fs -O dtb /sys/firmware/devicetree/base -o $(ORIGINAL_DTB)
+	dtc -I fs -O dts /sys/firmware/devicetree/base -o $(ORIGINAL_DTS)
 
 overlay:
 	$(CPP) -I $(KDIR)/include -undef -x assembler-with-cpp $(OVERLAY_DTS) -o $(PREPROCESS_DTS)
 	dtc -I dts -O dtb -i $(ORIGINAL_DTS) $(PREPROCESS_DTS) -o $(OVERLAY_DTBO)
 
-mergedtb: overlay
-	fdtoverlay -i $(DTB_FILE) -o $(NEW_DTB) $(OVERLAY_DTBO)
+merge-overlay: overlay
+	fdtoverlay -i $(ORIGINAL_DTB) -o $(MERGED_DTB) $(OVERLAY_DTBO)
 
 install-service:
 	modprobe -a ledtrig_timer ledtrig_netdev tm16xx
@@ -57,4 +58,4 @@ install-service:
 	systemctl enable display
 	systemctl start display
 
-.PHONY: all module install-module dts overlay mergedtb install-service clean
+.PHONY: all module install-module extract-dtb overlay merge-overlay install-service clean
