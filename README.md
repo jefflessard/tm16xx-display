@@ -49,6 +49,9 @@ You can refer to https://github.com/arthur-liberman/vfd-configurations/ to find 
 
 2. Copy your current dtb file to `original.dtb`:
 ```sh
+# run this command only once.
+# we must always start from the
+# original dtb when merging overlay
 make extract-dtb
 ```
 

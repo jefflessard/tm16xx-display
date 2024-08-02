@@ -20,7 +20,6 @@ INSTALL_MOD_PATH ?= /
 ORIGINAL_DTB = original.dtb
 ORIGINAL_DTS = original.dts
 OVERLAY_DTS = overlay.dts
-PREPROCESS_DTS = overlay.preprocess.dts
 OVERLAY_DTBO = overlay.dtbo
 MERGED_DTB = updated.dtb
 
@@ -43,8 +42,7 @@ extract-dtb:
 	dtc -I fs -O dts /sys/firmware/devicetree/base -o $(ORIGINAL_DTS)
 
 overlay:
-	$(CPP) -I $(KDIR)/include -undef -x assembler-with-cpp $(OVERLAY_DTS) -o $(PREPROCESS_DTS)
-	dtc -I dts -O dtb -i $(ORIGINAL_DTS) $(PREPROCESS_DTS) -o $(OVERLAY_DTBO)
+	$(CPP) -I $(KDIR)/include -undef -x assembler-with-cpp $(OVERLAY_DTS) -o /dev/stdout | dtc -I dts -O dtb -i $(ORIGINAL_DTS) -o $(OVERLAY_DTBO)
 
 merge-overlay: overlay
 	fdtoverlay -i $(ORIGINAL_DTB) -o $(MERGED_DTB) $(OVERLAY_DTBO)
