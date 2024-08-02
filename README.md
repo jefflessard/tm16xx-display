@@ -29,7 +29,7 @@ make install
 modprobe tm16xx
 ```
 
-3  Check module logs
+3. Check module logs
 ```sh
 dmesg | grep tm16xx
 ```
@@ -90,6 +90,41 @@ Just edit the bash script at `/sbin/display-service`
 systemctl restart display
 ```
 
-# Manually change the display
-See `/sys/class/led/display/` and `/sys/class/led/display::*`
-TBC
+## Customize display from shell
+```sh
+# turn on display
+cat /sys/class/leds/display/max_brightness > /sys/class/leds/display/brightness
+
+# dim brightness display (devices may not implement this)
+# value between 1 and max_brightness (usually 8)
+echo 1 > /sys/class/leds/display/brightness
+
+# turn off display
+echo 0 > /sys/class/leds/display/brightness
+
+# write text on the display (supports 7-segment ascii mapping)
+echo "boot" > /sys/class/leds/display/display_value
+
+# clear the display text
+echo > /sys/class/leds/display/display_value
+
+# list available leds/symbols
+ls /sys/class/leds/display\:\:*
+
+# turn on a specific led/symbol
+echo 1 > /sys/class/leds/display\:\:lan/brightness
+
+# turn off a specific led/symbol
+echo 1 > /sys/class/leds/display\:\:lan/brightness
+
+# automatically turn on/off usb led when usb device is connected on a specific port
+echo usbport > /sys/class/leds/display::usb/trigger
+echo 1 > /sys/class/leds/display::usb/ports/usb1-port1
+
+# turn on led on wifi connect + blink on activity (requires ledtrig-netdev module)
+echo netdev > /sys/class/leds/display::wlan/trigger
+echo wlan0 > /sys/class/leds/display::wlan/device_name
+echo 1 > /sys/class/leds/display::wlan/link
+echo 1 > /sys/class/leds/display::wlan/rx
+echo 1 > /sys/class/leds/display::wlan/tx
+```
