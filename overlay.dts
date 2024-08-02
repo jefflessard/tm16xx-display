@@ -11,7 +11,7 @@
 
 			display-client {
 // choose one of the following block depending on the chip client protocol 
-// i2c client: "titan,tm1650" | "titan,fd6551"
+// i2c client: "titan,tm1650" | "fuda,fd6551"
 /*
 				compatible = "i2c-gpio";
 				sda-gpios = <&gpio_ao 0x05 GPIO_ACTIVE_HIGH>;
