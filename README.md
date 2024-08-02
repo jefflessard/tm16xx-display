@@ -3,8 +3,8 @@ Linux kernel driver for auxiliary displays based on led controllers such as tm16
 
 ## Implemented devices
 * Shenzhen TITAN MICRO Electronics
-  * TM1628 (untested)
-  * TM1650 (untested)
+  * TM1628 (FD628 compatible, untested)
+  * TM1650 (FD650 compaatible, untested)
 * FUDA HISI MICROELECTRONICS
   * FD6551 (tested)
 
@@ -35,25 +35,29 @@ dmesg | grep tm16xx
 ```
 
 ## Configure the device tree
+:warning: **KEEP A BACKUP OF YOUR CUREENT DTB**
+
 You can refer to https://github.com/arthur-liberman/vfd-configurations/ to find your specific device OpenVFD configuration and use the corresponding values.
 
 1. Edit the `overlay.dts` according to your device
   * Option 1 : SPI device
     * `compatible = "spi-gpio"`
-    * TBC
+    * `mosi-gpios`: data gpio pin
+    * `gpio-sck`: clock gpio pin
+    * `cs-gpios`: chip select gpio pin
   * Option 2 : I2C device
     * `compatible = "i2c-gpio"`
-    * `sda-gpios` 
-    * `scl-gpios`
+    * `sda-gpios`: data gpio pin
+    * `scl-gpios`: clock gpio pin
   * `led-controller`
     * `compatible`: your display controller chip
-  * `led@X,Y` nodes: X=grid index, Y=segment index
+    * `titan,digits`: variable lengh byte array determining the number of text grid cells and their index position 
+    * `titan,segment-mapping`: array of 7 bytes specifying which bit of a grid digit should be used for each ascii map segment
+  * `led@X,Y` nodes: X=grid cell index, Y=segment index
     * `reg`: must match <X Y> above
     * `function`: sysfs name of the led
 
-2. Copy your current dtb file
-  * **KEEP A BACKUP OF YOUR CUREENT DTB**
-  * Copy to `original.dtb`
+2. Copy your current dtb file to `original.dtb`
 
 3. Decompile your dtb (binary blob) to dts (source)
 ```sh
