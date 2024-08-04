@@ -11,7 +11,7 @@ Linux kernel driver for auxiliary displays based on led controllers such as tm16
 # Installation Instructions
 
 ## Prerequisites
-* Linux kernel headers installed
+Linux kernel headers installed
 ```sh
 armbian-config
 ```
@@ -52,14 +52,16 @@ You can refer to https://github.com/arthur-liberman/vfd-configurations/ to find 
     * `function`: sets the sysfs name of the led
 
 3. Update your dtb
-  * Option 1: Use device tree overlay, if supported
+
+Option 1: Use device tree overlay, if supported
 ```sh
 # This will create the overlay in release/display.dtbo
 make display.dtbo 
 ```
 
-  * Option 2: Create an updated dtb
-    * Copy your current dtb file to `original.dtb`:
+Option 2: Create an updated dtb 
+  * Copy your current dtb file to `original.dtb`:
+
 ```sh
 # run this command only once.
 # we must always start from the
@@ -67,7 +69,7 @@ make display.dtbo
 make extract-dtb ORIGINAL_DTB=original.dtb
 ```
 
-    * Merge the display dtb overlay with your current dtb
+  * Merge the display dtb overlay with your current dtb
 ```sh
 # This will create the dtb in release/display.dtb
 make display.dtb ORIGINAL_DTB=original.dtb
