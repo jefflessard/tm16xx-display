@@ -13,8 +13,9 @@ Linux kernel driver for auxiliary displays based on led controllers such as tm16
 ## Prerequisites
 * Linux kernel headers installed
 ```sh
-apt-get install "linux-headers-$(uname -r | sed -E 's/^[^-]+-//')"
+armbian-config
 ```
+Then go to Software -> Headers
 
 ## Download
 ```sh
@@ -26,7 +27,7 @@ git clone https://github.com/jefflessard/tm16xx-display.git
 
 You can refer to https://github.com/arthur-liberman/vfd-configurations/ to find your specific device OpenVFD configuration and use the corresponding values.
 
-1. Edit the `overlay.dts` according to your device
+1. Edit `display.dtso` according to your device
   * `display-client`
     * Option 1 : SPI device
       * `compatible = "spi-gpio"`
@@ -39,67 +40,51 @@ You can refer to https://github.com/arthur-liberman/vfd-configurations/ to find 
       * `scl-gpios`: clock gpio pin
   * `display-controller`
     * `compatible`: your display controller chip
-    * `titan,digits`: variable lengh byte array determining the number of text grid cells and their index position 
+
+2. If needed, edit `t95-display.dtsi` (or create a new one a change the /include/ in `display.dtso`)
+  * `display-controller`
+    * `titan,digits`: variable lengh byte array determining the number of text grid digits and their index position 
     * `titan,segment-mapping`: array of 7 bytes specifying which bit of a grid digit should be used for each ascii map segment
   * `led@X,Y`
     * X: grid cell index
     * Y: segment index
     * `reg`: must match `<X Y>` above
-    * `function`: sysfs name of the led
+    * `function`: sets the sysfs name of the led
 
-2. Copy your current dtb file to `original.dtb`:
+3. Update your dtb
+  * Option 1: Use device tree overlay, if supported
+```sh
+# This will create the overlay in release/display.dtbo
+make display.dtbo 
+```
+
+  * Option 2: Create an updated dtb
+    * Copy your current dtb file to `original.dtb`:
 ```sh
 # run this command only once.
 # we must always start from the
 # original dtb when merging overlay
-make extract-dtb
+make extract-dtb ORIGINAL_DTB=original.dtb
 ```
 
-3. Compile the device tree binary overlay
+    * Merge the display dtb overlay with your current dtb
 ```sh
-make overlay
+# This will create the dtb in release/display.dtb
+make display.dtb ORIGINAL_DTB=original.dtb
+
+# Replace your current dtb with the new dtb, for example:
+#cp release/display.dtb /boot/dtb/{YOUR_DTB_PATH}.dtb
 ```
 
-4. Update DTB
-  * Option 1: Use the `overlay.dtbo` binary overlay directly, if supported
-  * Option 2: Merge the overlay with your current dtb
-```sh
-make merge-overlay
-
-# Replace your current dtb with updated.dtb, for example:
-#cp updated.dtb /boot/dtb/{YOUR_DTB_PATH}.dtb
-```
-
-5. Reboot to apply changes
+4. Reboot to apply changes
 ```sh
 reboot
 ```
 
-## Kernel module
-1. Build and install module
+## Kernel module and display service
+Builds then installs module and service
 ```sh
-make install-module
-```
-
-2. Load module
-```sh
-modprobe tm16xx
-```
-
-3. Check module logs
-```sh
-dmesg | grep tm16xx
-```
-watch for something like 
-> [   10.074360] tm16xx 1-0024: Number of digits: 4  
-[   10.074412] tm16xx 1-0024: Number of segments: 7  
-[   10.074435] tm16xx 1-0024: Number of LEDs: 7  
-[   10.074442] tm16xx 1-0024: Number of display grids: 5  
-[   10.078710] tm16xx 1-0024: Display initialized successfully
-
-## Install the display service
-```sh
-make install-service
+make install
 ```
 
 # Usage

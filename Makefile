@@ -1,53 +1,42 @@
 # Makefile for building the tm16xx kernel module and updating the device tree
 
 # Kernel module parameters
+MODULE_NAME = tm16xx
 obj-m += tm16xx.o
+debug: CFLAGS += -g -DDEBUG
+CC += ${CFLAGS}
+INSTALL_MOD_PATH ?= /
 
 # Path to the kernel source tree
 KDIR ?= /lib/modules/$(shell uname -r)/build
 
-debug: CFLAGS += -g -DDEBUG
-
-CC += ${CFLAGS}
-
-# Module name
-MODULE_NAME = tm16xx
-
-# Installation path for the module
-INSTALL_MOD_PATH ?= /
-
 # Device Tree parameters
 ORIGINAL_DTB = original.dtb
-ORIGINAL_DTS = original.dts
-OVERLAY_DTS = overlay.dts
-OVERLAY_DTBO = overlay.dtbo
-MERGED_DTB = updated.dtb
+
+# Build and release directories
+BUILD_DIR = build
+RELEASE_DIR = release
+
+# dts includes
+DTSI = $(wildcard *.dtsi)
+
+# dts cpp preprocessor flags
+DTSFLAGS = -I $(KDIR)/include -undef -x assembler-with-cpp
 
 # Make targets
-all: module
 
 module:
-	make -C $(KDIR) M=$(shell pwd) modules
+	make -C $(KDIR) M=$(PWD) modules
 
 clean:
-	make -C $(KDIR) M=$(shell pwd) clean
-	$(RM) $(PREPROCESS_DTS) $(OVERLAY_DTBO)
+	rm -f tm16xx.mod* tm16xx.ko Module.symvers modules.order tm16xx.o .tm* .module* .Module*
+	rm -Rf $(BUILD_DIR) $(RELEASE_DIR)
 
-install-module: module
-	$(MAKE) -C $(KDIR) M=$(shell pwd) modules_install INSTALL_MOD_PATH=$(INSTALL_MOD_PATH)
+module-install:
+	$(MAKE) -C $(KDIR) M=$(PWD) modules_install INSTALL_MOD_PATH=$(INSTALL_MOD_PATH)
 	depmod -a
 
-extract-dtb:
-	dtc -I fs -O dtb /sys/firmware/devicetree/base -o $(ORIGINAL_DTB)
-	dtc -I fs -O dts /sys/firmware/devicetree/base -o $(ORIGINAL_DTS)
-
-overlay:
-	$(CPP) -I $(KDIR)/include -undef -x assembler-with-cpp $(OVERLAY_DTS) -o /dev/stdout | dtc -I dts -O dtb -i $(ORIGINAL_DTS) -o $(OVERLAY_DTBO)
-
-merge-overlay: overlay
-	fdtoverlay -i $(ORIGINAL_DTB) -o $(MERGED_DTB) $(OVERLAY_DTBO)
-
-install-service:
+service-install:
 	modprobe -a ledtrig_timer ledtrig_netdev tm16xx
 	echo "softdep tm16xx pre: ledtrig_timer ledtrig_netdev" > /etc/modprobe.d/tm16xx.conf
 	cp display-service /usr/sbin/
@@ -56,4 +45,25 @@ install-service:
 	systemctl enable display
 	systemctl start display
 
-.PHONY: all module install-module extract-dtb overlay merge-overlay install-service clean
+install: module module-install service-install
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
+$(RELEASE_DIR):
+	mkdir -p $(RELEASE_DIR)
+
+$(BUILD_DIR)/%.dtsi: %.dtsi
+	cpp $(DTSFLAGS) -E $< -o $@
+
+extract-dtb:
+	dtc -I fs -O dtb /sys/firmware/devicetree/base -o $(ORIGINAL_DTB)
+
+%.dtbo: %.dtso $(BUILD_DIR) $(RELEASE_DIR) $(BUILD_DIR)/$(DTSI)
+	$(CPP) -I $(KDIR)/include -undef -x assembler-with-cpp -E $< -o $(BUILD_DIR)/$<
+	dtc -I dts -O dtb $(BUILD_DIR)/$< -o $(RELEASE_DIR)/$@
+
+%.dtb: %.dtbo
+	fdtoverlay -i $(ORIGINAL_DTB) $(RELEASE_DIR)/$< -o $(RELEASE_DIR)/$@
+
+.PHONY: module module-install service-install install extract-dtb clean
