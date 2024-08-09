@@ -26,7 +26,7 @@ magicsee-n5-max | i2c | fdhisi,fd6551 | no
 magicsee-n5-max-x4 | i2c | fdhisi,fd6551 | no
 mini-one-rk3229 | spi | titanmec,tm1618 | no
 mxv-plus | i2c | fdhisi,fd650 | no
-rk3318-x88-pro-10 | spi | fdhisi,fd655 | no
+rk3318-x88-pro-10 | spi | fdhisi,fd628 | no
 rk3328-t9 | i2c | fdhisi,fd655 | no
 t10max | spi | fdhisi,fd620 | no
 t10-pro | i2c | fdhisi,fd650 | no
