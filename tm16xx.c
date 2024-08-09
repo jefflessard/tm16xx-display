@@ -507,15 +507,23 @@ static void tm16xx_spi_remove(struct spi_device *spi)
 }
 
 static const struct of_device_id tm16xx_spi_of_match[] = {
+	{ .compatible = "titanmec,tm1618", .data = &tm1628_chip_info },
+	{ .compatible = "titanmec,tm1620", .data = &tm1628_chip_info },
 	{ .compatible = "titanmec,tm1628", .data = &tm1628_chip_info },
+	{ .compatible = "fdhisi,fd620", .data = &tm1628_chip_info },
 	{ .compatible = "fdhisi,fd628", .data = &tm1628_chip_info },
+	{ .compatible = "princeton,pt6964", .data = &tm1628_chip_info },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, tm16xx_spi_of_match);
 
 static const struct spi_device_id tm16xx_spi_id[] = {
+	{ "tm1618", 0 },
+	{ "tm1620", 0 },
 	{ "tm1628", 0 },
+	{ "fd620", 0 },
 	{ "fd628", 0 },
+	{ "pt6964", 0 },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(spi, tm16xx_spi_id);

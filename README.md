@@ -4,14 +4,22 @@ Linux kernel driver for auxiliary displays based on led controllers such as tm16
 ## Supported Android TV box
 See [Device Table](DEVICES.md)
 
-## Implemented Controllers
+## Compatible Controllers
 * Shenzhen TITAN MICRO Electronics
-  * TM1628
-  * TM1650
+  * titanmec,tm1618 ([datasheet](datasheets/TM1618_V2.1_EN.pdf))
+  * titanmec,tm1620 ([datasheet](datasheets/TM1620_V2.1_EN.pdf))
+  * titanmec,tm1628 ([datasheet](datasheets/TM1628_V1.1_EN.pdf))
+  * titanmec,tm1650 ([datasheet](datasheets/TM1650_V2.2_EN.pdf))
 * FUDA HISI MICROELECTRONICS
-  * FD628
-  * FD655
-  * FD6551
+  * fdhisi,fd620 (no datasheet)
+  * fdhisi,fd628 (no datasheet)
+  * fdhisi,fd650 ([datasheet](datasheets/FD650.pdf))
+  * fdhisi,fd655 ([datasheet](datasheets/FD655.pdf))
+  * fdhisi,fd6551 ([datasheet](datasheets/FD6551.pdf))
+* Princeton Technology Corp
+  * princeton,pt6964 ([datasheet](datasheets/PT6964.pdf))
+
+*Other similar controllers may already be compatible using one of these identifiers.*
 
 # Installation Instructions
 
