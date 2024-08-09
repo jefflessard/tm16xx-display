@@ -1,0 +1,163 @@
+#!/bin/bash
+
+declare -A CONTROLLER_MAP
+CONTROLLER_MAP=( \
+	0x00 "fdhisi,fd628" \
+	0x01 "fdhisi,fd620" \
+	0x02 "titanmec,tm1618" \
+	0x03 "fdhisi,fd650" \
+	0x04 "hbs,hbs658" \
+	0x05 "fdhisi,fd655" \
+	0x06 "fdhisi,fd6551" \
+)
+# NOT_SUPPORTED
+#	0xFA "il,il3829" \
+#	0xFB "pcd,pcd8544" \
+#	0xFC "sh,sh1106" \
+#	0xFD "ssd,ssd1306" \
+#	0xFE "hd,hd44780" \
+#)
+
+declare -A DISPLAY_MAP
+DISPLAY_MAP=( \
+	0x00 "template-display-type1.inc" \
+	0x01 "template-display-type1.inc" \
+	0x02 "template-display-type2.inc" \
+	0x03 "template-display-type3.inc" \
+	0x04 "template-display-type0.inc" \
+	0x05 "template-display-type0.inc" \
+	0x06 "template-display-type4.inc" \
+	0x07 "template-display-type1.inc" \
+	0x08 "template-display-type0.inc" \
+	0x09 "template-display-type0.inc" \
+	0x0A "template-display-type5.inc" \
+)
+
+declare -A SEGMENTS_MAP
+SEGMENTS_MAP=( \
+	0x00 "03 01 02 06 04 05 00" \
+	0x01 "03 04 05 00 01 02 06" \
+	0x02 "03 01 02 06 04 05 00" \
+	0x03 "03 01 02 06 04 05 00" \
+	0x04 "03 01 02 06 04 05 00" \
+	0x05 "03 01 02 06 04 05 00" \
+	0x06 "03 01 02 06 04 05 00" \
+	0x07 "00 04 05 01 03 02 06" \
+	0x08 "02 06 07 03 01 04 05" \
+	0x09 "06 04 05 00 01 02 03" \
+	0x0A "03 01 02 06 04 05 00" \
+)
+
+template() {
+	template_file=$1
+	device_file=$2
+
+	DAT_GPIO=${gpios[${vfd_gpio_dat[0]}]//&/\\&}
+	DAT_PIN=${vfd_gpio_dat[1]}
+	DAT_FLAG=${vfd_gpio_dat[2]}
+	CLK_GPIO=${gpios[${vfd_gpio_clk[0]}]//&/\\&}
+	CLK_PIN=${vfd_gpio_clk[1]}
+	CLK_FLAG=${vfd_gpio_clk[2]}
+	CS_GPIO=${gpios[${vfd_gpio_stb[0]}]//&/\\&}
+	CS_PIN=${vfd_gpio_stb[1]}
+	CS_FLAG=${vfd_gpio_stb[2]}
+	CONTROLLER=${CONTROLLER_MAP[${vfd_display_type[3]}]}
+	DIGITS=(${vfd_chars[@]:1})
+	DIGITS=${DIGITS[@]/#/0}
+	SEGMENTS=${SEGMENTS_MAP[${vfd_display_type[0]}]}
+
+	display_type=${DISPLAY_MAP[${vfd_display_type[0]}]}
+	LED_INDEX=${vfd_chars[0]}
+	ICONS=${vfd_dot_bits[@]}
+	ICONS=${ICONS// /, }
+	LEDS=$( \
+		sed "$display_type" \
+			-e "s/{GRID}/${LED_INDEX}/g" \
+			-e "s/{LED0}/${vfd_dot_bits[0]}/g" \
+			-e "s/{LED1}/${vfd_dot_bits[1]}/g" \
+			-e "s/{LED2}/${vfd_dot_bits[2]}/g" \
+			-e "s/{LED3}/${vfd_dot_bits[3]}/g" \
+			-e "s/{LED4}/${vfd_dot_bits[4]}/g" \
+			-e "s/{LED5}/${vfd_dot_bits[5]}/g" \
+			-e "s/{LED6}/${vfd_dot_bits[6]}/g" \
+	)
+	LEDS=${LEDS//$'\n'/\\n\\t\\t\\t}
+
+	sed ${template_file} \
+		-e "s/{DAT_GPIO}/${DAT_GPIO}/g" \
+		-e "s/{DAT_PIN}/${DAT_PIN}/g" \
+		-e "s/{DAT_FLAG}/${DAT_FLAG}/g" \
+		-e "s/{CLK_GPIO}/${CLK_GPIO}/g" \
+		-e "s/{CLK_PIN}/${CLK_PIN}/g" \
+		-e "s/{CLK_FLAG}/${CLK_FLAG}/g" \
+		-e "s/{CS_GPIO}/${CS_GPIO}/g" \
+		-e "s/{CS_PIN}/${CS_PIN}/g" \
+		-e "s/{CS_FLAG}/${CS_FLAG}/g" \
+		-e "s/{CONTROLLER}/${CONTROLLER}/g" \
+		-e "s/{DIGITS}/${DIGITS}/g" \
+		-e "s/{SEGMENTS}/${SEGMENTS}/g" \
+		-e "s|{LEDS}|${LEDS}|g" \
+		> ${device_file}
+}
+
+convert_file() {
+	src_file="$1"
+	dst_file="$2"
+
+	declare -A gpios
+	while IFS== read -r key value; do
+		gpios["$key"]="$value"
+	done < <(grep -Eo "[0-9] = &[[:alnum:]_]+" "$src_file" | tr -d " ")
+
+	source "$src_file"
+	IFS=, vfd_gpio_clk=($vfd_gpio_clk)
+	IFS=, vfd_gpio_dat=($vfd_gpio_dat)
+	IFS=, vfd_gpio_stb=($vfd_gpio_stb)
+	IFS=, vfd_chars=($vfd_chars)
+	IFS=, vfd_dot_bits=($vfd_dot_bits)
+	IFS=, vfd_display_type=($vfd_display_type)
+
+	controller="${CONTROLLER_MAP[${vfd_display_type[3]}]}"
+
+	if [[ -n $controller ]]
+	then
+		client=$([ "${vfd_gpio_stb[2]}" = "0xFF" ] && echo i2c || echo spi)
+		#echo "$device: $client $controller"
+		echo "$device | $client | $controller | no"
+		template "template-${client}.dtso" "$dst_file"
+	else
+		echo "$device: controller not supported" >&2
+	fi
+
+}
+
+convert_recursive() {
+	src_dir="$1"
+	dst_dir="$2"
+
+	while read file
+	do
+		device="$(echo $file | sed -E "s|^.*/(.*)-vfd.conf.*|\\1|")"
+
+		convert_file "$file" "$dst_dir/$device.dtso"
+	done < <(find "$src_dir" -type f -iname "*-vfd.conf")
+}
+
+usage() {
+    echo "Usage:"
+    echo "  $0 -r <input_directory> <output_directory>"
+    echo "  $0 <input_file> <output_file>"
+    exit 1
+}
+
+# Check for directory processing (-r flag)
+if [ "$1" == "-r" ]; then
+	[ $# -ne 3 ] && usage
+	[ ! -d "$2" ] && echo "Error: Directory '$2' does not exist." >&2 && exit 1
+	mkdir -p "$3"
+	convert_recursive "$2" "$3"
+else
+	[ $# -ne 2 ] && usage
+	[ ! -f "$1" ] && echo "Error: File '$1' does not exist." >&2 && exit 1
+	convert_file "$1" "$2"
+fi

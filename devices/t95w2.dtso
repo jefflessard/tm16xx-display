@@ -1,0 +1,65 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/leds/common.h>
+
+&{/} {
+
+	display-client {
+		compatible = "i2c-gpio";
+		sda-gpios = <&gpiochip0 34 0>;
+		scl-gpios = <&gpiochip0 31 0>;
+		i2c-gpio,delay-us = <5>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		display-controller@24 {
+			compatible = "fdhisi,fd650";
+			reg = <0x24>;
+
+			tm16xx,digits = [01 02 03 04];
+			tm16xx,segment-mapping = [03 04 05 00 01 02 06];
+
+			#address-cells = <2>;
+			#size-cells = <0>;
+			
+			led@3,4 {
+				reg = <3 4>;
+				function = LED_FUNCTION_ALARM;
+			};
+			
+			led@3,6 {
+				reg = <3 6>;
+				function = LED_FUNCTION_USB;
+			};
+			
+			led@3,5 {
+				reg = <3 5>;
+				function = "play";
+			};
+			
+			led@3,4 {
+				reg = <3 4>;
+				function = "pause";
+			};
+			
+			led@3,1 {
+				reg = <3 1>;
+				function = "colon";
+			};
+			
+			led@3,2 {
+				reg = <3 2>;
+				function = LED_FUNCTION_LAN;
+			};
+			
+			led@3,3 {
+				reg = <3 3>;
+				function = LED_FUNCTION_WLAN;
+			};
+
+		};
+	};
+};
+

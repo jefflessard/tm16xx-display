@@ -67,13 +67,19 @@ struct tm16xx_display {
 };
 
 static u8 tm1628_brightness_map(int i){
-	static const u8 ON_FLAG = 1<<3, BR_MASK = 7, BR_SHIFT = 0, CMD_FLAG = 1<<7;
-	return CMD_FLAG | ((i && 1) * (((i-1) & BR_MASK) << BR_SHIFT | ON_FLAG));
+	static const u8 ON_FLAG = 1<<3, BR_MASK = 7, BR_SHIFT = 0, CTRL_CMD = 1<<7|0<<6;
+	return CTRL_CMD | ((i && 1) * (((i-1) & BR_MASK) << BR_SHIFT | ON_FLAG));
 }
 
 static u8 tm1650_brightness_map(int i){
 	static const u8 ON_FLAG = 1, BR_MASK = 7, BR_SHIFT = 4, SEG7_FLAG = 1<<3;
 	return (i && 1) * ((i & BR_MASK) << BR_SHIFT | SEG7_FLAG | ON_FLAG);
+}
+
+static u8 fd655_brightness_map(int i){
+	static const u8 ON_FLAG = 1, BR_MASK = 3, BR_SHIFT = 5;
+	// return (i && 1) * (((3 - umin(3,i)) & BR_MASK) << BR_SHIFT | ON_FLAG);
+	return (i && 1) * (((i%3) & BR_MASK) << BR_SHIFT | ON_FLAG);
 }
 
 static u8 fd6551_brightness_map(int i){
@@ -82,10 +88,9 @@ static u8 fd6551_brightness_map(int i){
 }
 
 static const struct tm16xx_chip_info tm1628_chip_info = {
-	.cmd_init = 1<<1|1,
-	.cmd_write_mode = 0x40,
-	//.cmd_read_mode = 0x40 | 1 << 2,
-	.cmd_base_addr = 0xC0,
+	.cmd_init = (0<<7|0<<6)|(1<<1|1<<0),
+	.cmd_write_mode = (0<<7|1<<6)|(1<<2),
+	.cmd_base_addr = (1<<7|1<<6),
 	.brightness_map = tm1628_brightness_map,
 	.max_brightness = 8,
 };
@@ -93,16 +98,22 @@ static const struct tm16xx_chip_info tm1628_chip_info = {
 static const struct tm16xx_chip_info tm1650_chip_info = {
 	.cmd_init = 0,
 	.cmd_write_mode = 0x48,
-	//.cmd_read_mode = 0x48 | 1,
 	.cmd_base_addr = 0x68,
 	.brightness_map = tm1650_brightness_map,
 	.max_brightness = 8,
 };
 
+static const struct tm16xx_chip_info fd655_chip_info = {
+	.cmd_init = 0,
+	.cmd_write_mode = 0x48,
+	.cmd_base_addr = 0x66,
+	.brightness_map = fd655_brightness_map,
+	.max_brightness = 3,
+};
+
 static const struct tm16xx_chip_info fd6551_chip_info = {
 	.cmd_init = 0,
 	.cmd_write_mode = 0x48,
-	//.cmd_read_mode = 0x48 | 1,
 	.cmd_base_addr = 0x66,
 	.brightness_map = fd6551_brightness_map,
 	.max_brightness = 8,
@@ -301,9 +312,9 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 	int ret, i, max_grid = 0;
 	u8 *digits;
 
-	ret = device_property_count_u8(dev, "titan,digits");
+	ret = device_property_count_u8(dev, "tm16xx,digits");
 	if (ret < 0) {
-		dev_err(dev, "Failed to count 'titan,digits' property: %d\n", ret);
+		dev_err(dev, "Failed to count 'tm16xx,digits' property: %d\n", ret);
 		return ret;
 	}
 
@@ -316,9 +327,9 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 		return -ENOMEM;
 	}
 
-	ret = device_property_read_u8_array(dev, "titan,digits", digits, display->num_digits);
+	ret = device_property_read_u8_array(dev, "tm16xx,digits", digits, display->num_digits);
 	if (ret < 0) {
-		dev_err(dev, "Failed to read 'titan,digits' property: %d\n", ret);
+		dev_err(dev, "Failed to read 'tm16xx,digits' property: %d\n", ret);
 		return ret;
 	}
 
@@ -335,9 +346,9 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 
 	devm_kfree(dev, digits);
 
-	display->num_segments = device_property_count_u8(dev, "titan,segment-mapping");
+	display->num_segments = device_property_count_u8(dev, "tm16xx,segment-mapping");
 	if (display->num_segments < 0) {
-		dev_err(dev, "Failed to count 'titan,segment-mapping' property: %d\n", display->num_segments);
+		dev_err(dev, "Failed to count 'tm16xx,segment-mapping' property: %d\n", display->num_segments);
 		return display->num_segments;
 	}
 
@@ -349,9 +360,9 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 		return -ENOMEM;
 	}
 
-	ret = device_property_read_u8_array(dev, "titan,segment-mapping", display->segment_mapping, display->num_segments);
+	ret = device_property_read_u8_array(dev, "tm16xx,segment-mapping", display->segment_mapping, display->num_segments);
 	if (ret < 0) {
-		dev_err(dev, "Failed to read 'titan,segment-mapping' property: %d\n", ret);
+		dev_err(dev, "Failed to read 'tm16xx,segment-mapping' property: %d\n", ret);
 		return ret;
 	}
 
@@ -496,13 +507,15 @@ static void tm16xx_spi_remove(struct spi_device *spi)
 }
 
 static const struct of_device_id tm16xx_spi_of_match[] = {
-	{ .compatible = "titan,tm1628", .data = &tm1628_chip_info },
+	{ .compatible = "titanmec,tm1628", .data = &tm1628_chip_info },
+	{ .compatible = "fdhisi,fd628", .data = &tm1628_chip_info },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, tm16xx_spi_of_match);
 
 static const struct spi_device_id tm16xx_spi_id[] = {
 	{ "tm1628", 0 },
+	{ "fd628", 0 },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(spi, tm16xx_spi_id);
@@ -554,15 +567,19 @@ static void tm16xx_i2c_remove(struct i2c_client *client)
 }
 
 static const struct of_device_id tm16xx_i2c_of_match[] = {
-	{ .compatible = "titan,tm1650", .data = &tm1650_chip_info },
-	{ .compatible = "fuda,fd6551", .data = &fd6551_chip_info },
+	{ .compatible = "titanmec,tm1650", .data = &tm1650_chip_info },
+	{ .compatible = "fdhisi,fd650", .data = &tm1650_chip_info },
+	{ .compatible = "fdhisi,fd6551", .data = &fd6551_chip_info },
+	{ .compatible = "fdhisi,fd655", .data = &fd655_chip_info },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, tm16xx_i2c_of_match);
 
 static const struct i2c_device_id tm16xx_i2c_id[] = {
 	{ "tm1650", 0 },
+	{ "fd650", 0 },
 	{ "fd6551", 0 },
+	{ "fd655", 0 },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(i2c, tm16xx_i2c_id);

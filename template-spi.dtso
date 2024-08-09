@@ -1,0 +1,34 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/leds/common.h>
+
+&{/} {
+
+	display-client {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "spi-gpio";
+		sck-gpios = <{CLK_GPIO} {CLK_PIN} {CLK_FLAG}>;
+		mosi-gpios = <{DAT_GPIO} {DAT_PIN} {DAT_FLAG}>;
+		cs-gpios = <{CS_GPIO} {CS_PIN} {CS_FLAG}>;
+		num-chipselects = <1>;
+
+		display-controller@24 {
+			compatible = "{CONTROLLER}";
+			reg = <0x24>;
+			spi-3wire;
+			spi-lsb-first;
+			spi-rx-delay-us = <1>;
+			spi-max-frequency = <500000>;
+
+			tm16xx,digits = [{DIGITS}];
+                        tm16xx,segment-mapping = [{SEGMENTS}];
+
+			{LEDS}
+
+		};
+	};
+};
+

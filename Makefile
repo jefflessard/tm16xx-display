@@ -14,11 +14,7 @@ KDIR ?= /lib/modules/$(shell uname -r)/build
 ORIGINAL_DTB = original.dtb
 
 # Build and release directories
-BUILD_DIR = build
 RELEASE_DIR = release
-
-# dts includes
-DTSI = $(wildcard *.dtsi)
 
 # dts cpp preprocessor flags
 DTSFLAGS = -I $(KDIR)/include -undef -x assembler-with-cpp
@@ -47,21 +43,14 @@ service-install:
 
 install: module module-install service-install
 
-$(BUILD_DIR):
-	mkdir -p $(BUILD_DIR)
-
 $(RELEASE_DIR):
 	mkdir -p $(RELEASE_DIR)
-
-$(BUILD_DIR)/%.dtsi: %.dtsi
-	cpp $(DTSFLAGS) -E $< -o $@
 
 extract-dtb:
 	dtc -I fs -O dtb /sys/firmware/devicetree/base -o $(ORIGINAL_DTB)
 
-%.dtbo: %.dtso $(BUILD_DIR) $(RELEASE_DIR) $(BUILD_DIR)/$(DTSI)
-	$(CPP) -I $(KDIR)/include -undef -x assembler-with-cpp -E $< -o $(BUILD_DIR)/$<
-	dtc -I dts -O dtb $(BUILD_DIR)/$< -o $(RELEASE_DIR)/$@
+%.dtbo: devices/%.dtso $(BUILD_DIR) $(RELEASE_DIR)
+	$(CPP) -I $(KDIR)/include -I $(PWD) -undef -x assembler-with-cpp -E $< -o /dev/stdout | dtc -I dts -O dtb -o $(RELEASE_DIR)/$@
 
 %.dtb: %.dtbo
 	fdtoverlay -i $(ORIGINAL_DTB) $(RELEASE_DIR)/$< -o $(RELEASE_DIR)/$@

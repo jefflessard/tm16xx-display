@@ -1,0 +1,35 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/leds/common.h>
+
+&{/} {
+
+	display-client {
+		compatible = "i2c-gpio";
+		sda-gpios = <&gpio 69 0>;
+		scl-gpios = <&gpio 70 0>;
+		i2c-gpio,delay-us = <5>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		display-controller@24 {
+			compatible = "fdhisi,fd650";
+			reg = <0x24>;
+
+			tm16xx,digits = [00 01 02 03];
+			tm16xx,segment-mapping = [03 01 02 06 04 05 00];
+
+			#address-cells = <2>;
+			#size-cells = <0>;
+			
+			led@2,2 {
+				reg = <2 2>;
+				function = "colon";
+			};
+
+		};
+	};
+};
+

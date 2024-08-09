@@ -3,22 +3,26 @@
 
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/leds/common.h>
-#include <dt-bindings/gpio/meson-gxl-gpio.h>
-#
+
 &{/} {
 
 	display-client {
 		compatible = "i2c-gpio";
-		sda-gpios = <&gpio_ao GPIOAO_5 GPIO_ACTIVE_HIGH>;
-		scl-gpios = <&gpio_ao GPIOAO_4 GPIO_ACTIVE_HIGH>;
+		sda-gpios = <{DAT_GPIO} {DAT_PIN} {DAT_FLAG}>;
+		scl-gpios = <{CLK_GPIO} {CLK_PIN} {CLK_FLAG}>;
 		i2c-gpio,delay-us = <5>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 
 		display-controller@24 {
-			compatible = "fuda,fd6551";
+			compatible = "{CONTROLLER}";
 			reg = <0x24>;
-			/include/ "t95-display.dtsi"
+
+			tm16xx,digits = [{DIGITS}];
+			tm16xx,segment-mapping = [{SEGMENTS}];
+
+			{LEDS}
+
 		};
 	};
 };

@@ -1,0 +1,65 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/leds/common.h>
+
+&{/} {
+
+	display-client {
+		compatible = "i2c-gpio";
+		sda-gpios = <&gpio 75 0x10>;
+		scl-gpios = <&gpio 76 0x10>;
+		i2c-gpio,delay-us = <5>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		display-controller@24 {
+			compatible = "hbs,hbs658";
+			reg = <0x24>;
+
+			tm16xx,digits = [00 01 02 03];
+			tm16xx,segment-mapping = [03 01 02 06 04 05 00];
+
+			#address-cells = <2>;
+			#size-cells = <0>;
+			
+			led@4,0 {
+				reg = <4 0>;
+				function = LED_FUNCTION_BLUETOOTH;
+			};
+			
+			led@4,1 {
+				reg = <4 1>;
+				function = LED_FUNCTION_LAN;
+			};
+			
+			led@4,2 {
+				reg = <4 2>;
+				function = LED_FUNCTION_WLAN;
+			};
+			
+			led@4,3 {
+				reg = <4 3>;
+				function = "spdif";
+			};
+			
+			led@4,4 {
+				reg = <4 4>;
+				function = "colon";
+			};
+			
+			led@4,5 {
+				reg = <4 5>;
+				function = "hdmi";
+			};
+			
+			led@4,6 {
+				reg = <4 6>;
+				function = "video";
+			};
+
+		};
+	};
+};
+
