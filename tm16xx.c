@@ -25,12 +25,11 @@
 
 struct tm16xx_display;
 
-struct tm16xx_chip_info {
-	u8 cmd_init;
-	u8 cmd_write_mode;
-	u8 cmd_base_addr;
-	u8 (*brightness_map)(int brightness);
+struct tm16xx_controller {
 	u8 max_brightness;
+	int (*init)(struct tm16xx_display *display, u8 **cmd);
+	int (*brightness)(struct tm16xx_display *display, u8 **cmd);
+	int (*data)(struct tm16xx_display *display, u8 **cmd, int data_index);
 };
 
 struct tm16xx_led {
@@ -46,7 +45,7 @@ struct tm16xx_digit {
 
 struct tm16xx_display {
 	struct device *dev;
-	const struct tm16xx_chip_info *chip_info;
+	const struct tm16xx_controller *controller;
 	union {
 		struct i2c_client *i2c;
 		struct spi_device *spi;
@@ -66,57 +65,151 @@ struct tm16xx_display {
 	int (*client_write)(struct tm16xx_display *display, u8 *data, size_t len);
 };
 
-static u8 tm1628_brightness_map(int i){
-	static const u8 ON_FLAG = 1<<3, BR_MASK = 7, BR_SHIFT = 0, CTRL_CMD = 1<<7|0<<6;
-	return CTRL_CMD | ((i && 1) * (((i-1) & BR_MASK) << BR_SHIFT | ON_FLAG));
+static int tm1628_cmd_init(struct tm16xx_display *display, u8 **cmd) {
+	// 01b mode is 5 grids with minimum of 7 segments
+	//    tm1618 : 5 digits, 7 segments
+	//    tm1620 : 5 digits, 9 segments
+	//    tm1628 : 5 digits, 12 segments
+	static const u8 MODE_CMD = 0<<7|0<<6, MODE=0<<1|1<<0;
+	static const u8 DATA_CMD = 0<<7|1<<6, DATA_ADDR_MODE = 0<<2, DATA_WRITE_MODE = 0<<1|0<<0;
+
+	static u8 cmds[] = {
+		MODE_CMD | MODE,
+		DATA_CMD | DATA_ADDR_MODE | DATA_WRITE_MODE,
+	};
+
+	*cmd = cmds;
+	return sizeof(cmds);
 }
 
-static u8 tm1650_brightness_map(int i){
-	static const u8 ON_FLAG = 1, BR_MASK = 7, BR_SHIFT = 4, SEG7_FLAG = 1<<3;
-	return (i && 1) * ((i & BR_MASK) << BR_SHIFT | SEG7_FLAG | ON_FLAG);
+static int tm1628_cmd_brightness(struct tm16xx_display *display, u8 **cmd) {
+	static u8 cmds[1];
+	static const u8 CTRL_CMD = 1<<7|0<<6, ON_FLAG = 1<<3, BR_MASK = 7, BR_SHIFT = 0;
+
+	int i = display->main_led.brightness;
+	cmds[0] = CTRL_CMD | ((i && 1) * (((i-1) & BR_MASK) << BR_SHIFT | ON_FLAG));
+
+	*cmd = cmds;
+	return sizeof(cmds);
 }
 
-static u8 fd655_brightness_map(int i){
+static int tm1618_cmd_data(struct tm16xx_display *display, u8 **cmd, int i) {
+	static const u8 ADDR_CMD = 1<<7|1<<6;
+	static const u8 BYTE1_MASK = 0x1F, BYTE1_RSHIFT = 0;
+	static const u8 BYTE2_MASK = ~BYTE1_MASK, BYTE2_RSHIFT = 5-3;
+	static u8 cmds[3];
+
+	cmds[0] = ADDR_CMD + i * 2;
+	cmds[1] = (display->display_data[i] & BYTE1_MASK) >> BYTE1_RSHIFT;
+	cmds[2] = (display->display_data[i] & BYTE2_MASK) >> BYTE2_RSHIFT;
+
+	*cmd = cmds;
+	return sizeof(cmds);
+}
+
+static int tm1628_cmd_data(struct tm16xx_display *display, u8 **cmd, int i) {
+	static const u8 ADDR_CMD = 1<<7|1<<6;
+	static u8 cmds[3];
+
+	cmds[0] = ADDR_CMD + i * 2;
+	cmds[1] = display->display_data[i]; // SEG 1 to 8
+	cmds[2] = 0; // SEG 9 to 14
+
+	*cmd = cmds;
+	return sizeof(cmds);
+}
+
+static int tm1650_cmd_brightness(struct tm16xx_display *display, u8 **cmd) {
+	static u8 cmds[2];
+	static const u8 ON_FLAG = 1, BR_MASK = 7, BR_SHIFT = 4, SEG7_MODE = 1<<3;
+
+	int i = display->main_led.brightness;
+	cmds[0]	= 0x48;
+	cmds[1] = (i && 1) * ((i & BR_MASK) << BR_SHIFT | SEG7_MODE | ON_FLAG);
+
+	*cmd = cmds;
+	return sizeof(cmds);
+}
+
+static int tm1650_cmd_data(struct tm16xx_display *display, u8 **cmd, int i) {
+	static const u8 BASE_ADDR = 0x68;
+	static u8 cmds[2];
+
+	cmds[0] = BASE_ADDR + i * 2;
+	cmds[1] = display->display_data[i]; // SEG 1 to 8
+
+	*cmd = cmds;
+	return sizeof(cmds);
+}
+
+static int fd655_cmd_brightness(struct tm16xx_display *display, u8 **cmd) {
+	static u8 cmds[2];
 	static const u8 ON_FLAG = 1, BR_MASK = 3, BR_SHIFT = 5;
-	// return (i && 1) * (((3 - umin(3,i)) & BR_MASK) << BR_SHIFT | ON_FLAG);
-	return (i && 1) * (((i%3) & BR_MASK) << BR_SHIFT | ON_FLAG);
+	
+	int i = display->main_led.brightness;
+	cmds[0]	= 0x48;
+	cmds[1] = (i && 1) * (((i%3) & BR_MASK) << BR_SHIFT | ON_FLAG);
+
+	*cmd = cmds;
+	return sizeof(cmds);
 }
 
-static u8 fd6551_brightness_map(int i){
+static int fd655_cmd_data(struct tm16xx_display *display, u8 **cmd, int i) {
+	static const u8 BASE_ADDR = 0x66;
+	static u8 cmds[2];
+
+	cmds[0] = BASE_ADDR + i * 2;
+	cmds[1] = display->display_data[i]; // SEG 1 to 8
+
+	*cmd = cmds;
+	return sizeof(cmds);
+}
+
+static int fd6551_cmd_brightness(struct tm16xx_display *display, u8 **cmd) {
+	static u8 cmds[2];
 	static const u8 ON_FLAG = 1, BR_MASK = 7, BR_SHIFT = 1;
-	return (i && 1) * ((~(i-1) & BR_MASK) << BR_SHIFT | ON_FLAG);
+
+	int i = display->main_led.brightness;
+	cmds[0]	= 0x48;
+	cmds[1] = (i && 1) * ((~(i-1) & BR_MASK) << BR_SHIFT | ON_FLAG);
+
+	*cmd = cmds;
+	return sizeof(cmds);
 }
 
-static const struct tm16xx_chip_info tm1628_chip_info = {
-	.cmd_init = (0<<7|0<<6)|(1<<1|1<<0),
-	.cmd_write_mode = (0<<7|1<<6)|(1<<2),
-	.cmd_base_addr = (1<<7|1<<6),
-	.brightness_map = tm1628_brightness_map,
+static const struct tm16xx_controller tm1618_controller = {
 	.max_brightness = 8,
+	.init = tm1628_cmd_init,
+	.brightness = tm1628_cmd_brightness,
+	.data = tm1618_cmd_data,
 };
 
-static const struct tm16xx_chip_info tm1650_chip_info = {
-	.cmd_init = 0,
-	.cmd_write_mode = 0x48,
-	.cmd_base_addr = 0x68,
-	.brightness_map = tm1650_brightness_map,
+static const struct tm16xx_controller tm1628_controller = {
 	.max_brightness = 8,
+	.init = tm1628_cmd_init,
+	.brightness = tm1628_cmd_brightness,
+	.data = tm1628_cmd_data,
 };
 
-static const struct tm16xx_chip_info fd655_chip_info = {
-	.cmd_init = 0,
-	.cmd_write_mode = 0x48,
-	.cmd_base_addr = 0x66,
-	.brightness_map = fd655_brightness_map,
+static const struct tm16xx_controller tm1650_controller = {
+	.max_brightness = 8,
+	.init = NULL,
+	.brightness = tm1650_cmd_brightness,
+	.data = tm1650_cmd_data,
+};
+
+static const struct tm16xx_controller fd655_controller = {
 	.max_brightness = 3,
+	.init = NULL,
+	.brightness = fd655_cmd_brightness,
+	.data = fd655_cmd_data,
 };
 
-static const struct tm16xx_chip_info fd6551_chip_info = {
-	.cmd_init = 0,
-	.cmd_write_mode = 0x48,
-	.cmd_base_addr = 0x66,
-	.brightness_map = fd6551_brightness_map,
+static const struct tm16xx_controller fd6551_controller = {
 	.max_brightness = 8,
+	.init = NULL,
+	.brightness = fd6551_cmd_brightness,
+	.data = fd655_cmd_data,
 };
 
 static u8 tm16xx_ascii_to_segments(struct tm16xx_display *display, char c)
@@ -163,35 +256,40 @@ static int tm16xx_spi_write(struct tm16xx_display *display, u8 *data, size_t len
 
 static void tm16xx_display_flush_brightness(struct work_struct * work) {
 	struct tm16xx_display *display = container_of(work, struct tm16xx_display, flush_brightness);
-	u8 cmd[] = {
-		display->chip_info->cmd_write_mode,
-		display->chip_info->brightness_map(display->main_led.brightness),
-	};
-	int ret;
+	u8 *cmd;
+      	int len=-1, ret;
 
-	mutex_lock(&display->lock);
-	ret = display->client_write(display, cmd, sizeof(cmd));
-	mutex_unlock(&display->lock);
-	if (ret < 0)
-		dev_err(display->dev, "Failed to set brightness: %d\n", ret);
+	if (display->controller->brightness) {
+		len = display->controller->brightness(display, &cmd);
+	}
+
+	if (len>0) {
+		mutex_lock(&display->lock);
+		ret = display->client_write(display, cmd, len);
+		mutex_unlock(&display->lock);
+		if (ret < 0)
+			dev_err(display->dev, "Failed to set brightness: %d\n", ret);
+	}
 }
 
 static void tm16xx_display_flush_data(struct work_struct * work) {
 	struct tm16xx_display *display = container_of(work, struct tm16xx_display, flush_display);
 
-	u8 cmd[2];
-	int i;
-	int ret;
+	u8 *cmd;
+	int i, len=-1, ret;
 
 	mutex_lock(&display->lock);
 
 	for(i=0; i<display->display_data_len; i++) {
-		cmd[0] = display->chip_info->cmd_base_addr + i * sizeof(u8) * 2;
-		cmd[1] = display->display_data[i];
+		if (display->controller->data) {
+			len = display->controller->data(display, &cmd, i);
+		}
 
-		ret = display->client_write(display, cmd, sizeof(cmd));
-		if (ret < 0) {
-			dev_err(display->dev, "Failed to write display data: %d\n", ret);
+		if (len > 0) {
+			ret = display->client_write(display, cmd, len);
+			if (ret < 0) {
+				dev_err(display->dev, "Failed to write display data: %d\n", ret);
+			}
 		}
 	}
 
@@ -200,12 +298,16 @@ static void tm16xx_display_flush_data(struct work_struct * work) {
 
 static int tm16xx_display_init(struct tm16xx_display *display)
 {
-	u8 cmd = display->chip_info->cmd_init;
-	int ret;
+	u8 *cmd;
+	int len=-1, ret;
 
-	if (cmd) {
+	if (display->controller->init) {
+		len = display->controller->init(display, &cmd);
+	}
+
+	if (len > 0) {
 		mutex_lock(&display->lock);
-		ret = display->client_write(display, &cmd, sizeof(cmd));
+		ret = display->client_write(display, cmd, len);
 		mutex_unlock(&display->lock);
 		if (ret < 0)
 			return ret;
@@ -407,8 +509,8 @@ static int tm16xx_probe(struct tm16xx_display *display)
 	}
 
 	display->main_led.name = TM16XX_DEVICE_NAME;
-	display->main_led.brightness = display->chip_info->max_brightness;
-	display->main_led.max_brightness = display->chip_info->max_brightness;
+	display->main_led.brightness = display->controller->max_brightness;
+	display->main_led.max_brightness = display->controller->max_brightness;
 	display->main_led.brightness_set = tm16xx_brightness_set;
 	display->main_led.groups = tm16xx_main_led_groups;
 	display->main_led.flags = LED_RETAIN_AT_SHUTDOWN;
@@ -474,12 +576,12 @@ static int tm16xx_probe(struct tm16xx_display *display)
 // SPI specific code
 static int tm16xx_spi_probe(struct spi_device *spi)
 {
-	const struct tm16xx_chip_info *chip_info;
+	const struct tm16xx_controller *controller;
 	struct tm16xx_display *display;
 	int ret;
 
-	chip_info = of_device_get_match_data(&spi->dev);
-	if (!chip_info)
+	controller = of_device_get_match_data(&spi->dev);
+	if (!controller)
 		return -EINVAL;
 
 	display = devm_kzalloc(&spi->dev, sizeof(*display), GFP_KERNEL);
@@ -488,7 +590,7 @@ static int tm16xx_spi_probe(struct spi_device *spi)
 
 	display->client.spi = spi;
 	display->dev = &spi->dev;
-	display->chip_info = chip_info;
+	display->controller = controller;
 	display->client_write = tm16xx_spi_write;
 
 	spi_set_drvdata(spi, display);
@@ -507,12 +609,12 @@ static void tm16xx_spi_remove(struct spi_device *spi)
 }
 
 static const struct of_device_id tm16xx_spi_of_match[] = {
-	{ .compatible = "titanmec,tm1618", .data = &tm1628_chip_info },
-	{ .compatible = "titanmec,tm1620", .data = &tm1628_chip_info },
-	{ .compatible = "titanmec,tm1628", .data = &tm1628_chip_info },
-	{ .compatible = "fdhisi,fd620", .data = &tm1628_chip_info },
-	{ .compatible = "fdhisi,fd628", .data = &tm1628_chip_info },
-	{ .compatible = "princeton,pt6964", .data = &tm1628_chip_info },
+	{ .compatible = "titanmec,tm1618", .data = &tm1618_controller },
+	{ .compatible = "titanmec,tm1620", .data = &tm1628_controller },
+	{ .compatible = "titanmec,tm1628", .data = &tm1628_controller },
+	{ .compatible = "fdhisi,fd620", .data = &tm1628_controller },
+	{ .compatible = "fdhisi,fd628", .data = &tm1628_controller },
+	{ .compatible = "princeton,pt6964", .data = &tm1628_controller },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, tm16xx_spi_of_match);
@@ -542,12 +644,12 @@ static struct spi_driver tm16xx_spi_driver = {
 // I2C specific code
 static int tm16xx_i2c_probe(struct i2c_client *client)
 {
-	const struct tm16xx_chip_info *chip_info;
+	const struct tm16xx_controller *controller;
 	struct tm16xx_display *display;
 	int ret;
 
-	chip_info = of_device_get_match_data(&client->dev);
-	if (!chip_info)
+	controller = of_device_get_match_data(&client->dev);
+	if (!controller)
 		return -EINVAL;
 
 	display = devm_kzalloc(&client->dev, sizeof(*display), GFP_KERNEL);
@@ -556,7 +658,7 @@ static int tm16xx_i2c_probe(struct i2c_client *client)
 
 	display->client.i2c = client;
 	display->dev = &client->dev;
-	display->chip_info = chip_info;
+	display->controller = controller;
 	display->client_write = tm16xx_i2c_write;
 
 	i2c_set_clientdata(client, display);
@@ -575,10 +677,10 @@ static void tm16xx_i2c_remove(struct i2c_client *client)
 }
 
 static const struct of_device_id tm16xx_i2c_of_match[] = {
-	{ .compatible = "titanmec,tm1650", .data = &tm1650_chip_info },
-	{ .compatible = "fdhisi,fd650", .data = &tm1650_chip_info },
-	{ .compatible = "fdhisi,fd6551", .data = &fd6551_chip_info },
-	{ .compatible = "fdhisi,fd655", .data = &fd655_chip_info },
+	{ .compatible = "titanmec,tm1650", .data = &tm1650_controller },
+	{ .compatible = "fdhisi,fd650", .data = &tm1650_controller },
+	{ .compatible = "fdhisi,fd6551", .data = &fd6551_controller },
+	{ .compatible = "fdhisi,fd655", .data = &fd655_controller },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, tm16xx_i2c_of_match);
