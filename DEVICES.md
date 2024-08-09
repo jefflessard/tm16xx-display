@@ -1,5 +1,5 @@
 Device | Client | Controller | Tested
-...|...|...|...
+---|---|---|---
 a1-pro | i2c | fdhisi,fd6551 | no
 a95x-f2-aml | spi | fdhisi,fd628 | no
 a95x-f3-air-ii | spi | fdhisi,fd628 | no
