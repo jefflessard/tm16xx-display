@@ -5,6 +5,9 @@ Linux kernel driver for auxiliary displays based on led controllers such as tm16
 See [Device Table](DEVICES.md)
 
 ## Compatible Controllers
+
+*Other similar controllers may already be compatible using one of these identifiers.*
+
 * Shenzhen TITAN MICRO Electronics
   * titanmec,tm1618 ([datasheet](datasheets/TM1618_V2.1_EN.pdf))
   * titanmec,tm1620 ([datasheet](datasheets/TM1620_V2.1_EN.pdf))
@@ -18,8 +21,8 @@ See [Device Table](DEVICES.md)
   * fdhisi,fd6551 ([datasheet](datasheets/FD6551.pdf))
 * Princeton Technology Corp
   * princeton,pt6964 ([datasheet](datasheets/PT6964.pdf))
-
-*Other similar controllers may already be compatible using one of these identifiers.*
+* Unknown
+  * hbs,hbs658 (no datasheet)
 
 # Installation Instructions
 

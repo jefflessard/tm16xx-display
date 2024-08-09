@@ -177,6 +177,48 @@ static int fd6551_cmd_brightness(struct tm16xx_display *display, u8 **cmd) {
 	return sizeof(cmds);
 }
 
+void hbs658_msb_to_lsb(u8 *array, size_t length) {
+	for (size_t i = 0; i < length; i++) {
+		array[i] = (array[i] << 4) | (array[i] >> 4);
+	}
+}
+
+static int hbs658_cmd_init(struct tm16xx_display *display, u8 **cmd) {
+	static const u8 DATA_CMD = 0<<7|1<<6, DATA_ADDR_MODE = 0<<2, DATA_WRITE_MODE = 0<<1|0<<0;
+
+	static u8 cmds[] = {
+		DATA_CMD | DATA_ADDR_MODE | DATA_WRITE_MODE,
+	};
+
+	hbs658_msb_to_lsb(cmds, sizeof(cmds));
+	*cmd = cmds;
+	return sizeof(cmds);
+}
+
+static int hbs658_cmd_brightness(struct tm16xx_display *display, u8 **cmd) {
+	static u8 cmds[1];
+	static const u8 CTRL_CMD = 1<<7|0<<6, ON_FLAG = 1<<3, BR_MASK = 7, BR_SHIFT = 0;
+
+	int i = display->main_led.brightness;
+	cmds[0] = CTRL_CMD | ((i && 1) * (((i-1) & BR_MASK) << BR_SHIFT | ON_FLAG));
+
+	hbs658_msb_to_lsb(cmds, sizeof(cmds));
+	*cmd = cmds;
+	return sizeof(cmds);
+}
+
+static int hbs658_cmd_data(struct tm16xx_display *display, u8 **cmd, int i) {
+	static const u8 ADDR_CMD = 1<<7|1<<6;
+	static u8 cmds[2];
+
+	cmds[0] = ADDR_CMD + i * 2;
+	cmds[1] = display->display_data[i];
+
+	hbs658_msb_to_lsb(cmds, sizeof(cmds));
+	*cmd = cmds;
+	return sizeof(cmds);
+}
+
 static const struct tm16xx_controller tm1618_controller = {
 	.max_brightness = 8,
 	.init = tm1628_cmd_init,
@@ -210,6 +252,13 @@ static const struct tm16xx_controller fd6551_controller = {
 	.init = NULL,
 	.brightness = fd6551_cmd_brightness,
 	.data = fd655_cmd_data,
+};
+
+static const struct tm16xx_controller hbs658_controller = {
+	.max_brightness = 8,
+	.init = hbs658_cmd_init,
+	.brightness = hbs658_cmd_brightness,
+	.data = hbs658_cmd_data,
 };
 
 static u8 tm16xx_ascii_to_segments(struct tm16xx_display *display, char c)
@@ -257,7 +306,7 @@ static int tm16xx_spi_write(struct tm16xx_display *display, u8 *data, size_t len
 static void tm16xx_display_flush_brightness(struct work_struct * work) {
 	struct tm16xx_display *display = container_of(work, struct tm16xx_display, flush_brightness);
 	u8 *cmd;
-      	int len=-1, ret;
+	int len=-1, ret;
 
 	if (display->controller->brightness) {
 		len = display->controller->brightness(display, &cmd);
@@ -568,7 +617,7 @@ static int tm16xx_probe(struct tm16xx_display *display)
 		dev_err(display->dev, "Failed to initialize display: %d\n", ret);
 		return ret;
 	}
-	
+
 	dev_info(display->dev, "Display initialized successfully\n");
 	return 0;
 }
@@ -615,6 +664,7 @@ static const struct of_device_id tm16xx_spi_of_match[] = {
 	{ .compatible = "fdhisi,fd620", .data = &tm1628_controller },
 	{ .compatible = "fdhisi,fd628", .data = &tm1628_controller },
 	{ .compatible = "princeton,pt6964", .data = &tm1628_controller },
+	{ .compatible = "hbs,hbs658", .data = &hbs658_controller },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, tm16xx_spi_of_match);
@@ -626,6 +676,7 @@ static const struct spi_device_id tm16xx_spi_id[] = {
 	{ "fd620", 0 },
 	{ "fd628", 0 },
 	{ "pt6964", 0 },
+	{ "hbs658", 0 },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(spi, tm16xx_spi_id);
