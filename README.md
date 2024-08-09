@@ -108,7 +108,7 @@ Create a .dtso file in `devices` directory
     * `function`: sets the sysfs name of the led
 
 
-# Service Usage
+# Usage
 
 ## Restart display service
 ```sh
@@ -123,7 +123,7 @@ Just edit the bash script at `/sbin/display-service`
 # turn on display
 cat /sys/class/leds/display/max_brightness > /sys/class/leds/display/brightness
 
-# dim brightness display (devices may not implement this)
+# dim brightness display
 # value between 1 and max_brightness (usually 8)
 echo 1 > /sys/class/leds/display/brightness
 
