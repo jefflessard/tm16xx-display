@@ -16,7 +16,7 @@
 		num-chipselects = <1>;
 
 		display-controller@24 {
-			compatible = "fdhisi,fd655";
+			compatible = "fdhisi,fd628";
 			reg = <0x24>;
 			spi-3wire;
 			spi-lsb-first;
