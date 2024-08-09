@@ -47,7 +47,7 @@ git clone https://github.com/jefflessard/tm16xx-display.git
 
 *Option 1: Use device tree overlay, if supported*
 ```sh
-# This will create the overlay in release/display.dtbo
+# This will create the overlay in release/{YOUR_DEVICE_NAME}.dtbo
 make {YOUR_DEVICE_NAME}.dtbo 
 ```
 
@@ -63,11 +63,11 @@ make extract-dtb ORIGINAL_DTB=original.dtb
 
   * Merge the display dtb overlay with your current dtb
 ```sh
-# This will create the dtb in release/display.dtb
+# This will create the dtb in release/{YOUR_DEVICE_NAME}.dtb
 make {YOUR_DEVICE_NAME}.dtb ORIGINAL_DTB=original.dtb
 
 # Replace your current dtb with the new dtb, for example:
-#cp release/display.dtb /boot/dtb/{YOUR_DTB_PATH}.dtb
+#cp release/{YOUR_DEVICE_NAME}.dtb /boot/dtb/{YOUR_DTB_PATH}.dtb
 ```
 
 3. Reboot to apply changes
@@ -99,19 +99,19 @@ Existing compatible [OpenVFD](https://github.com/arthur-liberman/linux_openvfd/t
 ## Create your own configuration
 Create a .dtso file in `devices` directory
   * `display-client`
-    * Option 1 : SPI device
+    * Option 1 : 3-wire serial (SPI) controller
       * `compatible = "spi-gpio"`
       * `mosi-gpios`: data gpio pin
       * `gpio-sck`: clock gpio pin
       * `cs-gpios`: chip select gpio pin
-    * Option 2 : I2C device
+    * Option 2 : 2-wire serial (I2C) controller
       * `compatible = "i2c-gpio"`
       * `sda-gpios`: data gpio pin
       * `scl-gpios`: clock gpio pin
   * `display-controller`
     * `compatible`: your display controller chip
-    * `titan,digits`: variable lengh byte array determining the number of text grid digits and their index position 
-    * `titan,segment-mapping`: array of 7 bytes specifying which bit of a grid digit should be used for each ascii map segment
+    * `tm16xx,digits`: variable lengh byte array determining the number of text grid digits and their index position 
+    * `tm16xx,segment-mapping`: array of 7 bytes specifying which bit of a grid digit should be used for each ascii map segment
   * `led@X,Y`
     * X: grid cell index
     * Y: segment index
