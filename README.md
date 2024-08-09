@@ -1,12 +1,17 @@
 # tm16xx-display
 Linux kernel driver for auxiliary displays based on led controllers such as tm16xx family and alike
 
-## Implemented devices
+## Supported Android TV box
+See [Device Table](DEVICES.md)
+
+## Implemented Controllers
 * Shenzhen TITAN MICRO Electronics
-  * TM1628 (FD628 compatible, untested)
-  * TM1650 (FD650 compaatible, untested)
+  * TM1628
+  * TM1650
 * FUDA HISI MICROELECTRONICS
-  * FD6551 (tested)
+  * FD628
+  * FD655
+  * FD6551
 
 # Installation Instructions
 
@@ -25,41 +30,17 @@ git clone https://github.com/jefflessard/tm16xx-display.git
 ## Configure the device tree
 :warning: **KEEP A BACKUP OF YOUR CUREENT DTB**
 
-You can refer to https://github.com/arthur-liberman/vfd-configurations/ to find your specific device OpenVFD configuration and use the corresponding values.
+1. Find your device in the [Device Table](DEVICES.md)
 
-1. Edit `display.dtso` according to your device
-  * `display-client`
-    * Option 1 : SPI device
-      * `compatible = "spi-gpio"`
-      * `mosi-gpios`: data gpio pin
-      * `gpio-sck`: clock gpio pin
-      * `cs-gpios`: chip select gpio pin
-    * Option 2 : I2C device
-      * `compatible = "i2c-gpio"`
-      * `sda-gpios`: data gpio pin
-      * `scl-gpios`: clock gpio pin
-  * `display-controller`
-    * `compatible`: your display controller chip
+2. Update your dtb
 
-2. If needed, edit `t95-display.dtsi` (or create a new one a change the /include/ in `display.dtso`)
-  * `display-controller`
-    * `titan,digits`: variable lengh byte array determining the number of text grid digits and their index position 
-    * `titan,segment-mapping`: array of 7 bytes specifying which bit of a grid digit should be used for each ascii map segment
-  * `led@X,Y`
-    * X: grid cell index
-    * Y: segment index
-    * `reg`: must match `<X Y>` above
-    * `function`: sets the sysfs name of the led
-
-3. Update your dtb
-
-Option 1: Use device tree overlay, if supported
+*Option 1: Use device tree overlay, if supported*
 ```sh
 # This will create the overlay in release/display.dtbo
-make display.dtbo 
+make {YOUR_DEVICE_NAME}.dtbo 
 ```
 
-Option 2: Create an updated dtb 
+*Option 2: Create an updated dtb*
   * Copy your current dtb file to `original.dtb`:
 
 ```sh
@@ -72,13 +53,13 @@ make extract-dtb ORIGINAL_DTB=original.dtb
   * Merge the display dtb overlay with your current dtb
 ```sh
 # This will create the dtb in release/display.dtb
-make display.dtb ORIGINAL_DTB=original.dtb
+make {YOUR_DEVICE_NAME}.dtb ORIGINAL_DTB=original.dtb
 
 # Replace your current dtb with the new dtb, for example:
 #cp release/display.dtb /boot/dtb/{YOUR_DTB_PATH}.dtb
 ```
 
-4. Reboot to apply changes
+3. Reboot to apply changes
 ```sh
 reboot
 ```
@@ -89,7 +70,45 @@ Builds then installs module and service
 make install
 ```
 
-# Usage
+# Advanced Device Configuration
+
+## Convert existing [OpenVFD](https://github.com/arthur-liberman/linux_openvfd/tree/master) vfd.conf
+Existing compatible [OpenVFD](https://github.com/arthur-liberman/linux_openvfd/tree/master) [vfd-configurations](https://github.com/arthur-liberman/vfd-configurations/) are already converted. Find them in the [Device Table](DEVICES.md)
+
+### Convert a single vfd.conf
+```sh
+./vfdconf-convert {path_to_your_vfd.conf_file} devices/{your_device_name}.dtso
+```
+
+### Convert multiple vfd.conf
+```sh
+./vfdconf-convert -r {path_to_vfd-configurations_directory} devices
+```
+
+## Create your own configuration
+Create a .dtso file in `devices` directory
+  * `display-client`
+    * Option 1 : SPI device
+      * `compatible = "spi-gpio"`
+      * `mosi-gpios`: data gpio pin
+      * `gpio-sck`: clock gpio pin
+      * `cs-gpios`: chip select gpio pin
+    * Option 2 : I2C device
+      * `compatible = "i2c-gpio"`
+      * `sda-gpios`: data gpio pin
+      * `scl-gpios`: clock gpio pin
+  * `display-controller`
+    * `compatible`: your display controller chip
+    * `titan,digits`: variable lengh byte array determining the number of text grid digits and their index position 
+    * `titan,segment-mapping`: array of 7 bytes specifying which bit of a grid digit should be used for each ascii map segment
+  * `led@X,Y`
+    * X: grid cell index
+    * Y: segment index
+    * `reg`: must match `<X Y>` above
+    * `function`: sets the sysfs name of the led
+
+
+# Service Usage
 
 ## Restart display service
 ```sh
