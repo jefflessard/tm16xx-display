@@ -7,7 +7,7 @@ $schema: http://devicetree.org/meta-schemas/core.yaml#
 title: TM16XX and Compatible Auxiliary Display Driver
 
 maintainers:
-  - Jean-François Lessard <jeanfrancois.lessard@gmail.com>
+  - Jean-François Lessard <jefflessard3@gmail.com>
 
 description: |
   Bindings for auxiliary displays based on TM16XX and compatible LED controllers.
