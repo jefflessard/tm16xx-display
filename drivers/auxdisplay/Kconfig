@@ -1,0 +1,17 @@
+config AUXDISPLAY_TM16XX
+    tristate "Auxiliary Display Support for TM16XX and Compatible Controllers"
+    depends on SPI || I2C
+    help
+      This option enables support for auxiliary displays driven by various
+      LED controller chips, including:
+
+      - Titan Micro Electronics: TM1618, TM1620, TM1628, TM1650
+      - FUDA HISI Microelectronics: FD620, FD628, FD650, FD655, FD6551
+      - Princeton Technology Corp: PT6964
+      - HBS: HBS658
+
+      These are commonly found in various Android TV boxes and other
+      embedded devices.
+
+      To compile this driver as a module, choose M here: the module
+      will be called auxdisplay-tm16xx.

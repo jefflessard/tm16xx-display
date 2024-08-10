@@ -1,0 +1,6 @@
+AUXILIARY DISPLAY DRIVER FOR TM16XX AND COMPATIBLE CONTROLLERS
+M:  Jean-François Lessard <jefflessard3@gmail.com>
+L:  linux-auxdisplay@vger.kernel.org
+S:  Maintained
+F:  drivers/auxdisplay/auxdisplay-tm16xx.c
+F:  Documentation/devicetree/bindings/auxdisplay/tm16xx.yaml
