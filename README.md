@@ -154,7 +154,7 @@ ls /sys/class/leds/display\:\:*
 echo 1 > /sys/class/leds/display\:\:lan/brightness
 
 # turn off a specific led/symbol
-echo 1 > /sys/class/leds/display\:\:lan/brightness
+echo 0 > /sys/class/leds/display\:\:lan/brightness
 
 # automatically turn on/off usb led when usb device is connected on a specific port
 echo usbport > /sys/class/leds/display::usb/trigger
