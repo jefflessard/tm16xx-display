@@ -596,13 +596,11 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 	}
 
 	display->num_digits = ret;
-	dev_info(dev, "Number of digits: %d\n", display->num_digits);
+	dev_dbg(dev, "Number of digits: %d\n", display->num_digits);
 
 	digits = devm_kcalloc(dev, display->num_digits, sizeof(*digits), GFP_KERNEL);
-	if (!digits) {
-		dev_err(dev, "Failed to allocate memory for digits\n");
+	if (!digits)
 		return -ENOMEM;
-	}
 
 	ret = device_property_read_u8_array(dev, "tm16xx,digits", digits, display->num_digits);
 	if (ret < 0) {
@@ -611,10 +609,8 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 	}
 
 	display->digits = devm_kcalloc(dev, display->num_digits, sizeof(*display->digits), GFP_KERNEL);
-	if (!display->digits) {
-		dev_err(dev, "Failed to allocate memory for display digits\n");
+	if (!display->digits)
 		return -ENOMEM;
-	}
 
 	for (i = 0; i < display->num_digits; i++) {
 		display->digits[i].grid = digits[i];
@@ -629,13 +625,11 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 		return display->num_segments;
 	}
 
-	dev_info(dev, "Number of segments: %d\n", display->num_segments);
+	dev_dbg(dev, "Number of segments: %d\n", display->num_segments);
 
 	display->segment_mapping = devm_kcalloc(dev, display->num_segments, sizeof(*display->segment_mapping), GFP_KERNEL);
-	if (!display->segment_mapping) {
-		dev_err(dev, "Failed to allocate memory for segment mapping\n");
+	if (!display->segment_mapping)
 		return -ENOMEM;
-	}
 
 	ret = device_property_read_u8_array(dev, "tm16xx,segment-mapping", display->segment_mapping, display->num_segments);
 	if (ret < 0) {
@@ -657,20 +651,24 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 		display->num_leds++;
 	}
 
-	dev_info(dev, "Number of LEDs: %d\n", display->num_leds);
+	dev_dbg(dev, "Number of LEDs: %d\n", display->num_leds);
 
 	display->display_data_len = max_grid + 1;
-	dev_info(dev, "Number of display grids: %zu\n", display->display_data_len);
+	dev_dbg(dev, "Number of display grids: %zu\n", display->display_data_len);
 
 	display->display_data = devm_kcalloc(dev, display->display_data_len, sizeof(*display->display_data), GFP_KERNEL);
-	if (!display->display_data) {
-		dev_err(dev, "Failed to allocate memory for display data\n");
+	if (!display->display_data)
 		return -ENOMEM;
-	}
 
 	return 0;
 }
 
+/**
+ * tm16xx_probe - Probe function for tm16xx devices
+ * @display: Pointer to tm16xx_display structure
+ *
+ * Return: 0 on success, negative error code on failure
+ */
 static int tm16xx_probe(struct tm16xx_display *display)
 {
 	struct device *dev = display->dev;
@@ -688,7 +686,7 @@ static int tm16xx_probe(struct tm16xx_display *display)
 	display->main_led.max_brightness = display->controller->max_brightness;
 	display->main_led.brightness_set = tm16xx_brightness_set;
 	display->main_led.groups = tm16xx_main_led_groups;
-	display->main_led.flags = LED_RETAIN_AT_SHUTDOWN;
+	display->main_led.flags = LED_RETAIN_AT_SHUTDOWN | LED_CORE_SUSPENDRESUME;
 
 	ret = devm_led_classdev_register(dev, &display->main_led);
 	if (ret < 0) {
@@ -719,10 +717,9 @@ static int tm16xx_probe(struct tm16xx_display *display)
 		led->grid = reg[0];
 		led->segment = reg[1];
 
-		led->cdev.name = fwnode_get_name(child);
 		led->cdev.max_brightness = 1;
 		led->cdev.brightness_set = tm16xx_led_set;
-		led->cdev.flags = LED_RETAIN_AT_SHUTDOWN;
+		led->cdev.flags = LED_RETAIN_AT_SHUTDOWN | LED_CORE_SUSPENDRESUME;
 
 		ret = devm_led_classdev_register_ext(dev, &led->cdev, &led_init);
 		if (ret < 0) {
@@ -733,7 +730,6 @@ static int tm16xx_probe(struct tm16xx_display *display)
 		i++;
 	}
 
-	mutex_init(&display->lock);
 	mutex_init(&display->lock);
 	INIT_WORK(&display->flush_brightness, tm16xx_display_flush_brightness);
 	INIT_WORK(&display->flush_display, tm16xx_display_flush_data);
@@ -748,7 +744,7 @@ static int tm16xx_probe(struct tm16xx_display *display)
 	return 0;
 }
 
-// SPI specific code
+/* SPI specific code */
 static int tm16xx_spi_probe(struct spi_device *spi)
 {
 	const struct tm16xx_controller *controller;
@@ -818,7 +814,7 @@ static struct spi_driver tm16xx_spi_driver = {
 	.id_table = tm16xx_spi_id,
 };
 
-// I2C specific code
+/* I2C specific code */
 static int tm16xx_i2c_probe(struct i2c_client *client)
 {
 	const struct tm16xx_controller *controller;
@@ -909,5 +905,7 @@ module_init(tm16xx_init);
 module_exit(tm16xx_exit);
 
 MODULE_AUTHOR("Jean-François Lessard");
-MODULE_DESCRIPTION("Driver for Titan Micro Electronics TM16XX LED display driver chips");
+MODULE_DESCRIPTION("Auxiliary Display Driver for TM16XX and compatible LED controllers");
 MODULE_LICENSE("GPL");
+MODULE_ALIAS("spi:tm16xx");
+MODULE_ALIAS("i2c:tm16xx");
