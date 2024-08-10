@@ -26,13 +26,13 @@ display_update() {
 }
 
 display_cleanup() {
-	kill %1
 	echo none > /sys/class/leds/display::colon/trigger
 	echo none > /sys/class/leds/display::usb/trigger
 	echo none > /sys/class/leds/display::lan/trigger
 	echo none > /sys/class/leds/display::wlan/trigger
 	echo > /sys/class/leds/display/display_value
 	echo 0 > /sys/class/leds/display/brightness
+	exit 0
 }
 
 
