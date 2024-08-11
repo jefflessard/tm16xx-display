@@ -81,6 +81,15 @@ Builds then installs module and service
 make install
 ```
 
+## Check your display configuration
+```sh
+display-utils -c
+```
+3 phase display check
+1. Check that all leds are ON
+2. Check the order of digits and segment mapping (you should see "1234")
+3. Check each led name (ex: LAN icon is ON while "LAN" text is shown on the digits)
+
 # Advanced Device Configuration
 
 ## Convert existing [OpenVFD](https://github.com/arthur-liberman/linux_openvfd/tree/master) vfd.conf
@@ -121,9 +130,25 @@ Create a .dtso file in `devices` directory
 
 # Usage
 
-## Restart display service
+## Service basics
+Start:
+```sh
+systemctl start display
+```
+
+Stop:
+```sh
+systemctl stop display
+```
+
+Restart:
 ```sh
 systemctl restart display
+```
+
+## Show scrolling text on the display
+```sh
+display-utils -t "{your_message}"
 ```
 
 ## Customize display service

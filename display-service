@@ -2,45 +2,71 @@
 
 set -e
 
-display_init() {
-	cat /sys/class/leds/display/max_brightness > /sys/class/leds/display/brightness
-
-	echo timer > /sys/class/leds/display::colon/trigger
-
-	echo usbport > /sys/class/leds/display::usb/trigger
-	for port in /sys/class/leds/display::usb/ports/*; do
-		echo 1 > $port
+display_clear() {
+	for led in /sys/class/leds/display::*; do
+		echo none > $led/trigger
+		echo 0 > $led/brightness
 	done
-
-	echo netdev > /sys/class/leds/display::lan/trigger
-	echo eth0 > /sys/class/leds/display::lan/device_name
-	echo 1 > /sys/class/leds/display::lan/link
-
-	echo netdev > /sys/class/leds/display::wlan/trigger
-	echo wlan0 > /sys/class/leds/display::wlan/device_name
-	echo 1 > /sys/class/leds/display::wlan/link
+	echo > /sys/class/leds/display/display_value
+	echo 0 > /sys/class/leds/display/brightness
 }
 
-display_update() {
-	date +%H%M > /sys/class/leds/display/display_value
+display_init() {
+	display_clear
+
+	cat /sys/class/leds/display/max_brightness > /sys/class/leds/display/brightness
+
+	if [ -d /sys/class/leds/display::usb ]
+	then
+		echo usbport > /sys/class/leds/display::usb/trigger
+		for port in /sys/class/leds/display::usb/ports/*; do
+			echo 1 > $port
+		done
+	fi
+
+	if [ -d /sys/class/leds/display::lan ]
+	then
+		echo netdev > /sys/class/leds/display::lan/trigger
+		echo eth0 > /sys/class/leds/display::lan/device_name
+		echo 1 > /sys/class/leds/display::lan/link
+	fi
+
+	if [ -d /sys/class/leds/display::wlan ]
+	then
+		echo netdev > /sys/class/leds/display::wlan/trigger
+		echo wlan0 > /sys/class/leds/display::wlan/device_name
+		echo 1 > /sys/class/leds/display::wlan/link
+	fi
 }
 
 display_cleanup() {
-	echo none > /sys/class/leds/display::colon/trigger
-	echo none > /sys/class/leds/display::usb/trigger
-	echo none > /sys/class/leds/display::lan/trigger
-	echo none > /sys/class/leds/display::wlan/trigger
-	echo > /sys/class/leds/display/display_value
-	echo 0 > /sys/class/leds/display/brightness
+	display_time_stop
+	display_clear
 	exit 0
 }
 
+display_time_start() {
+	echo timer > /sys/class/leds/display::colon/trigger
+	display_time_update &
+	TIME_PID=$!
+}
+
+display_time_stop() {
+	[ -z "$TIME_PID" ] || kill $TIME_PID 2> /dev/nul || true
+	unset TIME_PID
+	echo none > /sys/class/leds/display::colon/trigger
+}
+
+display_time_update() {
+	while true; do
+		sleep $((n=60-$(date +%S), n>0 ? n : 60)) &
+		date +%H%M > /sys/class/leds/display/display_value
+		wait
+	done
+}
 
 trap display_cleanup SIGHUP SIGTERM SIGQUIT SIGKILL SIGINT
 
 display_init
-
-while true; do
-	display_update
-	sleep $((60-$(date +%S)))
-done
+display_time_start
+wait
