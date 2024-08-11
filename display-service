@@ -7,7 +7,7 @@ display_clear() {
 		echo none > $led/trigger
 		echo 0 > $led/brightness
 	done
-	echo > /sys/class/leds/display/display_value
+	echo > /sys/class/leds/display/value
 	echo 0 > /sys/class/leds/display/brightness
 }
 
@@ -60,7 +60,7 @@ display_time_stop() {
 display_time_update() {
 	while true; do
 		sleep $((n=60-$(date +%S), n>0 ? n : 60)) &
-		date +%H%M > /sys/class/leds/display/display_value
+		date +%H%M > /sys/class/leds/display/value
 		wait
 	done
 }

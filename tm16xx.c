@@ -303,6 +303,9 @@ static const struct tm16xx_controller hbs658_controller = {
 	.data = hbs658_cmd_data,
 };
 
+
+static SEG7_CONVERSION_MAP(map_seg7, MAP_ASCII7SEG_ALPHANUM);
+
 /**
  * tm16xx_ascii_to_segments - Convert ASCII character to segment pattern
  * @display: Pointer to tm16xx_display structure
@@ -312,7 +315,6 @@ static const struct tm16xx_controller hbs658_controller = {
  */
 static u8 tm16xx_ascii_to_segments(struct tm16xx_display *display, char c)
 {
-	static SEG7_CONVERSION_MAP(map_seg7, MAP_ASCII7SEG_ALPHANUM);
 	u8 standard_segments, mapped_segments = 0;
 	int i;
 
@@ -568,10 +570,203 @@ static ssize_t tm16xx_display_value_store(struct device *dev,
 	return count;
 }
 
-static DEVICE_ATTR(display_value, 0644, tm16xx_display_value_show, tm16xx_display_value_store);
+/**
+ * tm16xx_num_digits_show - Show the number of digits in the display
+ * @dev: The device struct
+ * @attr: The device_attribute struct
+ * @buf: The output buffer
+ *
+ * This function returns the number of digits in the display.
+ *
+ * Return: Number of bytes written to buf
+ */
+static ssize_t tm16xx_num_digits_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
+
+	return sprintf(buf, "%d\n", display->num_digits);
+}
+
+/**
+ * tm16xx_num_segments_show - Show the number of segments per digit
+ * @dev: The device struct
+ * @attr: The device_attribute struct
+ * @buf: The output buffer
+ *
+ * This function returns the number of segments per digit in the display.
+ *
+ * Return: Number of bytes written to buf
+ */
+static ssize_t tm16xx_num_segments_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
+
+	return sprintf(buf, "%d\n", display->num_segments);
+}
+
+/**
+ * tm16xx_segment_mapping_show - Show the current segment mapping
+ * @dev: The device struct
+ * @attr: The device_attribute struct
+ * @buf: The output buffer
+ *
+ * This function returns the current segment mapping of the display.
+ *
+ * Return: Number of bytes written to buf
+ */
+static ssize_t tm16xx_segment_mapping_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
+	int i, count = 0;
+
+	for (i = 0; i < display->num_segments; i++) {
+		count += sprintf(buf + count, "%d ", display->segment_mapping[i]);
+	}
+	count += sprintf(buf + count, "\n");
+
+	return count;
+}
+
+/**
+ * tm16xx_segment_mapping_store - Set a new segment mapping
+ * @dev: The device struct
+ * @attr: The device_attribute struct
+ * @buf: The input buffer
+ * @count: Number of bytes in buf
+ *
+ * This function sets a new segment mapping for the display.
+ *
+ * Return: count on success, negative errno on failure
+ */
+static ssize_t tm16xx_segment_mapping_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
+	int i, num_read, value;
+	const char *ptr = buf;
+
+	for (i = 0; i < display->num_segments; i++) {
+		num_read = sscanf(ptr, "%d", &value);
+		if (num_read != 1)
+			return -EINVAL;
+		display->segment_mapping[i] = value;
+		ptr = strchr(ptr, ' ');
+		if (!ptr && i != display->num_segments - 1)
+			return -EINVAL;
+		ptr++;
+	}
+
+	return count;
+}
+
+/**
+ * tm16xx_digits_ordering_show - Show the current digit ordering
+ * @dev: The device struct
+ * @attr: The device_attribute struct
+ * @buf: The output buffer
+ *
+ * This function returns the current ordering of digits in the display.
+ *
+ * Return: Number of bytes written to buf
+ */
+static ssize_t tm16xx_digits_ordering_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
+	int i, count = 0;
+
+	for (i = 0; i < display->num_digits; i++) {
+		count += sprintf(buf + count, "%d ", display->digits[i].grid);
+	}
+	count += sprintf(buf + count, "\n");
+
+	return count;
+}
+
+/**
+ * tm16xx_digits_ordering_store - Set a new digit ordering
+ * @dev: The device struct
+ * @attr: The device_attribute struct
+ * @buf: The input buffer
+ * @count: Number of bytes in buf
+ *
+ * This function sets a new ordering of digits for the display.
+ *
+ * Return: count on success, negative errno on failure
+ */
+static ssize_t tm16xx_digits_ordering_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
+	int i, num_read, value;
+	const char *ptr = buf;
+
+	for (i = 0; i < display->num_digits; i++) {
+		num_read = sscanf(ptr, "%d", &value);
+		if (num_read != 1)
+			return -EINVAL;
+		display->digits[i].grid = value;
+		ptr = strchr(ptr, ' ');
+		if (!ptr && i != display->num_digits - 1)
+			return -EINVAL;
+		ptr++;
+	}
+
+	return count;
+}
+
+/**
+ * tm16xx_map_seg7_show - Show the current 7-segment character map
+ * @dev: The device struct
+ * @attr: The device_attribute struct
+ * @buf: The output buffer
+ *
+ * This function returns the current 7-segment character map.
+ *
+ * Return: Number of bytes written to buf
+ */
+static ssize_t tm16xx_map_seg7_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	memcpy(buf, &map_seg7, sizeof(map_seg7));
+	return sizeof(map_seg7);
+}
+
+/**
+ * tm16xx_map_seg7_store - Set a new 7-segment character map
+ * @dev: The device struct
+ * @attr: The device_attribute struct
+ * @buf: The input buffer
+ * @cnt: Number of bytes in buf
+ *
+ * This function sets a new 7-segment character map.
+ *
+ * Return: cnt on success, negative errno on failure
+ */
+static ssize_t tm16xx_map_seg7_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t cnt)
+{
+	if(cnt != sizeof(map_seg7))
+		return -EINVAL;
+	memcpy(&map_seg7, buf, cnt);
+	return cnt;
+}
+
+static DEVICE_ATTR(value, 0644, tm16xx_display_value_show, tm16xx_display_value_store);
+static DEVICE_ATTR(num_digits, 0444, tm16xx_num_digits_show, NULL);
+static DEVICE_ATTR(num_segments, 0444, tm16xx_num_segments_show, NULL);
+static DEVICE_ATTR(segments, 0644, tm16xx_segment_mapping_show, tm16xx_segment_mapping_store);
+static DEVICE_ATTR(digits, 0644, tm16xx_digits_ordering_show, tm16xx_digits_ordering_store);
+static DEVICE_ATTR(map_seg7, 0644, tm16xx_map_seg7_show, tm16xx_map_seg7_store);
 
 static struct attribute *tm16xx_main_led_attrs[] = {
-	&dev_attr_display_value.attr,
+	&dev_attr_value.attr,
+	&dev_attr_num_digits.attr,
+	&dev_attr_num_segments.attr,
+	&dev_attr_segments.attr,
+	&dev_attr_digits.attr,
+	&dev_attr_map_seg7.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(tm16xx_main_led);

@@ -24,24 +24,24 @@ display_text() {
 	fi
 
 	while [ "${#TEXT}" -ge "$DIGITS" ]; do
-		echo "${TEXT:0:$DIGITS}" > /sys/class/leds/display/display_value
+		echo "${TEXT:0:$DIGITS}" > /sys/class/leds/display/value
 		TEXT="${TEXT:1}"
 		sleep $SLEEP
 	done
 }
 
 display_check() {
-	echo 88888888 > /sys/class/leds/display/display_value
+	echo 88888888 > /sys/class/leds/display/value
 	for led in /sys/class/leds/display::*; do
 		echo 1 > $led/brightness
 	done
 	sleep 1
-	echo > /sys/class/leds/display/display_value
+	echo > /sys/class/leds/display/value
 	for led in /sys/class/leds/display::*; do
 		echo 0 > $led/brightness
 	done
 
-	echo 12345678 > /sys/class/leds/display/display_value
+	echo 12345678 > /sys/class/leds/display/value
 	sleep 1
 
 	for led in /sys/class/leds/display::*; do
@@ -56,8 +56,7 @@ display_check() {
 
 trap display_cleanup SIGHUP SIGTERM SIGQUIT SIGKILL SIGINT
 
-DIGITS=$(cat /sys/class/leds/display/device/of_node/tm16xx,digits)
-DIGITS=${#DIGITS}
+DIGITS=$(cat /sys/class/leds/display/num_digits)
 
 usage() {
 	echo "Usage:"

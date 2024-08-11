@@ -90,6 +90,32 @@ display-utils -c
 2. Check the order of digits and segment mapping (you should see "1234")
 3. Check each led name (ex: LAN icon is ON while "LAN" text is shown on the digits)
 
+In case you want to experiment with alternative digits ordering or segment mapping, you can update them from user space without editing the dtb or rebooting. This may be useful to test your configuration changes before editing the dtb.
+
+### Test alternative digits ordering
+```sh
+# show current digit ordering
+cat /sys/class/leds/display/digits
+
+# update digit ordering
+echo "1 2 3 4" > /sys/class/leds/display/digits
+
+# check configuration
+display-utils -c
+```
+
+### Test alternative segment mapping
+```sh
+# show current segment mapping
+cat /sys/class/leds/display/segments
+
+# update segment mapping
+echo "0 1 2 3 4 5 6" > /sys/class/leds/display/segments
+
+# check configuration
+display-utils -c
+```
+
 # Advanced Device Configuration
 
 ## Convert existing [OpenVFD](https://github.com/arthur-liberman/linux_openvfd/tree/master) vfd.conf
@@ -167,10 +193,10 @@ echo 1 > /sys/class/leds/display/brightness
 echo 0 > /sys/class/leds/display/brightness
 
 # write text on the display (supports 7-segment ascii mapping)
-echo "boot" > /sys/class/leds/display/display_value
+echo "boot" > /sys/class/leds/display/value
 
 # clear the display text
-echo > /sys/class/leds/display/display_value
+echo > /sys/class/leds/display/value
 
 # list available leds/symbols
 ls /sys/class/leds/display\:\:*
