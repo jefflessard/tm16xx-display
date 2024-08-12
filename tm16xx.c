@@ -303,6 +303,35 @@ static const struct tm16xx_controller hbs658_controller = {
 	.data = hbs658_cmd_data,
 };
 
+static int parse_int_array(const char *buf, int **array)
+{
+	int *values, value, count = 0, len;
+	const char *ptr = buf;
+
+	while (1 == sscanf(ptr, "%d %n", &value, &len)) {
+		count++;
+		ptr += len;
+	}
+
+	if (count == 0) {
+		*array = NULL;
+		return 0;
+	}
+
+	values = kmalloc(count * sizeof(*values), GFP_KERNEL);
+	if (!values)
+		return -ENOMEM;
+
+	ptr = buf;
+	count = 0;
+	while (1 == sscanf(ptr, "%d %n", &value, &len)) {
+		values[count++] = value;
+		ptr += len;
+	}
+
+	*array = values;
+	return count;
+}
 
 static SEG7_CONVERSION_MAP(map_seg7, MAP_ASCII7SEG_ALPHANUM);
 
@@ -638,6 +667,8 @@ static ssize_t tm16xx_segment_mapping_show(struct device *dev, struct device_att
  * @count: Number of bytes in buf
  *
  * This function sets a new segment mapping for the display.
+ * It validates that each value is within the valid range, and that
+ * the number of received values matches the number of segments.
  *
  * Return: count on success, negative errno on failure
  */
@@ -645,20 +676,29 @@ static ssize_t tm16xx_segment_mapping_store(struct device *dev, struct device_at
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
-	int i, num_read, value;
-	const char *ptr = buf;
+	int *array, ret, i;
 
-	for (i = 0; i < display->num_segments; i++) {
-		num_read = sscanf(ptr, "%d", &value);
-		if (num_read != 1)
-			return -EINVAL;
-		display->segment_mapping[i] = value;
-		ptr = strchr(ptr, ' ');
-		if (!ptr && i != display->num_segments - 1)
-			return -EINVAL;
-		ptr++;
+	ret = parse_int_array(buf, &array);
+	if (ret < 0)
+		return ret;
+
+	if (ret != display->num_segments) {
+		kfree(array);
+		return -EINVAL;
 	}
 
+	for (i = 0; i < display->num_segments; i++) {
+		if (array[i] < 0 || array[i] > 7) {
+			kfree(array);
+			return -EINVAL;
+		}
+	}
+
+	for (i = 0; i < display->num_segments; i++) {
+		display->segment_mapping[i] = (u8) array[i];
+	}
+
+	kfree(array);
 	return count;
 }
 
@@ -694,6 +734,8 @@ static ssize_t tm16xx_digits_ordering_show(struct device *dev, struct device_att
  * @count: Number of bytes in buf
  *
  * This function sets a new ordering of digits for the display.
+ * It validates that all values match the original digit grid indexes,
+ * and that the number of received values matches the number of digits.
  *
  * Return: count on success, negative errno on failure
  */
@@ -701,20 +743,39 @@ static ssize_t tm16xx_digits_ordering_store(struct device *dev, struct device_at
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
-	int i, num_read, value;
-	const char *ptr = buf;
+	int *array, ret, i, j;
+	bool found;
 
-	for (i = 0; i < display->num_digits; i++) {
-		num_read = sscanf(ptr, "%d", &value);
-		if (num_read != 1)
-			return -EINVAL;
-		display->digits[i].grid = value;
-		ptr = strchr(ptr, ' ');
-		if (!ptr && i != display->num_digits - 1)
-			return -EINVAL;
-		ptr++;
+	ret = parse_int_array(buf, &array);
+	if (ret < 0)
+		return ret;
+
+	if (ret != display->num_digits) {
+		kfree(array);
+		return -EINVAL;
 	}
 
+	for (i = 0; i < display->num_digits; i++) {
+		found = false;
+
+		for (j = 0; j < display->num_digits; j++) {
+			if (display->digits[i].grid == array[j]) {
+				found = true;
+				break;
+			}
+		}
+
+		if (!found) {
+			kfree(array);
+			return -EINVAL;
+		}
+	}
+
+	for (i = 0; i < display->num_digits; i++) {
+		display->digits[i].grid = (u8) array[i];
+	}
+
+	kfree(array);
 	return count;
 }
 

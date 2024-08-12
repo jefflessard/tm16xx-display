@@ -3,8 +3,6 @@
 # Kernel module parameters
 MODULE_NAME = tm16xx
 obj-m += tm16xx.o
-debug: CFLAGS += -g -DDEBUG
-CC += ${CFLAGS}
 INSTALL_MOD_PATH ?= /
 
 # Path to the kernel source tree
@@ -21,8 +19,13 @@ DTSFLAGS = -I $(KDIR)/include -undef -x assembler-with-cpp
 
 # Make targets
 
+all: module
+
+debug: CCFLAGS += -g -DDEBUG
+debug: module
+
 module:
-	make -C $(KDIR) M=$(PWD) modules
+	make EXTRA_CFLAGS="$(CCFLAGS)" -C $(KDIR) M=$(PWD) modules
 
 clean:
 	rm -f tm16xx.mod* tm16xx.ko Module.symvers modules.order tm16xx.o .tm* .module* .Module*
