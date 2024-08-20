@@ -2,6 +2,12 @@
 
 set -e
 
+LED_USB=/sys/class/leds/display::usb
+LED_LAN=/sys/class/leds/display::lan
+LED_WIFI=/sys/class/leds/display::wlan
+LED_BLUETOOTH=/sys/class/leds/display::bluetooth
+LED_SDCARD=/sys/class/leds/display::sd
+
 display_clear() {
 	for led in /sys/class/leds/display::*; do
 		echo none > $led/trigger
@@ -16,27 +22,40 @@ display_init() {
 
 	cat /sys/class/leds/display/max_brightness > /sys/class/leds/display/brightness
 
-	if [ -d /sys/class/leds/display::usb ]
+	if [ -d ${LED_USB} ]
 	then
-		echo usbport > /sys/class/leds/display::usb/trigger
-		for port in /sys/class/leds/display::usb/ports/*; do
+		echo usbport > ${LED_USB}/trigger
+		for port in ${LED_USB}/ports/*; do
 			echo 1 > $port
 		done
 	fi
 
-	if [ -d /sys/class/leds/display::lan ]
+	if [ -d ${LED_LAN} ]
 	then
-		echo netdev > /sys/class/leds/display::lan/trigger
-		echo eth0 > /sys/class/leds/display::lan/device_name
-		echo 1 > /sys/class/leds/display::lan/link
+		echo netdev > ${LED_LAN}/trigger
+		echo eth0 > ${LED_LAN}/device_name
+		echo 1 > ${LED_LAN}/link
 	fi
 
-	if [ -d /sys/class/leds/display::wlan ]
+	if [ -d ${LED_WIFI} ]
 	then
-		echo netdev > /sys/class/leds/display::wlan/trigger
-		echo wlan0 > /sys/class/leds/display::wlan/device_name
-		echo 1 > /sys/class/leds/display::wlan/link
+		echo netdev > ${LED_WIFI}/trigger
+		echo wlan0 > ${LED_WIFI}/device_name
+		echo 1 > ${LED_WIFI}/link
 	fi
+
+	if [ -d ${LED_BLUETOOTH} ]
+	then
+		echo netdev > ${LED_BLUETOOTH}/trigger
+		echo hci0 > ${LED_BLUETOOTH}/device_name
+		echo 1 > ${LED_BLUETOOTH}/link
+	fi
+
+	if [ -d ${LED_SDCARD} ]
+	then
+		echo mmc0 > ${LED_SDCARD}/trigger
+	fi
+
 }
 
 display_cleanup() {
@@ -70,3 +89,4 @@ trap display_cleanup SIGHUP SIGTERM SIGQUIT SIGKILL SIGINT
 display_init
 display_time_start
 wait
+
