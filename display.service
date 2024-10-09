@@ -3,7 +3,7 @@ Description=Display Service
 ConditionPathExists=/sys/class/leds/display/
 
 [Service]
-ExecStart=/sbin/display-service
+ExecStart=/usr/sbin/display-service
 ExecStop=/bin/kill -s SIGTERM $MAINPID
 Restart=always
 User=root
