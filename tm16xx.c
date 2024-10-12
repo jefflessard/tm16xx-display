@@ -81,6 +81,7 @@ struct tm16xx_digit {
  * @lock: Mutex for concurrent access protection
  * @flush_brightness: Work structure for brightness update
  * @flush_display: Work structure for display update
+ * @flush_status: Result of the last flush work
  * @client_write: Function pointer for client write operation
  */
 struct tm16xx_display {
@@ -102,6 +103,7 @@ struct tm16xx_display {
 	struct mutex lock;
 	struct work_struct flush_brightness;
 	struct work_struct flush_display;
+	int flush_status;
 	int (*client_write)(struct tm16xx_display *display, u8 *data, size_t len);
 };
 
@@ -418,6 +420,7 @@ static void tm16xx_display_flush_brightness(struct work_struct *work)
 	if (len > 0) {
 		mutex_lock(&display->lock);
 		ret = display->client_write(display, cmd, len);
+		display->flush_status = ret;
 		mutex_unlock(&display->lock);
 		if (ret < 0)
 			dev_err(display->dev, "Failed to set brightness: %d\n", ret);
@@ -432,7 +435,7 @@ static void tm16xx_display_flush_data(struct work_struct *work)
 {
 	struct tm16xx_display *display = container_of(work, struct tm16xx_display, flush_display);
 	u8 *cmd;
-	int i, len = -1, ret;
+	int i, len = -1, ret = 0;
 
 	mutex_lock(&display->lock);
 
@@ -450,6 +453,7 @@ static void tm16xx_display_flush_data(struct work_struct *work)
 		}
 	}
 
+	display->flush_status = ret;
 	mutex_unlock(&display->lock);
 }
 
@@ -478,11 +482,15 @@ static int tm16xx_display_init(struct tm16xx_display *display)
 
 	schedule_work(&display->flush_brightness);
 	flush_work(&display->flush_brightness);
+	if (display->flush_status < 0)
+		return display->flush_status;
 
 	memset(display->display_data, 0xFF, display->display_data_len);
 	schedule_work(&display->flush_display);
 	flush_work(&display->flush_display);
 	memset(display->display_data, 0x00, display->display_data_len);
+	if (display->flush_status < 0)
+		return display->flush_status;
 
 	return 0;
 }
