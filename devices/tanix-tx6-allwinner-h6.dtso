@@ -8,8 +8,8 @@
 
 	display-client {
 		compatible = "i2c-gpio";
-		sda-gpios = <&gpiochip1 230 0>;
-		scl-gpios = <&gpiochip1 229 0>;
+		sda-gpios = <&pio 7 6 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>; /* PH6 */
+		scl-gpios = <&pio 7 5 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>; /* PH5 */
 		i2c-gpio,delay-us = <5>;
 		#address-cells = <1>;
 		#size-cells = <0>;
