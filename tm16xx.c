@@ -22,6 +22,9 @@
 
 #define TM16XX_DRIVER_NAME "tm16xx"
 #define TM16XX_DEVICE_NAME "display"
+#define DIGIT_SEGMENTS 7
+#define MIN_SEGMENT 0
+#define MAX_SEGMENT 7 /* data stored as 8 bits (u8) */
 
 /* Forward declarations */
 struct tm16xx_display;
@@ -75,7 +78,7 @@ struct tm16xx_digit {
  * @digits: Array of digits
  * @num_digits: Number of digits
  * @segment_mapping: Segment mapping array
- * @num_segments: Number of segments
+ * @digit_bitmask: Bitmask for setting digit values
  * @display_data: Display data buffer
  * @display_data_len: Length of display data buffer
  * @lock: Mutex for concurrent access protection
@@ -96,8 +99,8 @@ struct tm16xx_display {
 	int num_leds;
 	struct tm16xx_digit *digits;
 	int num_digits;
-	u8 *segment_mapping;
-	int num_segments;
+	u8 segment_mapping[DIGIT_SEGMENTS];
+	u8 digit_bitmask;
 	u8 *display_data;
 	size_t display_data_len;
 	struct mutex lock;
@@ -165,11 +168,15 @@ static int tm1628_cmd_data(struct tm16xx_display *display, u8 **cmd, int i) {
 
 static int tm1650_cmd_brightness(struct tm16xx_display *display, u8 **cmd) {
 	static u8 cmds[2];
-	static const u8 ON_FLAG = 1, BR_MASK = 7, BR_SHIFT = 4, SEG7_MODE = 1 << 3;
+	static const u8 ON_FLAG = 1, BR_MASK = 7, BR_SHIFT = 4, SEG8_MODE = 0 << 3;
+	/* SEG7_MODE = 1 << 3
+	 * tm1650 and fd650 have only 4 digits and they
+	 * use an 8th segment for the time separator
+	 * */
 
 	int i = display->main_led.brightness;
 	cmds[0]	= 0x48;
-	cmds[1] = (i && 1) * ((i & BR_MASK) << BR_SHIFT | SEG7_MODE | ON_FLAG);
+	cmds[1] = (i && 1) * ((i & BR_MASK) << BR_SHIFT | SEG8_MODE | ON_FLAG);
 
 	*cmd = cmds;
 	return ARRAY_SIZE(cmds);
@@ -351,7 +358,7 @@ static u8 tm16xx_ascii_to_segments(struct tm16xx_display *display, char c)
 
 	standard_segments = map_to_seg7(&map_seg7, c);
 
-	for (i = 0; i < 7; i++) {
+	for (i = 0; i < DIGIT_SEGMENTS; i++) {
 		if (standard_segments & BIT(i))
 			mapped_segments |= BIT(display->segment_mapping[i]);
 	}
@@ -599,7 +606,9 @@ static ssize_t tm16xx_display_value_store(struct device *dev,
 			data = 0;
 		}
 
-		display->display_data[digit->grid] = data;
+		display->display_data[digit->grid] =
+			(display->display_data[digit->grid] & ~display->digit_bitmask) |
+			(data & display->digit_bitmask);
 	}
 
 	schedule_work(&display->flush_display);
@@ -626,24 +635,6 @@ static ssize_t tm16xx_num_digits_show(struct device *dev, struct device_attribut
 }
 
 /**
- * tm16xx_num_segments_show - Show the number of segments per digit
- * @dev: The device struct
- * @attr: The device_attribute struct
- * @buf: The output buffer
- *
- * This function returns the number of segments per digit in the display.
- *
- * Return: Number of bytes written to buf
- */
-static ssize_t tm16xx_num_segments_show(struct device *dev, struct device_attribute *attr, char *buf)
-{
-	struct led_classdev *led_cdev = dev_get_drvdata(dev);
-	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
-
-	return sprintf(buf, "%d\n", display->num_segments);
-}
-
-/**
  * tm16xx_segment_mapping_show - Show the current segment mapping
  * @dev: The device struct
  * @attr: The device_attribute struct
@@ -659,7 +650,7 @@ static ssize_t tm16xx_segment_mapping_show(struct device *dev, struct device_att
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
 	int i, count = 0;
 
-	for (i = 0; i < display->num_segments; i++) {
+	for (i = 0; i < DIGIT_SEGMENTS; i++) {
 		count += sprintf(buf + count, "%d ", display->segment_mapping[i]);
 	}
 	count += sprintf(buf + count, "\n");
@@ -690,20 +681,23 @@ static ssize_t tm16xx_segment_mapping_store(struct device *dev, struct device_at
 	if (ret < 0)
 		return ret;
 
-	if (ret != display->num_segments) {
+	if (ret != DIGIT_SEGMENTS) {
 		kfree(array);
 		return -EINVAL;
 	}
 
-	for (i = 0; i < display->num_segments; i++) {
-		if (array[i] < 0 || array[i] > 7) {
+	for (i = 0; i < DIGIT_SEGMENTS; i++) {
+		if (array[i] < MIN_SEGMENT ||
+			array[i] > MAX_SEGMENT) {
 			kfree(array);
 			return -EINVAL;
 		}
 	}
 
-	for (i = 0; i < display->num_segments; i++) {
+	display->digit_bitmask = 0;
+	for (i = 0; i < DIGIT_SEGMENTS; i++) {
 		display->segment_mapping[i] = (u8) array[i];
+		display->digit_bitmask |= BIT(display->segment_mapping[i]);
 	}
 
 	kfree(array);
@@ -824,7 +818,6 @@ static ssize_t tm16xx_map_seg7_store(struct device *dev, struct device_attribute
 
 static DEVICE_ATTR(value, 0644, tm16xx_display_value_show, tm16xx_display_value_store);
 static DEVICE_ATTR(num_digits, 0444, tm16xx_num_digits_show, NULL);
-static DEVICE_ATTR(num_segments, 0444, tm16xx_num_segments_show, NULL);
 static DEVICE_ATTR(segments, 0644, tm16xx_segment_mapping_show, tm16xx_segment_mapping_store);
 static DEVICE_ATTR(digits, 0644, tm16xx_digits_ordering_show, tm16xx_digits_ordering_store);
 static DEVICE_ATTR(map_seg7, 0644, tm16xx_map_seg7_show, tm16xx_map_seg7_store);
@@ -832,7 +825,6 @@ static DEVICE_ATTR(map_seg7, 0644, tm16xx_map_seg7_show, tm16xx_map_seg7_store);
 static struct attribute *tm16xx_main_led_attrs[] = {
 	&dev_attr_value.attr,
 	&dev_attr_num_digits.attr,
-	&dev_attr_num_segments.attr,
 	&dev_attr_segments.attr,
 	&dev_attr_digits.attr,
 	&dev_attr_map_seg7.attr,
@@ -883,22 +875,21 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 
 	devm_kfree(dev, digits);
 
-	display->num_segments = device_property_count_u8(dev, "tm16xx,segment-mapping");
-	if (display->num_segments < 0) {
-		dev_err(dev, "Failed to count 'tm16xx,segment-mapping' property: %d\n", display->num_segments);
-		return display->num_segments;
-	}
-
-	dev_dbg(dev, "Number of segments: %d\n", display->num_segments);
-
-	display->segment_mapping = devm_kcalloc(dev, display->num_segments, sizeof(*display->segment_mapping), GFP_KERNEL);
-	if (!display->segment_mapping)
-		return -ENOMEM;
-
-	ret = device_property_read_u8_array(dev, "tm16xx,segment-mapping", display->segment_mapping, display->num_segments);
+	ret = device_property_read_u8_array(dev, "tm16xx,segment-mapping", display->segment_mapping, DIGIT_SEGMENTS);
 	if (ret < 0) {
 		dev_err(dev, "Failed to read 'tm16xx,segment-mapping' property: %d\n", ret);
 		return ret;
+	}
+
+	display->digit_bitmask = 0;
+	for (i = 0; i < DIGIT_SEGMENTS; i++) {
+		if (display->segment_mapping[i] < MIN_SEGMENT ||
+			display->segment_mapping[i] > MAX_SEGMENT) {
+			dev_err(dev, "Invalid 'tm16xx,segment-mapping' value: %d (must be between %d and %d)\n", display->segment_mapping[i], MIN_SEGMENT, MAX_SEGMENT);
+			return -EINVAL;
+		}
+
+		display->digit_bitmask |= BIT(display->segment_mapping[i]);
 	}
 
 	display->num_leds = 0;
