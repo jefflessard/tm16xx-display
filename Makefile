@@ -29,7 +29,7 @@ module:
 
 clean:
 	rm -f tm16xx.mod* tm16xx.ko Module.symvers modules.order tm16xx.o .tm* .module* .Module*
-	rm -Rf $(BUILD_DIR) $(RELEASE_DIR)
+	rm -Rf $(RELEASE_DIR)
 
 module-install:
 	$(MAKE) -C $(KDIR) M=$(PWD) modules_install INSTALL_MOD_PATH=$(INSTALL_MOD_PATH)
@@ -52,7 +52,7 @@ $(RELEASE_DIR):
 extract-dtb:
 	dtc -I fs -O dtb /sys/firmware/devicetree/base -o $(ORIGINAL_DTB)
 
-%.dtbo: devices/%.dtso $(BUILD_DIR) $(RELEASE_DIR)
+%.dtbo: devices/%.dtso $(RELEASE_DIR)
 	$(CPP) -I $(KDIR)/include -I $(PWD) -undef -x assembler-with-cpp -E $< -o /dev/stdout | dtc -I dts -O dtb -o $(RELEASE_DIR)/$@
 
 %.dtb: %.dtbo
