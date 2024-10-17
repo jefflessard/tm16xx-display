@@ -27,11 +27,23 @@ See [Device Table](DEVICES.md)
 # Installation Instructions
 
 ## Prerequisites
+### Building the driver
 Linux kernel headers installed
 ```sh
 armbian-config
 ```
 Then go to Software -> Headers
+
+### Display service
+To blink the time seperator
+- `timer` led triger (`ledtrig_timer` module)
+
+To manage lan, wlan and bluetooth LEDs:
+- `netdev` led triger (`ledtrig_netdev` module)
+
+As well as built-in led triggers:
+- `usbport` for the usb port
+- `mmc0` for the sd card
 
 ## Download
 ```sh
