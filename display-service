@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -e
-
 LED_USB=/sys/class/leds/display::usb
 LED_LAN=/sys/class/leds/display::lan
 LED_WIFI=/sys/class/leds/display::wlan
@@ -24,7 +22,8 @@ display_init() {
 
 	if [ -d ${LED_USB} ]
 	then
-		echo usbport > ${LED_USB}/trigger
+		echo usbport > ${LED_USB}/trigger || \
+			>&2 echo "Failed to set usb usport trigger"
 		for port in ${LED_USB}/ports/*; do
 			echo 1 > $port
 		done
@@ -32,40 +31,49 @@ display_init() {
 
 	if [ -d ${LED_LAN} ]
 	then
-		echo netdev > ${LED_LAN}/trigger
-		echo eth0 > ${LED_LAN}/device_name
+		echo netdev > ${LED_LAN}/trigger || \
+			>&2 echo "Failed to set lan netdev trigger"
+		echo eth0 > ${LED_LAN}/device_name || \
+			>&2 echo "Failed to set lan device name"
 		echo 1 > ${LED_LAN}/link
 	fi
 
 	if [ -d ${LED_WIFI} ]
 	then
-		echo netdev > ${LED_WIFI}/trigger
-		echo wlan0 > ${LED_WIFI}/device_name
+		echo netdev > ${LED_WIFI}/trigger || \
+			>&2 echo "Failed to set wifi netdev trigger"
+		echo wlan0 > ${LED_WIFI}/device_name || \
+			>&2 echo "Failed to set wifi device name"
 		echo 1 > ${LED_WIFI}/link
 	fi
 
 	if [ -d ${LED_BLUETOOTH} ]
 	then
-		echo netdev > ${LED_BLUETOOTH}/trigger
-		echo hci0 > ${LED_BLUETOOTH}/device_name
+		echo netdev > ${LED_BLUETOOTH}/trigger || \
+			>&2 echo "Failed to set bluetooth netdev trigger"
+		echo hci0 > ${LED_BLUETOOTH}/device_name || \
+			>&2 echo "Failed to set bluetooth device name"
 		echo 1 > ${LED_BLUETOOTH}/link
 	fi
 
 	if [ -d ${LED_SDCARD} ]
 	then
-		echo mmc0 > ${LED_SDCARD}/trigger
+		echo mmc0 > ${LED_SDCARD}/trigger || \
+			>&2 echo "Failed to set sdcard mmc0 trigger"
 	fi
 
 }
 
 display_cleanup() {
+	echo "exiting service"
 	display_time_stop
 	display_clear
 	exit 0
 }
 
 display_time_start() {
-	echo timer > /sys/class/leds/display::colon/trigger
+	echo timer > /sys/class/leds/display::colon/trigger || \
+		>&2 echo "Failed to set colon timer trigger"
 	display_time_update &
 	TIME_PID=$!
 }
@@ -86,6 +94,7 @@ display_time_update() {
 
 trap display_cleanup SIGHUP SIGTERM SIGQUIT SIGKILL SIGINT
 
+echo "starting service"
 display_init
 display_time_start
 wait
