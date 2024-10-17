@@ -88,9 +88,18 @@ reboot
 ```
 
 ## Kernel module and display service
+*Option 1: build and install in a single command*
+
 Builds then installs module and service
 ```sh
 make install
+```
+
+*Option 2: step by step commands*
+```sh
+make module
+make module-install
+make service-install
 ```
 
 ## Check your display configuration
