@@ -31,16 +31,20 @@ display_text() {
 }
 
 display_check() {
+	echo "all digits and leds on"
 	echo 88888888 > /sys/class/leds/display/value
 	for led in /sys/class/leds/display::*; do
 		echo 1 > $led/brightness
 	done
 	sleep 1
+
+	echo "all digitd and leds off"
 	echo > /sys/class/leds/display/value
 	for led in /sys/class/leds/display::*; do
 		echo 0 > $led/brightness
 	done
 
+	echo "digit order: 1234"
 	echo 12345678 > /sys/class/leds/display/value
 	sleep 1
 
@@ -48,6 +52,7 @@ display_check() {
 		echo 1 > $led/brightness
 		led_name="${led##*:}"
 		led_name="${led_name@U}"
+		echo "led ${led_name} on"
 		display_text "${led_name}" " " 0.25
 		echo 0 > $led/brightness
 	done
