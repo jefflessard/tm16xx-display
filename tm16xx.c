@@ -936,6 +936,10 @@ static int tm16xx_probe(struct tm16xx_display *display)
 		return ret;
 	}
 
+	mutex_init(&display->lock);
+	INIT_WORK(&display->flush_brightness, tm16xx_display_flush_brightness);
+	INIT_WORK(&display->flush_display, tm16xx_display_flush_data);
+
 	display->main_led.name = TM16XX_DEVICE_NAME;
 	display->main_led.brightness = display->controller->max_brightness;
 	display->main_led.max_brightness = display->controller->max_brightness;
@@ -984,10 +988,6 @@ static int tm16xx_probe(struct tm16xx_display *display)
 
 		i++;
 	}
-
-	mutex_init(&display->lock);
-	INIT_WORK(&display->flush_brightness, tm16xx_display_flush_brightness);
-	INIT_WORK(&display->flush_display, tm16xx_display_flush_data);
 
 	ret = tm16xx_display_init(display);
 	if (ret < 0) {
