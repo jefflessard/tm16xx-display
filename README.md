@@ -113,7 +113,56 @@ display-utils -c
 
 In case you want to experiment with alternative digits ordering or segment mapping, you can update them from user space without editing the dtb or rebooting. This may be useful to test your configuration changes before editing the dtb.
 
-### Test alternative digits ordering
+### Assisted segments and digits disovery
+```sh
+display-utils -a
+```
+Interactive prompt to quickly and easily identify segments mapping and digits ordering, plus will generate the related device tree configuration.
+
+Example session:
+```
+Segment Mapping:
+Original segments: [0 1 2 3 4 5 6]
+
+   --A--
+  |     |
+  F     B
+  |     |
+   --G--
+  |     |
+  E     C
+  |     |
+   --D--
+
+Enter blinking segment 0 (A-G or empty): d
+Enter blinking segment 1 (A-G or empty): e
+Enter blinking segment 2 (A-G or empty): f
+Enter blinking segment 3 (A-G or empty): a
+Enter blinking segment 4 (A-G or empty): b
+Enter blinking segment 5 (A-G or empty): c
+Enter blinking segment 6 (A-G or empty): g
+All 7 segments have been mapped.
+Segment mapping: [3 4 5 0 1 2 6]
+
+Validating digit order
+Original digits: [2 1 4 3]
+
+  1234
+
+Enter the position of digit 1 (1-4): 2
+Enter the position of digit 2 (1-4): 1
+Enter the position of digit 3 (1-4): 4
+Enter the position of digit 4 (1-4): 3
+Digit order: [1 2 3 4]
+
+Update your device tree configuration to:
+
+        tm16xx,digits = [1 2 3 4];
+        tm16xx,segment-mapping = [3 4 5 0 1 2 6];
+
+```
+
+### Manual alternative digits ordering
 ```sh
 # show current digit ordering
 cat /sys/class/leds/display/digits
@@ -125,7 +174,7 @@ echo "1 2 3 4" > /sys/class/leds/display/digits
 display-utils -c
 ```
 
-### Test alternative segment mapping
+### Manual alternative segment mapping
 ```sh
 # show current segment mapping
 cat /sys/class/leds/display/segments
