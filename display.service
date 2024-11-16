@@ -1,8 +1,8 @@
 [Unit]
-Description=Display Service
-ConditionPathExists=/sys/class/leds/display/
+Description=TM16xx Display Service
 
 [Service]
+ExecStartPre=/sbin/modprobe -a ledtrig_timer ledtrig_netdev tm16xx
 ExecStart=/usr/sbin/display-service
 ExecStop=/bin/kill -s SIGTERM $MAINPID
 Restart=always
