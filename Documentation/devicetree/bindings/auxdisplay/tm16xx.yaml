@@ -38,6 +38,12 @@ properties:
     description: Array specifying segment mapping
     $ref: /schemas/types.yaml#/definitions/uint32-array
 
+  tm16xx,transposed:
+	description: |
+	  Optional boolean flag indicating if the device output is transposed.
+	  If not present, the default value is false.
+    $ref: /schemas/types.yaml#/definitions/flag
+
 patternProperties:
   "^led@[0-9a-f]+,[0-9a-f]+$":
     $ref: /schemas/leds/common.yaml#
@@ -63,19 +69,19 @@ examples:
         #address-cells = <1>;
         #size-cells = <0>;
 
-        display@50 {
+        display@24 {
             compatible = "titanmec,tm1650";
-            reg = <0x50>;
+            reg = <0x24>;
             tm16xx,digits = <0 1 2 3>;
             tm16xx,segment-mapping = <0 1 2 3 4 5 6>;
 
-            led@0,0 {
-                reg = <0 0>;
+            led@4,0 {
+                reg = <4 0>;
                 function = "lan";
             };
 
-            led@1,1 {
-                reg = <1 1>;
+            led@4,1 {
+                reg = <4 1>;
                 function = "wlan";
             };
         };
@@ -88,16 +94,17 @@ examples:
         display@0 {
             compatible = "titanmec,tm1628";
             reg = <0>;
-            tm16xx,digits = <0 1 2 3 4>;
+            tm16xx,transposed;
+            tm16xx,digits = <1 2 3 4>;
             tm16xx,segment-mapping = <0 1 2 3 4 5 6>;
 
-            led@2,2 {
-                reg = <2 2>;
+            led@0,2 {
+                reg = <0 2>;
                 function = "usb";
             };
 
-            led@3,3 {
-                reg = <3 3>;
+            led@0,3 {
+                reg = <0 3>;
                 function = "power";
             };
         };

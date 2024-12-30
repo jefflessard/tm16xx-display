@@ -15,9 +15,9 @@
 		cs-gpios = <&gpio_ao 9 0>;
 		num-chipselects = <1>;
 
-		display-controller@24 {
+		display-controller@0 {
 			compatible = "fdhisi,fd628";
-			reg = <0x24>;
+			reg = <0x0>;
 			spi-3wire;
 			spi-lsb-first;
 			spi-rx-delay-us = <1>;
