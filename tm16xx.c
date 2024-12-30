@@ -26,28 +26,21 @@
 #define MIN_SEGMENT 0
 #define MAX_SEGMENT 7 /* data stored as 8 bits (u8) */
 
-/* Module parameter for transposed mode */
-static bool transpose_display = false;
-module_param(transpose_display, bool, 0644);
-MODULE_PARM_DESC(transpose_display, "Enable display data transposition (default: false)");
-
 /* Forward declarations */
 struct tm16xx_display;
 
 /**
  * struct tm16xx_controller - Controller-specific operations
  * @max_brightness: Maximum brightness level supported by the controller
- * @init: Initialize the controller
- * @brightness: Set brightness level
- * @data: Write display data
+ * @init: Get the commands to configure the controller mode and brigthness
+ * @data: Get the commands to write display data
  *
  * This structure holds function pointers for controller-specific operations.
  */
 struct tm16xx_controller {
-	u8 max_brightness;
-	int (*init)(struct tm16xx_display *display, u8 **cmd);
-	int (*brightness)(u8 **cmd, enum led_brightness brightness);
-	int (*data)(u8 **cmd, u8 index, u8 data);
+	const u8 max_brightness;
+	const int (*init)(struct tm16xx_display *display, u8 **cmd);
+	const int (*data)(u8 **cmd, u8 index, u8 data);
 };
 
 /**
@@ -87,7 +80,7 @@ struct tm16xx_digit {
  * @display_data: Display data buffer
  * @display_data_len: Length of display data buffer
  * @lock: Mutex for concurrent access protection
- * @flush_brightness: Work structure for brightness update
+ * @flush_init: Work structure for brightness update
  * @flush_display: Work structure for display update
  * @flush_status: Result of the last flush work
  * @client_write: Function pointer for client write operation
@@ -109,36 +102,39 @@ struct tm16xx_display {
 	u8 *display_data;
 	size_t display_data_len;
 	struct mutex lock;
-	struct work_struct flush_brightness;
+	struct work_struct flush_init;
 	struct work_struct flush_display;
 	int flush_status;
 	int (*client_write)(struct tm16xx_display *display, u8 *data, size_t len);
+	bool transpose_display_data;
 };
 
 /* Controller-specific functions */
 static int tm1628_cmd_init(struct tm16xx_display *display, u8 **cmd)
 {
-	// 01b mode is 5 grids with minimum of 7 segments
-	//    tm1618 : 5 digits, 7 segments
-	//    tm1620 : 5 digits, 9 segments
-	//    tm1628 : 5 digits, 12 segments
-	static const u8 MODE_CMD = 0 << 7 | 0 << 6, MODE = 0 << 1 | 1 << 0;
+	static const u8 MODE_CMD = 0 << 7 | 0 << 6;
+	static const u8 MODE_4GRIDS  = 0 << 1 | 0 << 0;
+	static const u8 MODE_5GRIDS  = 0 << 1 | 1 << 0;
+	static const u8 MODE_6GRIDS  = 1 << 1 | 0 << 0;
+	static const u8 MODE_7GRIDS  = 1 << 1 | 1 << 0;
 	static const u8 DATA_CMD = 0 << 7 | 1 << 6, DATA_ADDR_MODE = 0 << 2, DATA_WRITE_MODE = 0 << 1 | 0 << 0;
-
-	static u8 cmds[] = {
-		MODE_CMD | MODE,
-		DATA_CMD | DATA_ADDR_MODE | DATA_WRITE_MODE,
-	};
-
-	*cmd = cmds;
-	return ARRAY_SIZE(cmds);
-}
-
-static int tm1628_cmd_brightness(u8 **cmd, enum led_brightness brightness) {
-	static u8 cmds[1];
 	static const u8 CTRL_CMD = 1 << 7 | 0 << 6, ON_FLAG = 1 << 3, BR_MASK = 7, BR_SHIFT = 0;
+	const enum led_brightness brightness = display->main_led.brightness;
+	const u8 num_grids = display->transpose_display_data ? DIGIT_SEGMENTS : display->display_data_len;
+	static u8 cmds[3];
 
-	cmds[0] = CTRL_CMD | ((brightness && 1) * (((brightness-1) & BR_MASK) << BR_SHIFT | ON_FLAG));
+	cmds[0] = MODE_CMD;
+	if (num_grids <= 4) {
+		cmds[0] |= MODE_4GRIDS;
+	} else if (num_grids == 5) {
+		cmds[0] |= MODE_5GRIDS;
+	} else if (num_grids == 6) {
+		cmds[0] |= MODE_6GRIDS;
+	} else {
+		cmds[0] |= MODE_7GRIDS;
+	}
+	cmds[1] = DATA_CMD | DATA_ADDR_MODE | DATA_WRITE_MODE;
+	cmds[2] = CTRL_CMD | ((brightness && 1) * (((brightness-1) & BR_MASK) << BR_SHIFT | ON_FLAG));
 
 	*cmd = cmds;
 	return ARRAY_SIZE(cmds);
@@ -170,13 +166,14 @@ static int tm1628_cmd_data(u8 **cmd, u8 index, u8 data) {
 	return ARRAY_SIZE(cmds);
 }
 
-static int tm1650_cmd_brightness(u8 **cmd, enum led_brightness brightness) {
+static int tm1650_cmd_init(struct tm16xx_display *display, u8 **cmd) {
 	static u8 cmds[2];
 	static const u8 ON_FLAG = 1, BR_MASK = 7, BR_SHIFT = 4, SEG8_MODE = 0 << 3;
 	/* SEG7_MODE = 1 << 3
 	 * tm1650 and fd650 have only 4 digits and they
 	 * use an 8th segment for the time separator
 	 * */
+	const enum led_brightness brightness = display->main_led.brightness;
 
 	cmds[0]	= 0x48;
 	cmds[1] = (brightness && 1) * ((brightness & BR_MASK) << BR_SHIFT | SEG8_MODE | ON_FLAG);
@@ -196,9 +193,10 @@ static int tm1650_cmd_data(u8 **cmd, u8 index, u8 data) {
 	return ARRAY_SIZE(cmds);
 }
 
-static int fd655_cmd_brightness(u8 **cmd, enum led_brightness brightness) {
+static int fd655_cmd_init(struct tm16xx_display *display, u8 **cmd) {
 	static u8 cmds[2];
 	static const u8 ON_FLAG = 1, BR_MASK = 3, BR_SHIFT = 5;
+	const enum led_brightness brightness = display->main_led.brightness;
 
 	cmds[0]	= 0x48;
 	cmds[1] = (brightness && 1) * (((brightness % 3) & BR_MASK) << BR_SHIFT | ON_FLAG);
@@ -218,9 +216,10 @@ static int fd655_cmd_data(u8 **cmd, u8 index, u8 data) {
 	return ARRAY_SIZE(cmds);
 }
 
-static int fd6551_cmd_brightness(u8 **cmd, enum led_brightness brightness) {
+static int fd6551_cmd_init(struct tm16xx_display *display, u8 **cmd) {
 	static u8 cmds[2];
 	static const u8 ON_FLAG = 1, BR_MASK = 7, BR_SHIFT = 1;
+	const enum led_brightness brightness = display->main_led.brightness;
 
 	cmds[0]	= 0x48;
 	cmds[1] = (brightness && 1) * ((~(brightness - 1) & BR_MASK) << BR_SHIFT | ON_FLAG);
@@ -236,22 +235,13 @@ void hbs658_msb_to_lsb(u8 *array, size_t length) {
 }
 
 static int hbs658_cmd_init(struct tm16xx_display *display, u8 **cmd) {
+	static u8 cmds[2];
 	static const u8 DATA_CMD = 0 << 7 | 1 << 6, DATA_ADDR_MODE = 0 << 2, DATA_WRITE_MODE = 0 << 1 | 0 << 0;
-
-	static u8 cmds[] = {
-		DATA_CMD | DATA_ADDR_MODE | DATA_WRITE_MODE,
-	};
-
-	hbs658_msb_to_lsb(cmds, ARRAY_SIZE(cmds));
-	*cmd = cmds;
-	return ARRAY_SIZE(cmds);
-}
-
-static int hbs658_cmd_brightness(u8 **cmd, enum led_brightness brightness) {
-	static u8 cmds[1];
 	static const u8 CTRL_CMD = 1 << 7 | 0 << 6, ON_FLAG = 1 << 3, BR_MASK = 7, BR_SHIFT = 0;
+	const enum led_brightness brightness = display->main_led.brightness;
 
-	cmds[0] = CTRL_CMD | ((brightness && 1) * (((brightness - 1) & BR_MASK) << BR_SHIFT | ON_FLAG));
+	cmds[0] = DATA_CMD | DATA_ADDR_MODE | DATA_WRITE_MODE;
+	cmds[1] = CTRL_CMD | ((brightness && 1) * (((brightness - 1) & BR_MASK) << BR_SHIFT | ON_FLAG));
 
 	hbs658_msb_to_lsb(cmds, ARRAY_SIZE(cmds));
 	*cmd = cmds;
@@ -273,42 +263,36 @@ static int hbs658_cmd_data(u8 **cmd, u8 index, u8 data) {
 static const struct tm16xx_controller tm1618_controller = {
 	.max_brightness = 8,
 	.init = tm1628_cmd_init,
-	.brightness = tm1628_cmd_brightness,
 	.data = tm1618_cmd_data,
 };
 
 static const struct tm16xx_controller tm1628_controller = {
 	.max_brightness = 8,
 	.init = tm1628_cmd_init,
-	.brightness = tm1628_cmd_brightness,
 	.data = tm1628_cmd_data,
 };
 
 static const struct tm16xx_controller tm1650_controller = {
 	.max_brightness = 8,
-	.init = NULL,
-	.brightness = tm1650_cmd_brightness,
+	.init = tm1650_cmd_init,
 	.data = tm1650_cmd_data,
 };
 
 static const struct tm16xx_controller fd655_controller = {
 	.max_brightness = 3,
-	.init = NULL,
-	.brightness = fd655_cmd_brightness,
+	.init = fd655_cmd_init,
 	.data = fd655_cmd_data,
 };
 
 static const struct tm16xx_controller fd6551_controller = {
 	.max_brightness = 8,
-	.init = NULL,
-	.brightness = fd6551_cmd_brightness,
+	.init = fd6551_cmd_init,
 	.data = fd655_cmd_data,
 };
 
 static const struct tm16xx_controller hbs658_controller = {
 	.max_brightness = 8,
 	.init = hbs658_cmd_init,
-	.brightness = hbs658_cmd_brightness,
 	.data = hbs658_cmd_data,
 };
 
@@ -411,17 +395,17 @@ static int tm16xx_spi_write(struct tm16xx_display *display, u8 *data, size_t len
 }
 
 /**
- * tm16xx_display_flush_brightness - Work function to update brightness
+ * tm16xx_display_flush_init - Work function to update controller configuration (mode and brightness)
  * @work: Pointer to work_struct
  */
-static void tm16xx_display_flush_brightness(struct work_struct *work)
+static void tm16xx_display_flush_init(struct work_struct *work)
 {
-	struct tm16xx_display *display = container_of(work, struct tm16xx_display, flush_brightness);
+	struct tm16xx_display *display = container_of(work, struct tm16xx_display, flush_init);
 	u8 *cmd;
 	int len = -1, ret;
 
-	if (display->controller->brightness) {
-		len = display->controller->brightness(&cmd, display->main_led.brightness);
+	if (display->controller->init) {
+		len = display->controller->init(display, &cmd);
 	}
 
 	if (len > 0) {
@@ -478,7 +462,7 @@ static void tm16xx_display_flush_data_transposed(struct work_struct *work)
 	mutex_lock(&display->lock);
 
 	/* Write operations based on number of segments */
-	for (i = 0; i < DIGIT_SEGMENTS; i++) {
+	for (i = MIN_SEGMENT; i <= MAX_SEGMENT; i++) {
 		/* Gather bits from each grid for this segment */
 		transposed_data = 0;
 		for (j = 0; j < display->display_data_len; j++) {
@@ -510,23 +494,8 @@ static void tm16xx_display_flush_data_transposed(struct work_struct *work)
  */
 static int tm16xx_display_init(struct tm16xx_display *display)
 {
-	u8 *cmd;
-	int len = -1, ret;
-
-	if (display->controller->init) {
-		len = display->controller->init(display, &cmd);
-	}
-
-	if (len > 0) {
-		mutex_lock(&display->lock);
-		ret = display->client_write(display, cmd, len);
-		mutex_unlock(&display->lock);
-		if (ret < 0)
-			return ret;
-	}
-
-	schedule_work(&display->flush_brightness);
-	flush_work(&display->flush_brightness);
+	schedule_work(&display->flush_init);
+	flush_work(&display->flush_init);
 	if (display->flush_status < 0)
 		return display->flush_status;
 
@@ -551,8 +520,8 @@ static void tm16xx_display_remove(struct tm16xx_display *display)
 	flush_work(&display->flush_display);
 
 	display->main_led.brightness = LED_OFF;
-	schedule_work(&display->flush_brightness);
-	flush_work(&display->flush_brightness);
+	schedule_work(&display->flush_init);
+	flush_work(&display->flush_init);
 
 	dev_info(display->dev, "Display turned off\n");
 }
@@ -568,7 +537,7 @@ static void tm16xx_brightness_set(struct led_classdev *led_cdev,
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
 
 	led_cdev->brightness = brightness;
-	schedule_work(&display->flush_brightness);
+	schedule_work(&display->flush_init);
 }
 
 /**
@@ -883,6 +852,8 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 	int ret, i, max_grid = 0;
 	u8 *digits;
 
+	display->transpose_display_data = device_property_read_bool(dev, "tm16xx,transposed");
+
 	ret = device_property_count_u8(dev, "tm16xx,digits");
 	if (ret < 0) {
 		dev_err(dev, "Failed to count 'tm16xx,digits' property: %d\n", ret);
@@ -975,10 +946,10 @@ static int tm16xx_probe(struct tm16xx_display *display)
 	}
 
 	mutex_init(&display->lock);
-	INIT_WORK(&display->flush_brightness, tm16xx_display_flush_brightness);
+	INIT_WORK(&display->flush_init, tm16xx_display_flush_init);
 
     /* Initialize work structure with appropriate flush function */
-	if (transpose_display) {
+	if (display->transpose_display_data) {
 		INIT_WORK(&display->flush_display, tm16xx_display_flush_data_transposed);
 		dev_info(display->dev, "Operating in transposed mode\n");
 	} else {
