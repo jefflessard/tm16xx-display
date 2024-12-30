@@ -215,6 +215,7 @@ Create a .dtso file in `devices` directory
       * `scl-gpios`: clock gpio pin
   * `display-controller`
     * `compatible`: your display controller chip
+    * `tm16xx,transposed` : optional flag indicating that the data matrix should be transposed when writing to the controller (grids and segments are inverted), required on some devices
     * `tm16xx,digits`: variable lengh byte array determining the number of text grid digits and their index position 
     * `tm16xx,segment-mapping`: array of 7 bytes specifying which bit of a grid digit should be used for each ascii map segment
   * `led@X,Y`
