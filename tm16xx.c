@@ -467,7 +467,7 @@ static void tm16xx_display_flush_data_transposed(struct work_struct *work)
 			transposed_data = 0;
 			for (j = 0; j < display->display_data_len; j++) {
 				if (display->display_data[j] & BIT(i))
-					transposed_data |= BIT(j);
+					transposed_data |= BIT(MAX_SEGMENT - j);
 			}
 
 			ret = display->controller->data(display, i, transposed_data);
