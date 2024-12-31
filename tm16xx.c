@@ -32,15 +32,15 @@ struct tm16xx_display;
 /**
  * struct tm16xx_controller - Controller-specific operations
  * @max_brightness: Maximum brightness level supported by the controller
- * @init: Get the commands to configure the controller mode and brigthness
- * @data: Get the commands to write display data
+ * @init: Configures the controller mode and brightness
+ * @data: Writes display data to the controller
  *
  * This structure holds function pointers for controller-specific operations.
  */
 struct tm16xx_controller {
 	const u8 max_brightness;
-	const int (*init)(struct tm16xx_display *display, u8 **cmd);
-	const int (*data)(u8 **cmd, u8 index, u8 data);
+	const int (*init)(struct tm16xx_display *display);
+	const int (*data)(struct tm16xx_display *display, u8 index, u8 data);
 };
 
 /**
@@ -83,7 +83,7 @@ struct tm16xx_digit {
  * @flush_init: Work structure for brightness update
  * @flush_display: Work structure for display update
  * @flush_status: Result of the last flush work
- * @client_write: Function pointer for client write operation
+ * @transpose_display_data: Flag indicating if segments and grids should be transposed when writing data
  */
 struct tm16xx_display {
 	struct device *dev;
@@ -105,12 +105,55 @@ struct tm16xx_display {
 	struct work_struct flush_init;
 	struct work_struct flush_display;
 	int flush_status;
-	int (*client_write)(struct tm16xx_display *display, u8 *data, size_t len);
 	bool transpose_display_data;
 };
 
+/**
+ * tm16xx_i2c_write - Write data to I2C client
+ * @display: Pointer to tm16xx_display structure
+ * @data: Data to write
+ * @len: Length of data
+ *
+ * Return: Number of bytes written or negative error code
+ */
+static int tm16xx_i2c_write(struct tm16xx_display *display, u8 *data, size_t len)
+{
+	dev_dbg(display->dev, "i2c_write %*ph", (char)len, data);
+
+	struct i2c_msg msg = {
+		.addr = data[0] >> 1,
+		.flags = 0,
+		.len = len - 1,
+		.buf = &data[1],
+	};
+	int ret;
+
+	ret = i2c_transfer(display->client.i2c->adapter, &msg, 1);
+	if (ret < 0)
+		return ret;
+
+	return (ret == 1) ? len : -EIO;
+}
+
+/**
+ * tm16xx_spi_write - Write data to SPI client
+ * @display: Pointer to tm16xx_display structure
+ * @data: Data to write
+ * @len: Length of data
+ *
+ * Return: Number of bytes written or negative error code
+ */
+static int tm16xx_spi_write(struct tm16xx_display *display, u8 *data, size_t len)
+{
+	dev_dbg(display->dev, "spi_write %*ph", (char)len, data);
+
+	struct spi_device *spi = display->client.spi;
+
+	return spi_write(spi, data, len);
+}
+
 /* Controller-specific functions */
-static int tm1628_cmd_init(struct tm16xx_display *display, u8 **cmd)
+static int tm1628_init(struct tm16xx_display *display)
 {
 	static const u8 MODE_CMD = 0 << 7 | 0 << 6;
 	static const u8 MODE_4GRIDS  = 0 << 1 | 0 << 0;
@@ -121,53 +164,62 @@ static int tm1628_cmd_init(struct tm16xx_display *display, u8 **cmd)
 	static const u8 CTRL_CMD = 1 << 7 | 0 << 6, ON_FLAG = 1 << 3, BR_MASK = 7, BR_SHIFT = 0;
 	const enum led_brightness brightness = display->main_led.brightness;
 	const u8 num_grids = display->transpose_display_data ? DIGIT_SEGMENTS : display->display_data_len;
-	static u8 cmds[3];
+	u8 cmd;
+	int ret;
 
-	cmds[0] = MODE_CMD;
+	cmd = MODE_CMD;
 	if (num_grids <= 4) {
-		cmds[0] |= MODE_4GRIDS;
+		cmd |= MODE_4GRIDS;
 	} else if (num_grids == 5) {
-		cmds[0] |= MODE_5GRIDS;
+		cmd |= MODE_5GRIDS;
 	} else if (num_grids == 6) {
-		cmds[0] |= MODE_6GRIDS;
+		cmd |= MODE_6GRIDS;
 	} else {
-		cmds[0] |= MODE_7GRIDS;
+		cmd |= MODE_7GRIDS;
 	}
-	cmds[1] = DATA_CMD | DATA_ADDR_MODE | DATA_WRITE_MODE;
-	cmds[2] = CTRL_CMD | ((brightness && 1) * (((brightness-1) & BR_MASK) << BR_SHIFT | ON_FLAG));
+	ret = tm16xx_spi_write(display, &cmd, 1);
+	if (ret < 0)
+		return ret;
 
-	*cmd = cmds;
-	return ARRAY_SIZE(cmds);
+	cmd = DATA_CMD | DATA_ADDR_MODE | DATA_WRITE_MODE;
+	ret = tm16xx_spi_write(display, &cmd, 1);
+	if (ret < 0)
+		return ret;
+
+	cmd = CTRL_CMD | ((brightness && 1) * (((brightness-1) & BR_MASK) << BR_SHIFT | ON_FLAG));
+	ret = tm16xx_spi_write(display, &cmd, 1);
+	if (ret < 0)
+		return ret;
+
+	return 0;
 }
 
-static int tm1618_cmd_data(u8 **cmd, u8 index, u8 data) {
+static int tm1618_data(struct tm16xx_display *display, u8 index, u8 data) {
 	static const u8 ADDR_CMD = 1 << 7 | 1 << 6;
 	static const u8 BYTE1_MASK = 0x1F, BYTE1_RSHIFT = 0;
 	static const u8 BYTE2_MASK = ~BYTE1_MASK, BYTE2_RSHIFT = 5-3;
-	static u8 cmds[3];
+	u8 cmds[3];
 
 	cmds[0] = ADDR_CMD + index * 2;
 	cmds[1] = (data & BYTE1_MASK) >> BYTE1_RSHIFT;
 	cmds[2] = (data & BYTE2_MASK) >> BYTE2_RSHIFT;
 
-	*cmd = cmds;
-	return ARRAY_SIZE(cmds);
+	return tm16xx_spi_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static int tm1628_cmd_data(u8 **cmd, u8 index, u8 data) {
+static int tm1628_data(struct tm16xx_display *display, u8 index, u8 data) {
 	static const u8 ADDR_CMD = 1 << 7 | 1 << 6;
-	static u8 cmds[3];
+	u8 cmds[3];
 
 	cmds[0] = ADDR_CMD + index * 2;
 	cmds[1] = data; // SEG 1 to 8
 	cmds[2] = 0; // SEG 9 to 14
 
-	*cmd = cmds;
-	return ARRAY_SIZE(cmds);
+	return tm16xx_spi_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static int tm1650_cmd_init(struct tm16xx_display *display, u8 **cmd) {
-	static u8 cmds[2];
+static int tm1650_init(struct tm16xx_display *display) {
+	u8 cmds[2];
 	static const u8 ON_FLAG = 1, BR_MASK = 7, BR_SHIFT = 4, SEG8_MODE = 0 << 3;
 	/* SEG7_MODE = 1 << 3
 	 * tm1650 and fd650 have only 4 digits and they
@@ -178,54 +230,49 @@ static int tm1650_cmd_init(struct tm16xx_display *display, u8 **cmd) {
 	cmds[0]	= 0x48;
 	cmds[1] = (brightness && 1) * ((brightness & BR_MASK) << BR_SHIFT | SEG8_MODE | ON_FLAG);
 
-	*cmd = cmds;
-	return ARRAY_SIZE(cmds);
+	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static int tm1650_cmd_data(u8 **cmd, u8 index, u8 data) {
+static int tm1650_data(struct tm16xx_display *display, u8 index, u8 data) {
 	static const u8 BASE_ADDR = 0x68;
-	static u8 cmds[2];
+	u8 cmds[2];
 
 	cmds[0] = BASE_ADDR + index * 2;
 	cmds[1] = data; // SEG 1 to 8
 
-	*cmd = cmds;
-	return ARRAY_SIZE(cmds);
+	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static int fd655_cmd_init(struct tm16xx_display *display, u8 **cmd) {
-	static u8 cmds[2];
+static int fd655_init(struct tm16xx_display *display) {
+	u8 cmds[2];
 	static const u8 ON_FLAG = 1, BR_MASK = 3, BR_SHIFT = 5;
 	const enum led_brightness brightness = display->main_led.brightness;
 
 	cmds[0]	= 0x48;
 	cmds[1] = (brightness && 1) * (((brightness % 3) & BR_MASK) << BR_SHIFT | ON_FLAG);
 
-	*cmd = cmds;
-	return ARRAY_SIZE(cmds);
+	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static int fd655_cmd_data(u8 **cmd, u8 index, u8 data) {
+static int fd655_data(struct tm16xx_display *display, u8 index, u8 data) {
 	static const u8 BASE_ADDR = 0x66;
-	static u8 cmds[2];
+	u8 cmds[2];
 
 	cmds[0] = BASE_ADDR + index * 2;
 	cmds[1] = data; // SEG 1 to 8
 
-	*cmd = cmds;
-	return ARRAY_SIZE(cmds);
+	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static int fd6551_cmd_init(struct tm16xx_display *display, u8 **cmd) {
-	static u8 cmds[2];
+static int fd6551_init(struct tm16xx_display *display) {
+	u8 cmds[2];
 	static const u8 ON_FLAG = 1, BR_MASK = 7, BR_SHIFT = 1;
 	const enum led_brightness brightness = display->main_led.brightness;
 
 	cmds[0]	= 0x48;
 	cmds[1] = (brightness && 1) * ((~(brightness - 1) & BR_MASK) << BR_SHIFT | ON_FLAG);
 
-	*cmd = cmds;
-	return ARRAY_SIZE(cmds);
+	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
 void hbs658_msb_to_lsb(u8 *array, size_t length) {
@@ -234,66 +281,73 @@ void hbs658_msb_to_lsb(u8 *array, size_t length) {
 	}
 }
 
-static int hbs658_cmd_init(struct tm16xx_display *display, u8 **cmd) {
-	static u8 cmds[2];
+static int hbs658_init(struct tm16xx_display *display) {
+	u8 cmd;
 	static const u8 DATA_CMD = 0 << 7 | 1 << 6, DATA_ADDR_MODE = 0 << 2, DATA_WRITE_MODE = 0 << 1 | 0 << 0;
 	static const u8 CTRL_CMD = 1 << 7 | 0 << 6, ON_FLAG = 1 << 3, BR_MASK = 7, BR_SHIFT = 0;
 	const enum led_brightness brightness = display->main_led.brightness;
+	int ret;
 
-	cmds[0] = DATA_CMD | DATA_ADDR_MODE | DATA_WRITE_MODE;
-	cmds[1] = CTRL_CMD | ((brightness && 1) * (((brightness - 1) & BR_MASK) << BR_SHIFT | ON_FLAG));
+	cmd = DATA_CMD | DATA_ADDR_MODE | DATA_WRITE_MODE;
+	hbs658_msb_to_lsb(&cmd, 1);
+	ret = tm16xx_spi_write(display, &cmd, 1);
+	if (ret < 0)
+		return ret;
 
-	hbs658_msb_to_lsb(cmds, ARRAY_SIZE(cmds));
-	*cmd = cmds;
-	return ARRAY_SIZE(cmds);
+	cmd = CTRL_CMD | ((brightness && 1) * (((brightness - 1) & BR_MASK) << BR_SHIFT | ON_FLAG));
+	hbs658_msb_to_lsb(&cmd, 1);
+	ret = tm16xx_spi_write(display, &cmd, 1);
+	if (ret < 0)
+		return ret;
+
+	return 0;
 }
 
-static int hbs658_cmd_data(u8 **cmd, u8 index, u8 data) {
+static int hbs658_data(struct tm16xx_display *display, u8 index, u8 data) {
 	static const u8 ADDR_CMD = 1 << 7 | 1 << 6;
-	static u8 cmds[2];
+	u8 cmds[2];
 
 	cmds[0] = ADDR_CMD + index * 2;
 	cmds[1] = data;
 
 	hbs658_msb_to_lsb(cmds, ARRAY_SIZE(cmds));
-	*cmd = cmds;
-	return ARRAY_SIZE(cmds);
+	return tm16xx_spi_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
 static const struct tm16xx_controller tm1618_controller = {
 	.max_brightness = 8,
-	.init = tm1628_cmd_init,
-	.data = tm1618_cmd_data,
+	.init = tm1628_init,
+	.data = tm1618_data,
 };
 
 static const struct tm16xx_controller tm1628_controller = {
 	.max_brightness = 8,
-	.init = tm1628_cmd_init,
-	.data = tm1628_cmd_data,
+	.init = tm1628_init,
+	.data = tm1628_data,
 };
 
 static const struct tm16xx_controller tm1650_controller = {
 	.max_brightness = 8,
-	.init = tm1650_cmd_init,
-	.data = tm1650_cmd_data,
+	.init = tm1650_init,
+	.data = tm1650_data,
 };
 
 static const struct tm16xx_controller fd655_controller = {
 	.max_brightness = 3,
-	.init = fd655_cmd_init,
-	.data = fd655_cmd_data,
+	.init = fd655_init,
+	.data = fd655_data,
 };
 
 static const struct tm16xx_controller fd6551_controller = {
 	.max_brightness = 8,
-	.init = fd6551_cmd_init,
-	.data = fd655_cmd_data,
+	.init = fd6551_init,
+	.data = fd655_data,
 };
 
 static const struct tm16xx_controller hbs658_controller = {
 	.max_brightness = 8,
-	.init = hbs658_cmd_init,
-	.data = hbs658_cmd_data,
+	.init = hbs658_init,
+	.data = hbs658_data,
 };
 
 static int parse_int_array(const char *buf, int **array)
@@ -351,66 +405,17 @@ static u8 tm16xx_ascii_to_segments(struct tm16xx_display *display, char c)
 }
 
 /**
- * tm16xx_i2c_write - Write data to I2C client
- * @display: Pointer to tm16xx_display structure
- * @data: Data to write
- * @len: Length of data
- *
- * Return: Number of bytes written or negative error code
- */
-static int tm16xx_i2c_write(struct tm16xx_display *display, u8 *data, size_t len)
-{
-	dev_dbg(display->dev, "i2c_write %*ph", (char)len, data);
-
-	struct i2c_msg msg = {
-		.addr = data[0] >> 1,
-		.flags = 0,
-		.len = len - 1,
-		.buf = &data[1],
-	};
-	int ret;
-
-	ret = i2c_transfer(display->client.i2c->adapter, &msg, 1);
-	if (ret < 0)
-		return ret;
-
-	return (ret == 1) ? len : -EIO;
-}
-
-/**
- * tm16xx_spi_write - Write data to SPI client
- * @display: Pointer to tm16xx_display structure
- * @data: Data to write
- * @len: Length of data
- *
- * Return: Number of bytes written or negative error code
- */
-static int tm16xx_spi_write(struct tm16xx_display *display, u8 *data, size_t len)
-{
-	dev_dbg(display->dev, "spi_write %*ph", (char)len, data);
-
-	struct spi_device *spi = display->client.spi;
-
-	return spi_write(spi, data, len);
-}
-
-/**
  * tm16xx_display_flush_init - Work function to update controller configuration (mode and brightness)
  * @work: Pointer to work_struct
  */
 static void tm16xx_display_flush_init(struct work_struct *work)
 {
 	struct tm16xx_display *display = container_of(work, struct tm16xx_display, flush_init);
-	u8 *cmd;
-	int len = -1, ret;
+	int ret;
 
 	if (display->controller->init) {
-		len = display->controller->init(display, &cmd);
-	}
-
-	if (len > 0) {
 		mutex_lock(&display->lock);
-		ret = display->client_write(display, cmd, len);
+		ret = display->controller->init(display);
 		display->flush_status = ret;
 		mutex_unlock(&display->lock);
 		if (ret < 0)
@@ -425,18 +430,13 @@ static void tm16xx_display_flush_init(struct work_struct *work)
 static void tm16xx_display_flush_data(struct work_struct *work)
 {
 	struct tm16xx_display *display = container_of(work, struct tm16xx_display, flush_display);
-	u8 *cmd;
-	int i, len = -1, ret = 0;
+	int i, ret = 0;
 
 	mutex_lock(&display->lock);
 
-	for (i = 0; i < display->display_data_len; i++) {
-		if (display->controller->data) {
-			len = display->controller->data(&cmd, i, display->display_data[i]);
-		}
-
-		if (len > 0) {
-			ret = display->client_write(display, cmd, len);
+	if (display->controller->data) {
+		for (i = 0; i < display->display_data_len; i++) {
+			ret = display->controller->data(display, i, display->display_data[i]);
 			if (ret < 0) {
 				dev_err(display->dev, "Failed to write display data: %d\n", ret);
 				break;
@@ -455,29 +455,25 @@ static void tm16xx_display_flush_data(struct work_struct *work)
 static void tm16xx_display_flush_data_transposed(struct work_struct *work)
 {
 	struct tm16xx_display *display = container_of(work, struct tm16xx_display, flush_display);
-	u8 *cmd;
-	int i, j, len, ret = 0;
+	int i, j, ret = 0;
 	u8 transposed_data;
 
 	mutex_lock(&display->lock);
 
-	/* Write operations based on number of segments */
-	for (i = MIN_SEGMENT; i <= MAX_SEGMENT; i++) {
-		/* Gather bits from each grid for this segment */
-		transposed_data = 0;
-		for (j = 0; j < display->display_data_len; j++) {
-			if (display->display_data[j] & BIT(i))
-				transposed_data |= BIT(j);
-		}
+	if (display->controller->data) {
+		/* Write operations based on number of segments */
+		for (i = MIN_SEGMENT; i <= MAX_SEGMENT; i++) {
+			/* Gather bits from each grid for this segment */
+			transposed_data = 0;
+			for (j = 0; j < display->display_data_len; j++) {
+				if (display->display_data[j] & BIT(i))
+					transposed_data |= BIT(j);
+			}
 
-		if (display->controller->data) {
-			len = display->controller->data(&cmd, i, transposed_data);
-			if (len > 0) {
-				ret = display->client_write(display, cmd, len);
-				if (ret < 0) {
-					dev_err(display->dev, "Failed to write transposed data: %d\n", ret);
-					break;
-				}
+			ret = display->controller->data(display, i, transposed_data);
+			if (ret < 0) {
+				dev_err(display->dev, "Failed to write transposed data: %d\n", ret);
+				break;
 			}
 		}
 	}
@@ -1033,7 +1029,6 @@ static int tm16xx_spi_probe(struct spi_device *spi)
 	display->client.spi = spi;
 	display->dev = &spi->dev;
 	display->controller = controller;
-	display->client_write = tm16xx_spi_write;
 
 	spi_set_drvdata(spi, display);
 
@@ -1103,7 +1098,6 @@ static int tm16xx_i2c_probe(struct i2c_client *client)
 	display->client.i2c = client;
 	display->dev = &client->dev;
 	display->controller = controller;
-	display->client_write = tm16xx_i2c_write;
 
 	i2c_set_clientdata(client, display);
 
