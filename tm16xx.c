@@ -26,6 +26,10 @@
 #define MIN_SEGMENT 0
 #define MAX_SEGMENT 7 /* data stored as 8 bits (u8) */
 
+static char *default_value = NULL;
+module_param(default_value, charp, 0644);
+MODULE_PARM_DESC(default_value, "Default display value to initialize");
+
 /* Forward declarations */
 struct tm16xx_display;
 
@@ -483,29 +487,6 @@ static void tm16xx_display_flush_data_transposed(struct work_struct *work)
 }
 
 /**
- * tm16xx_display_init - Initialize the display
- * @display: Pointer to tm16xx_display structure
- *
- * Return: 0 on success, negative error code on failure
- */
-static int tm16xx_display_init(struct tm16xx_display *display)
-{
-	schedule_work(&display->flush_init);
-	flush_work(&display->flush_init);
-	if (display->flush_status < 0)
-		return display->flush_status;
-
-	memset(display->display_data, 0xFF, display->display_data_len);
-	schedule_work(&display->flush_display);
-	flush_work(&display->flush_display);
-	memset(display->display_data, 0x00, display->display_data_len);
-	if (display->flush_status < 0)
-		return display->flush_status;
-
-	return 0;
-}
-
-/**
  * tm16xx_display_remove - Remove the display
  * @display: Pointer to tm16xx_display structure
  */
@@ -834,6 +815,35 @@ static struct attribute *tm16xx_main_led_attrs[] = {
 	NULL,
 };
 ATTRIBUTE_GROUPS(tm16xx_main_led);
+
+/**
+ * tm16xx_display_init - Initialize the display
+ * @display: Pointer to tm16xx_display structure
+ *
+ * Return: 0 on success, negative error code on failure
+ */
+static int tm16xx_display_init(struct tm16xx_display *display)
+{
+	schedule_work(&display->flush_init);
+	flush_work(&display->flush_init);
+	if (display->flush_status < 0)
+		return display->flush_status;
+
+	if (default_value && strlen(default_value) > 0) {
+		tm16xx_display_value_store(
+			display->main_led.dev, NULL,
+			default_value, strlen(default_value));
+	} else {
+		memset(display->display_data, 0xFF, display->display_data_len);
+		schedule_work(&display->flush_display);
+		flush_work(&display->flush_display);
+		memset(display->display_data, 0x00, display->display_data_len);
+		if (display->flush_status < 0)
+			return display->flush_status;
+	}
+
+	return 0;
+}
 
 /**
  * tm16xx_parse_dt - Parse device tree data
