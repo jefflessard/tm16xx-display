@@ -24,6 +24,43 @@ See [Device Table](DEVICES.md)
 * Unknown
   * hbs,hbs658 (no datasheet)
 
+# Overview
+
+```mermaid
+graph TD;
+    subgraph "User Space"
+        A["display-service - systemd service"]
+    end
+    subgraph "Kernel Space"
+        B["tm16xx - Kernel Driver Module"]
+    end
+    subgraph "Hardware"
+        C["display-controller - tm16xx Chip"]
+    end
+
+    A -->|leds class sysfs interface| B
+    B -->|Device Tree Node - I2C or SPI| C
+```
+
+### Explanation:
+
+- **User Space:**
+  - `display-service`: A systemd service running in user space, interacting with the kernel driver via the sysfs interface.
+
+- **Kernel Space:**
+  - `tm16xx`: The kernel driver module that exposes control interfaces through sysfs, allowing user-space applications to control the display hardware.
+
+- **Hardware:**
+  - `display-controller`: The actual tm16xx chip that manages the display.
+
+### Interaction Flow:
+
+1. **User Space to Kernel Space:**
+   - The `display-service` interacts with the `tm16xx` kernel driver via the sysfs LEDs class interface, typically found under `/sys/class/leds/`.
+
+2. **Kernel Space to Hardware:**
+   - The `tm16xx` driver relies on the device tree node (which defines hardware properties) to communicate with the display controller, using either I2C or SPI.
+
 # Installation Instructions
 
 ## Prerequisites
