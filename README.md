@@ -58,9 +58,19 @@ git clone https://github.com/jefflessard/tm16xx-display.git
 2. Update your dtb
 
 *Option 1: Use device tree overlay, if supported*
+  * Build overlay
 ```sh
 # This will create the overlay in release/{YOUR_DEVICE_NAME}.dtbo
 make {YOUR_DEVICE_NAME}.dtbo 
+```
+   * Copy dtbo in `/boot/overlay-user/`
+```sh
+cp release/{YOUR_DEVICE_NAME}.dtbo /boot/overlay-user/tm16xx.dtbo
+```
+
+   * Edit `/boot/armbianEnv.txt` to load the overlay
+```
+user_overlays=tm16xx
 ```
 
 *Option 2: Create an updated dtb*
