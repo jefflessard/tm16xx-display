@@ -354,7 +354,7 @@ static const struct tm16xx_controller hbs658_controller = {
 	.data = hbs658_data,
 };
 
-static int parse_int_array(const char *buf, int **array)
+static int tm16xx_parse_int_array(const char *buf, int **array)
 {
 	int *values, value, count = 0, len;
 	const char *ptr = buf;
@@ -661,7 +661,7 @@ static ssize_t tm16xx_segment_mapping_store(struct device *dev, struct device_at
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
 	int *array, ret, i;
 
-	ret = parse_int_array(buf, &array);
+	ret = tm16xx_parse_int_array(buf, &array);
 	if (ret < 0)
 		return ret;
 
@@ -732,7 +732,7 @@ static ssize_t tm16xx_digits_ordering_store(struct device *dev, struct device_at
 	int *array, ret, i, j;
 	bool found;
 
-	ret = parse_int_array(buf, &array);
+	ret = tm16xx_parse_int_array(buf, &array);
 	if (ret < 0)
 		return ret;
 
