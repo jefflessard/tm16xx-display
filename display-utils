@@ -1,242 +1,280 @@
-#!/bin/bash
+#!/bin/sh
 
 set -e
 
 display_init() {
-	systemctl stop display
-
-	cat /sys/class/leds/display/max_brightness > /sys/class/leds/display/brightness
+    systemctl stop display
+    cat /sys/class/leds/display/max_brightness > /sys/class/leds/display/brightness
 }
 
 display_cleanup() {
-	echo "${SEGMENTS}" > /sys/class/leds/display/segments
+    echo "$SEGMENTS" > /sys/class/leds/display/segments
     systemctl start display
-	pkill -P $$ # kill child processes, if any
+    pkill -P $$ 2>/dev/null || true
 }
 
 display_text() {
-	TEXT="$1"
-	PADDING="$2"
-	SLEEP="$3"
+    TEXT="$1"
+    PADDING="$2"
+    SLEEP="$3"
 
-	if [ -n "$PADDING" ]; then
-		for i in $(seq 1 $NUM_DIGITS); do
-			TEXT="$PADDING$TEXT$PADDING"
-		done
-	fi
+    if [ -n "$PADDING" ]; then
+        i=1
+        while [ "$i" -le "$NUM_DIGITS" ]; do
+            TEXT="$PADDING$TEXT$PADDING"
+            i=$((i+1))
+        done
+    fi
 
-	while [ "${#TEXT}" -ge "$NUM_DIGITS" ]; do
-		echo "${TEXT:0:$NUM_DIGITS}" > /sys/class/leds/display/value
-		TEXT="${TEXT:1}"
-		sleep $SLEEP
-	done
+    tmp_TEXT="$TEXT"
+    while [ "$(printf "%s" "$tmp_TEXT" | wc -c)" -ge "$NUM_DIGITS" ]; do
+        printf "%s\n" "$(printf "%s" "$tmp_TEXT" | cut -c1-"$NUM_DIGITS")" > /sys/class/leds/display/value
+        tmp_TEXT="$(printf "%s" "$tmp_TEXT" | cut -c2-)"
+        sleep "$SLEEP"
+    done
 }
 
 display_check() {
-	echo "all digits and leds on"
-	echo 88888888 > /sys/class/leds/display/value
-	for led in /sys/class/leds/display::*; do
-		echo 1 > $led/brightness
-	done
-	sleep 1
+    echo "all digits and leds on"
+    echo 88888888 > /sys/class/leds/display/value
+    for led in /sys/class/leds/display::*; do
+        echo 1 > "$led/brightness"
+    done
+    sleep 1
 
-	echo "all digitd and leds off"
-	echo > /sys/class/leds/display/value
-	for led in /sys/class/leds/display::*; do
-		echo 0 > $led/brightness
-	done
+    echo "all digits and leds off"
+    echo > /sys/class/leds/display/value
+    for led in /sys/class/leds/display::*; do
+        echo 0 > "$led/brightness"
+    done
 
-	echo "digit order: 1234"
-	echo 12345678 > /sys/class/leds/display/value
-	sleep 1
+    echo "digit order: 1234"
+    echo 12345678 > /sys/class/leds/display/value
+    sleep 1
 
-	for led in /sys/class/leds/display::*; do
-		echo 1 > $led/brightness
-		led_name="${led##*:}"
-		led_name="${led_name@U}"
-		echo "led ${led_name} on"
-		display_text "${led_name}" " " 0.25
-		echo 0 > $led/brightness
-	done
+    for led in /sys/class/leds/display::*; do
+        echo 1 > "$led/brightness"
+        led_name="${led##*:}"
+        # Convert to uppercase (ash does not support ${x@U})
+        led_uc="$(printf "%s" "$led_name" | tr '[:lower:]' '[:upper:]')"
+        echo "led ${led_uc} on"
+        display_text "$led_uc" " " 0.25
+        echo 0 > "$led/brightness"
+    done
 }
 
 prompt_user_segment() {
-    local prompt_message="$1"
-    local response=""
+    prompt_message="$1"
     while true; do
-        read -p "$prompt_message (A-G or empty): " response
-        case $response in
-			"") echo "$response"; return 0;;
-            [A-Ga-g] ) echo "$response"; return 0;;
-            * ) echo "Invalid input. Please enter a valid segment (A-G) or empty.";;
+        printf "%s (A-G or empty): " "$prompt_message"
+        read response
+        case "$response" in
+            "") echo "$response"; return 0;;
+            [A-Ga-g]) echo "$response"; return 0;;
+            *) echo "Invalid input. Please enter a valid segment (A-G) or empty.";;
         esac
     done
 }
 
 print_segment_schema() {
-	echo
-	echo "   --A--   "
+    echo
+    echo "   --A--   "
     echo "  |     |  "
     echo "  F     B  "
     echo "  |     |  "
-    echo "   --G--"  
+    echo "   --G--"
     echo "  |     |  "
     echo "  E     C  "
     echo "  |     |  "
     echo "   --D--   "
-	echo
+    echo
 }
 
 blink_segment() {
-	local i="$1"
-	local num_digits="$2"
-	local text=$(printf '%*s' $num_digits | tr ' ' '8')
+    i="$1"
+    num_digits="$2"
+    text=$(awk -v n="$num_digits" 'BEGIN{for(i=0;i<n;i++)s=s"8";print s}')
 
-	while true; do
-    	echo > /sys/class/leds/display/value
+    while true; do
+        echo > /sys/class/leds/display/value
         echo "0 1 2 3 4 5 6" > /sys/class/leds/display/segments
-    	echo "$text" > /sys/class/leds/display/value
-		sleep 0.25
+        echo "$text" > /sys/class/leds/display/value
+        sleep 0.25
 
-    	echo > /sys/class/leds/display/value
-        echo "$i $i $i $i $i $i $i" > /sys/class/leds/display/segments
-    	echo "$text" > /sys/class/leds/display/value
-		sleep 0.25
-	done
+        echo > /sys/class/leds/display/value
+        segs=""
+        j=1
+        while [ "$j" -le 7 ]; do
+            segs="$segs $i"
+            j=$((j+1))
+        done
+        echo "$segs" | sed 's/^ //' > /sys/class/leds/display/segments
+        echo "$text" > /sys/class/leds/display/value
+        sleep 0.25
+    done
 }
 
 identify_segments() {
-	local segments=($(cat /sys/class/leds/display/segments))
-	local num_digits=$(cat /sys/class/leds/display/num_digits)
-    declare -A segment_mapping
+    segments="$(cat /sys/class/leds/display/segments)"
+    num_digits="$(cat /sys/class/leds/display/num_digits)"
+    segment_mapping=""
+    mapped_count=0
 
     echo "Segment Mapping:"
-    echo "Original segments: [${segments[@]}]"
+    echo "Original segments: [$segments]"
     print_segment_schema
 
-	for i in {0..7}; do
-		blink_segment "$i" "$num_digits" &
-		
-		segment=$(prompt_user_segment "Enter blinking segment $i")
-		if [ -n "${segment}" ]; then
-	        segment_mapping[$segment]=$i
-		fi
+    for i in 0 1 2 3 4 5 6 7; do
+        blink_segment "$i" "$num_digits" &
+        BLINK_PID=$!
 
-		pkill -P $$ # kill blink bg process
+        segment=$(prompt_user_segment "Enter blinking segment $i")
+        if [ -n "$segment" ]; then
+            segment_mapping="$segment_mapping $segment:$i"
+            mapped_count=$((mapped_count+1))
+        fi
 
-		if [ ${#segment_mapping[@]} -eq 7 ]; then
-			echo "All 7 segments have been mapped."
-			break
-		fi
+        kill "$BLINK_PID" 2>/dev/null
+        wait "$BLINK_PID" 2>/dev/null
+
+        if [ "$mapped_count" -eq 7 ]; then
+            echo "All 7 segments have been mapped."
+            break
+        fi
     done
-    
-	if [ ${#segment_mapping[@]} -eq 7 ]; then
-		SEGMENTS=$(echo "${segment_mapping[@]}" | rev)
-		echo "Segment mapping: [${SEGMENTS}]"
-		echo "${SEGMENTS}" > /sys/class/leds/display/segments
-		echo
-	else
-		>&2 echo "Incomplete segment mapping"
-		echo "${SEGMENTS}" > /sys/class/leds/display/segments
-		echo
-	fi
+
+    if [ "$mapped_count" -eq 7 ]; then
+        # Map A-G to their indices
+        SEGMENTS=""
+        for seg in A B C D E F G; do
+            idx=$(echo "$segment_mapping" | tr ' ' '\n' | grep "^$seg:" | cut -d: -f2)
+            SEGMENTS="$SEGMENTS $idx"
+        done
+        SEGMENTS=$(echo "$SEGMENTS" | sed 's/^ *//;s/ *$//')
+        echo "Segment mapping: [$SEGMENTS]"
+        echo "$SEGMENTS" > /sys/class/leds/display/segments
+        echo
+    else
+        echo "Incomplete segment mapping" >&2
+        echo "$SEGMENTS" > /sys/class/leds/display/segments
+        echo
+    fi
 }
 
 prompt_user_order() {
-    local prompt_message="$1"
-	local max="$2"
-    local response=""
+    prompt_message="$1"
+    max="$2"
     while true; do
-        read -p "$prompt_message (1-$max): " response
-        case $response in
-            [1-$max] ) echo "$response"; return 0;;
-            * ) echo "Invalid input. Please enter a valid digit order (1-$max)." ;;
+        printf "%s (1-%s): " "$prompt_message" "$max"
+        read response
+        case "$response" in
+            [1-9]) [ "$response" -le "$max" ] 2>/dev/null && echo "$response" && return 0;;
+            *) echo "Invalid input. Please enter a valid digit order (1-$max).";;
         esac
     done
 }
 
 reorder_digits() {
-	local digits=($(cat /sys/class/leds/display/digits))
-	local num_digits=${#digits[@]}
-	local text="$(seq -s '' 1 $num_digits)"
-    local positions=()
-    local digits_order=()
+    digits="$(cat /sys/class/leds/display/digits)"
+    # Split digits into positional params
+    set -- $digits
+    num_digits=$#
 
+    text=""
+    i=1
+    while [ "$i" -le "$num_digits" ]; do
+        text="${text}${i}"
+        i=$((i+1))
+    done
+
+    positions=""
+    digits_order=""
     echo "Validating digit order"
-    echo "Original digits: [${digits[@]}]"
-	echo
-	echo "  $text"
-	echo
+    echo "Original digits: [$digits]"
+    echo
+    echo "  $text"
+    echo
     echo "$text" > /sys/class/leds/display/value
 
-    for ((i=0; i<num_digits; i++)); do
-		position=$(prompt_user_order "Enter the position of digit $((i+1))" $num_digits)
-        positions+=("$position")
+    i=1
+    while [ "$i" -le "$num_digits" ]; do
+        position=$(prompt_user_order "Enter the position of digit $i" "$num_digits")
+        positions="$positions $position"
+        i=$((i+1))
     done
 
-    for ((i=0; i<num_digits; i++)); do
-        index=$((positions[i]-1))
-        digits_order[$index]="${digits[i]}"
+    i=1
+    for pos in $positions; do
+        eval d=\${$i}
+        eval digits_order_$pos="$d"
+        i=$((i+1))
     done
 
-	DIGITS="${digits_order[*]}"
-    echo "Digit order: [${DIGITS}]"
-    echo "${DIGITS}" > /sys/class/leds/display/digits
-	echo
+    DIGITS=""
+    i=1
+    while [ "$i" -le "$num_digits" ]; do
+        eval d=\$digits_order_$i
+        DIGITS="$DIGITS $d"
+        i=$((i+1))
+    done
+
+    DIGITS=$(echo "$DIGITS" | sed 's/^ *//;s/ *$//')
+    echo "Digit order: [$DIGITS]"
+    echo "$DIGITS" > /sys/class/leds/display/digits
+    echo
 }
 
 print_dt_config() {
-	echo "Update your device tree configuration to:"
-	echo
-	echo "	tm16xx,digits = [${DIGITS}];"
-	echo "	tm16xx,segment-mapping = [${SEGMENTS}];"
-	echo
+    echo "Update your device tree configuration to:"
+    echo
+    echo "    tm16xx,digits = [$DIGITS];"
+    echo "    tm16xx,segment-mapping = [$SEGMENTS];"
+    echo
 }
 
+trap display_cleanup HUP TERM QUIT INT
 
-trap display_cleanup SIGHUP SIGTERM SIGQUIT SIGKILL SIGINT
-
-NUM_DIGITS=$(cat /sys/class/leds/display/num_digits)
-SEGMENTS=$(cat /sys/class/leds/display/segments)
+NUM_DIGITS="$(cat /sys/class/leds/display/num_digits)"
+SEGMENTS="$(cat /sys/class/leds/display/segments)"
 
 usage() {
-	echo "Usage:"
-	echo "  $0 -t <text_to_display>"
-	echo "  $0 -c	Check display config"
-	echo "  $0 -a	Assisted config"
-	echo "  $0 -s	Segments identification"
-	echo "  $0 -d	Digits reordering"
-	exit 1
+    echo "Usage:"
+    echo "  $0 -t <text_to_display>"
+    echo "  $0 -c   Check display config"
+    echo "  $0 -a   Assisted config"
+    echo "  $0 -s   Segments identification"
+    echo "  $0 -d   Digits reordering"
+    exit 1
 }
 
-if [ "$1" == "-t" ]; then
-	[ $# -ne 2 ] && usage
-	display_init
-	display_text "$2" " " 0.5
-	display_cleanup
+if [ "$1" = "-t" ]; then
+    [ $# -ne 2 ] && usage
+    display_init
+    display_text "$2" " " 0.5
+    display_cleanup
 
-elif [ "$1" == "-c" ]; then
-	display_init
-	display_check
-	display_cleanup
+elif [ "$1" = "-c" ]; then
+    display_init
+    display_check
+    display_cleanup
 
-elif [ "$1" == "-a" ]; then
-	display_init
+elif [ "$1" = "-a" ]; then
+    display_init
     identify_segments
     reorder_digits
-	print_dt_config
-	display_cleanup
+    print_dt_config
+    display_cleanup
 
-elif [ "$1" == "-s" ]; then
-	display_init
+elif [ "$1" = "-s" ]; then
+    display_init
     identify_segments
-	display_cleanup
+    display_cleanup
 
-elif [ "$1" == "-d" ]; then
-	display_init
+elif [ "$1" = "-d" ]; then
+    display_init
     reorder_digits
-	display_cleanup
+    display_cleanup
 
 else
-	usage
+    usage
 fi
