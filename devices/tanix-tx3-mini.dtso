@@ -39,13 +39,13 @@
 				function = LED_FUNCTION_USB;
 			};
 			
-			led@4,3 {
-				reg = <4 3>;
+			led@4,2 {
+				reg = <4 2>;
 				function = "play";
 			};
 			
-			led@4,2 {
-				reg = <4 2>;
+			led@4,3 {
+				reg = <4 3>;
 				function = "pause";
 			};
 			
@@ -67,4 +67,3 @@
 		};
 	};
 };
-
