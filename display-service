@@ -1,15 +1,15 @@
-#!/bin/bash
+#!/bin/sh
 
-LED_USB=/sys/class/leds/display::usb
-LED_LAN=/sys/class/leds/display::lan
-LED_WIFI=/sys/class/leds/display::wlan
-LED_BLUETOOTH=/sys/class/leds/display::bluetooth
-LED_SDCARD=/sys/class/leds/display::sd
+LED_USB="/sys/class/leds/display::usb"
+LED_LAN="/sys/class/leds/display::lan"
+LED_WIFI="/sys/class/leds/display::wlan"
+LED_BLUETOOTH="/sys/class/leds/display::bluetooth"
+LED_SDCARD="/sys/class/leds/display::sd"
 
 display_clear() {
 	for led in /sys/class/leds/display::*; do
-		echo none > $led/trigger
-		echo 0 > $led/brightness
+		echo none > "$led/trigger"
+		echo 0 > "$led/brightness"
 	done
 	echo > /sys/class/leds/display/value
 	echo 0 > /sys/class/leds/display/brightness
@@ -20,82 +20,69 @@ display_init() {
 
 	cat /sys/class/leds/display/max_brightness > /sys/class/leds/display/brightness
 
-	if [ -d ${LED_USB} ]
-	then
-		echo usbport > ${LED_USB}/trigger || \
-			>&2 echo "Failed to set usb usport trigger"
-		for port in ${LED_USB}/ports/*; do
-			echo 1 > $port
+	if [ -d "$LED_USB" ]; then
+		echo usbport > "$LED_USB/trigger" || echo "Failed to set USB port trigger" >&2
+		for port in "$LED_USB"/ports/*; do
+			echo 1 > "$port"
 		done
 	fi
 
-	if [ -d ${LED_LAN} ]
-	then
-		echo netdev > ${LED_LAN}/trigger || \
-			>&2 echo "Failed to set lan netdev trigger"
-		echo eth0 > ${LED_LAN}/device_name || \
-			>&2 echo "Failed to set lan device name"
-		echo 1 > ${LED_LAN}/link
+	if [ -d "$LED_LAN" ]; then
+		echo netdev > "$LED_LAN/trigger" || echo "Failed to set LAN netdev trigger" >&2
+		echo eth0 > "$LED_LAN/device_name" || echo "Failed to set LAN device name" >&2
+		echo 1 > "$LED_LAN/link"
 	fi
 
-	if [ -d ${LED_WIFI} ]
-	then
-		echo netdev > ${LED_WIFI}/trigger || \
-			>&2 echo "Failed to set wifi netdev trigger"
-		echo wlan0 > ${LED_WIFI}/device_name || \
-			>&2 echo "Failed to set wifi device name"
-		echo 1 > ${LED_WIFI}/link
+	if [ -d "$LED_WIFI" ]; then
+		echo netdev > "$LED_WIFI/trigger" || echo "Failed to set WiFi netdev trigger" >&2
+		echo wlan0 > "$LED_WIFI/device_name" || echo "Failed to set WiFi device name" >&2
+		echo 1 > "$LED_WIFI/link"
 	fi
 
-	if [ -d ${LED_BLUETOOTH} ]
-	then
-		echo netdev > ${LED_BLUETOOTH}/trigger || \
-			>&2 echo "Failed to set bluetooth netdev trigger"
-		echo hci0 > ${LED_BLUETOOTH}/device_name || \
-			>&2 echo "Failed to set bluetooth device name"
-		echo 1 > ${LED_BLUETOOTH}/link
+	if [ -d "$LED_BLUETOOTH" ]; then
+		echo netdev > "$LED_BLUETOOTH/trigger" || echo "Failed to set Bluetooth netdev trigger" >&2
+		echo hci0 > "$LED_BLUETOOTH/device_name" || echo "Failed to set Bluetooth device name" >&2
+		echo 1 > "$LED_BLUETOOTH/link"
 	fi
 
-	if [ -d ${LED_SDCARD} ]
-	then
-		echo mmc0 > ${LED_SDCARD}/trigger || \
-			>&2 echo "Failed to set sdcard mmc0 trigger"
+	if [ -d "$LED_SDCARD" ]; then
+		echo mmc0 > "$LED_SDCARD/trigger" || echo "Failed to set SD card mmc0 trigger" >&2
 	fi
-
 }
 
 display_cleanup() {
-	echo "exiting service"
 	display_time_stop
 	display_clear
 	exit 0
 }
 
 display_time_start() {
-	echo timer > /sys/class/leds/display::colon/trigger || \
-		>&2 echo "Failed to set colon timer trigger"
+	echo timer > /sys/class/leds/display::colon/trigger || echo "Failed to set Colon timer trigger" >&2
 	display_time_update &
 	TIME_PID=$!
 }
 
 display_time_stop() {
-	[ -z "$TIME_PID" ] || kill $TIME_PID 2> /dev/nul || true
-	unset TIME_PID
+	if [ -n "$TIME_PID" ]; then
+		kill "$TIME_PID" 2>/dev/null || true
+		unset TIME_PID
+	fi
 	echo none > /sys/class/leds/display::colon/trigger
 }
 
 display_time_update() {
 	while true; do
-		sleep $((n=60-$(date +%S), n>0 ? n : 60)) &
+		sec=$(date +%S)
+		n=$((60 - sec))
+		if [ "$n" -le 0 ]; then n=60; fi
+		sleep "$n" &
 		date +%H%M > /sys/class/leds/display/value
 		wait
 	done
 }
 
-trap display_cleanup SIGHUP SIGTERM SIGQUIT SIGKILL SIGINT
+trap display_cleanup HUP TERM QUIT INT
 
-echo "starting service"
 display_init
 display_time_start
 wait
-
