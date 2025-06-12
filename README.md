@@ -82,6 +82,38 @@ As well as built-in led triggers:
 - `usbport` for the usb port
 - `mmc0` for the sd card
 
+NOTE: The kernel must be compiled with `CONFIG_LEDS_TRIGGERS=y` and related options enabled. For example:
+
+```
+#                                                                                         
+# LED Triggers                                                                            
+#                                                                                         
+CONFIG_LEDS_TRIGGERS=y                                                                    
+CONFIG_LEDS_TRIGGER_TIMER=y                                                               
+CONFIG_LEDS_TRIGGER_ONESHOT=y                                                             
+CONFIG_LEDS_TRIGGER_DISK=y                                                                
+CONFIG_LEDS_TRIGGER_MTD=y                                                                 
+CONFIG_LEDS_TRIGGER_HEARTBEAT=y                                                           
+# CONFIG_LEDS_TRIGGER_BACKLIGHT is not set                                                
+CONFIG_LEDS_TRIGGER_CPU=y                                                                 
+CONFIG_LEDS_TRIGGER_ACTIVITY=y                                                            
+CONFIG_LEDS_TRIGGER_GPIO=y                                                                
+CONFIG_LEDS_TRIGGER_DEFAULT_ON=y 
+
+#
+# iptables trigger is under Netfilter config (LED target)
+#
+# CONFIG_LEDS_TRIGGER_TRANSIENT is not set
+# CONFIG_LEDS_TRIGGER_CAMERA is not set
+CONFIG_LEDS_TRIGGER_PANIC=y
+CONFIG_LEDS_TRIGGER_NETDEV=y
+# CONFIG_LEDS_TRIGGER_PATTERN is not set
+# CONFIG_LEDS_TRIGGER_TTY is not set
+# CONFIG_LEDS_TRIGGER_INPUT_EVENTS is not set
+...
+CONFIG_USB_LEDS_TRIGGER_USBPORT=y
+```
+
 ## Download
 ```sh
 git clone https://github.com/jefflessard/tm16xx-display.git
