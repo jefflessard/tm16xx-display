@@ -41,7 +41,7 @@ t95w2 | i2c | fdhisi,fd650 | no
 t95x2-s905x2 | i2c | fdhisi,fd6551 | no
 t95z-1 | spi | fdhisi,fd628 | no
 t95z-2 | spi | fdhisi,fd628 | no
-tanix-tx3-mini | spi | fdhisi,fd628 | no
+tanix-tx3-mini | spi | fdhisi,fd628 | yes
 tanix-tx3-s905x3 | i2c | fdhisi,fd6551 | no
 tanix-tx3 | spi | fdhisi,fd628 | no
 tanix-tx5-max | spi | fdhisi,fd628 | no
@@ -64,7 +64,7 @@ whale | i2c | fdhisi,fd6551 | no
 x88-king-x99-max | spi | fdhisi,fd628 | no
 x92 | spi | fdhisi,fd628 | no
 x96-max-1gbit | spi | fdhisi,fd628 | no
-x96-max | spi | fdhisi,fd628 | no
+x96-max | spi | fdhisi,fd628 | yes
 x99-max-plus-x88pro-x3 | i2c | fdhisi,fd6551 | no
 x9t-pro | spi | fdhisi,fd628 | no
 z69-pro | spi | fdhisi,fd628 | no
