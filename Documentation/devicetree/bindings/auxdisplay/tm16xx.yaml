@@ -32,16 +32,22 @@ properties:
 
   tm16xx,digits:
     description: Array of grid indexes for each digit
-    $ref: /schemas/types.yaml#/definitions/uint32-array
+    $ref: /schemas/types.yaml#/definitions/uint8-array
+    minItems: 1
 
   tm16xx,segment-mapping:
-    description: Array specifying segment mapping
-    $ref: /schemas/types.yaml#/definitions/uint32-array
+    description: Array specifying segment mapping (must be exactly 7 elements)
+    $ref: /schemas/types.yaml#/definitions/uint8-array
+    items:
+      minimum: 0
+      maximum: 7
+    minItems: 7
+    maxItems: 7
 
   tm16xx,transposed:
-	description: |
-	  Optional boolean flag indicating if the device output is transposed.
-	  If not present, the default value is false.
+    description: |
+      Optional boolean flag indicating if the device output is transposed.
+      If not present, the default value is false.
     $ref: /schemas/types.yaml#/definitions/flag
 
 patternProperties:
@@ -53,6 +59,7 @@ patternProperties:
         items:
           - description: Grid index
           - description: Segment index
+        minItems: 2
         maxItems: 2
 
 required:
@@ -72,8 +79,8 @@ examples:
         display@24 {
             compatible = "titanmec,tm1650";
             reg = <0x24>;
-            tm16xx,digits = <0 1 2 3>;
-            tm16xx,segment-mapping = <0 1 2 3 4 5 6>;
+            tm16xx,digits = /bits/ 8 <0 1 2 3>;
+            tm16xx,segment-mapping = /bits/ 8 <0 1 2 3 4 5 6>;
 
             led@4,0 {
                 reg = <4 0>;
@@ -95,8 +102,8 @@ examples:
             compatible = "titanmec,tm1628";
             reg = <0>;
             tm16xx,transposed;
-            tm16xx,digits = <1 2 3 4>;
-            tm16xx,segment-mapping = <0 1 2 3 4 5 6>;
+            tm16xx,digits = /bits/ 8 <1 2 3 4>;
+            tm16xx,segment-mapping = /bits/ 8 <0 1 2 3 4 5 6>;
 
             led@0,2 {
                 reg = <0 2>;
