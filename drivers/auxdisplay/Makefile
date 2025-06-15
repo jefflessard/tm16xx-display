@@ -1,1 +1,1 @@
-obj-$(CONFIG_AUXDISPLAY_TM16XX)   += auxdisplay-tm16xx.o
+obj-$(CONFIG_AUXDISPLAY_TM16XX)   += tm16xx.o

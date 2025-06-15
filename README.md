@@ -71,16 +71,23 @@ armbian-config
 ```
 Then go to Software -> Headers
 
+### tm16xx module
+Kernel configuration must enable built-in leds support:
+
+```ini
+CONFIG_NEW_LEDS=y
+CONFIG_LEDS_CLASS=y
+CONFIG_LEDS_TRIGGERS=y
+```
+
 ### Display service
-To blink the time seperator
-- `timer` led triger (`ledtrig_timer` module)
+Depending on the icons configured for the auxilary display, additional led triggers modules are required by `display-service`:
 
-To manage lan, wlan and bluetooth LEDs:
-- `netdev` led triger (`ledtrig_netdev` module)
-
-As well as built-in led triggers:
-- `usbport` for the usb port
-- `mmc0` for the sd card
+| Usage | LEDs | Trigger | Module | Config |
+| Time seperator blink | `colon` | `timer` | `ledtrig_timer` | `CONFIG_LEDS_TRIGGER_TIMER=y` or `m` |
+| Network activity | `lan`, `wlan`, `bluetooth` | `netdev` | `ledtrig_netdev` | `CONFIG_LEDS_TRIGGER_NETDEV=y` or `m` |
+| USB activity | `usb` | `usbport` | `ledtrig-usbport` | `CONFIG_USB_LEDS_TRIGGER_USBPORT=y` or `m` |
+| SD/MMC activity | `sd` | `mmc0` | `mmc_core` | `CONFIG_MMC=y` or `m` |
 
 ## Download
 ```sh

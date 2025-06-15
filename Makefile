@@ -36,7 +36,7 @@ module-install:
 	depmod -a
 
 service-install:
-	modprobe -a ledtrig_timer ledtrig_netdev tm16xx
+	modprobe tm16xx
 	cp display-service display-utils /usr/sbin/
 	cp display.service /lib/systemd/system/
 	systemctl daemon-reload

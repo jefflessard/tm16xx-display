@@ -1,6 +1,9 @@
 config AUXDISPLAY_TM16XX
     tristate "Auxiliary Display Support for TM16XX and Compatible Controllers"
     depends on SPI || I2C
+    select NEW_LEDS
+    select LEDS_CLASS
+    select LEDS_TRIGGERS
     help
       This option enables support for auxiliary displays driven by various
       LED controller chips, including:
@@ -14,4 +17,4 @@ config AUXDISPLAY_TM16XX
       embedded devices.
 
       To compile this driver as a module, choose M here: the module
-      will be called auxdisplay-tm16xx.
+      will be called tm16xx.

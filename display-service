@@ -1,100 +1,193 @@
-#!/bin/bash
+#!/bin/sh
 
-LED_USB=/sys/class/leds/display::usb
-LED_LAN=/sys/class/leds/display::lan
-LED_WIFI=/sys/class/leds/display::wlan
-LED_BLUETOOTH=/sys/class/leds/display::bluetooth
-LED_SDCARD=/sys/class/leds/display::sd
+DISPLAY_PATH="/sys/class/leds/display"
+LED_USB="$DISPLAY_PATH::usb"
+LED_LAN="$DISPLAY_PATH::lan"
+LED_WIFI="$DISPLAY_PATH::wlan"
+LED_BLUETOOTH="$DISPLAY_PATH::bluetooth"
+LED_SDCARD="$DISPLAY_PATH::sd"
+LED_COLON="$DISPLAY_PATH::colon"
+
+
+log_info() {
+	echo "[INFO] $1"
+}
+
+log_warn() {
+	echo "[WARN] $1" >&2
+}
+
+log_error() {
+	echo "[ERROR] $1" >&2
+}
+
+load_module() {
+	module_name="$1"
+
+	if command -v modprobe >/dev/null 2>&1; then
+		if modprobe "$module_name" 2>/dev/null; then
+			log_info "Successfully loaded module: $module_name"
+			return 0
+		else
+			log_error "Failed to load module: $module_name"
+			return 1
+		fi
+	else
+		log_warn "modprobe not available - cannot load modules"
+		return 1
+	fi
+}
+
+configure_trigger() {
+	led_name="$1"
+	led_path="$2"
+	trigger_name="$3"
+	module_name="$4"
+
+	trigger_path="$led_path/trigger"
+
+	# Check if LED path exists
+	if [ ! -d "$led_path" ]; then
+		log_info "$led_name LED not found"
+		return 1
+	fi
+
+	# Check if trigger file exists
+	if [ ! -f "$trigger_path" ]; then
+		log_error "LED trigger path not found: $trigger_path"
+		log_error "Check kernel has been built with CONFIG_LEDS_TRIGGERS=y"
+		return 1
+	fi
+
+	# Check if trigger is already set
+	if grep -q "\\[$trigger_name\\]" "$trigger_path" 2>/dev/null; then
+		log_info "$led_name LED trigger already configured"
+		return 0
+	fi
+
+	# Check if trigger is available
+	if ! grep -q "$trigger_name" "$trigger_path" 2>/dev/null; then
+		log_warn "$led_name LED trigger '$trigger_name' not available, attempting to load module $module_name"
+
+		# Try to load the required module
+		if [ -n "$module_name" ]; then
+			load_module "$module_name" || return 1
+		fi
+
+		# Check again if trigger is now available
+		if ! grep -q "$trigger_name" "$trigger_path" 2>/dev/null; then
+			log_error "$led_name LED trigger '$trigger_name' still not available after module load attempt"
+			return 1
+		fi
+	fi
+
+	# Set the trigger
+	if echo "$trigger_name" > "$trigger_path" 2>/dev/null; then
+		log_info "$led_name LED trigger configured to '$trigger_name'"
+		return 0
+	else
+		log_error "Failed to set $led_name LED trigger: $trigger_name"
+		return 1
+	fi
+}
+
 
 display_clear() {
-	for led in /sys/class/leds/display::*; do
-		echo none > $led/trigger
-		echo 0 > $led/brightness
+	for led in "$DISPLAY_PATH"::*; do
+		echo none > "$led/trigger" 2>/dev/null || true 
+		echo 0 > "$led/brightness" 2>/dev/null || true
 	done
-	echo > /sys/class/leds/display/value
-	echo 0 > /sys/class/leds/display/brightness
+	echo > "$DISPLAY_PATH/value" 2>/dev/null || true
+	echo 0 > "$DISPLAY_PATH/brightness" 2>/dev/null || true
 }
 
 display_init() {
 	display_clear
 
-	cat /sys/class/leds/display/max_brightness > /sys/class/leds/display/brightness
+	cat "$DISPLAY_PATH/max_brightness" > "$DISPLAY_PATH/brightness" 2>/dev/null || log_warn "Failed to set display brightness"
 
-	if [ -d ${LED_USB} ]
-	then
-		echo usbport > ${LED_USB}/trigger || \
-			>&2 echo "Failed to set usb usport trigger"
-		for port in ${LED_USB}/ports/*; do
-			echo 1 > $port
+	if configure_trigger "USB" "$LED_USB" "usbport" "ledtrig-usbport"; then
+		# Enable all USB ports
+		for port in "$LED_USB"/ports/*; do
+			if [ -f "$port" ]; then
+				echo 1 > "$port" 2>/dev/null || log_warn "Failed to enable USB port: $port"
+			fi
 		done
 	fi
 
-	if [ -d ${LED_LAN} ]
-	then
-		echo netdev > ${LED_LAN}/trigger || \
-			>&2 echo "Failed to set lan netdev trigger"
-		echo eth0 > ${LED_LAN}/device_name || \
-			>&2 echo "Failed to set lan device name"
-		echo 1 > ${LED_LAN}/link
+	if configure_trigger "LAN" "$LED_LAN" "netdev" "ledtrig_netdev"; then
+		echo eth0 > "$LED_LAN/device_name" 2>/dev/null || log_warn "Failed to set LAN device name"
+		echo 1 > "$LED_LAN/link" 2>/dev/null || log_warn "Failed to enable LAN link monitoring"
 	fi
 
-	if [ -d ${LED_WIFI} ]
-	then
-		echo netdev > ${LED_WIFI}/trigger || \
-			>&2 echo "Failed to set wifi netdev trigger"
-		echo wlan0 > ${LED_WIFI}/device_name || \
-			>&2 echo "Failed to set wifi device name"
-		echo 1 > ${LED_WIFI}/link
+	if configure_trigger "WiFi" "$LED_WIFI" "netdev" "ledtrig_netdev"; then
+		echo wlan0 > "$LED_WIFI/device_name" 2>/dev/null || log_warn "Failed to set WiFi device name"
+		echo 1 > "$LED_WIFI/link" 2>/dev/null || log_warn "Failed to enable WiFi link monitoring"
 	fi
 
-	if [ -d ${LED_BLUETOOTH} ]
-	then
-		echo netdev > ${LED_BLUETOOTH}/trigger || \
-			>&2 echo "Failed to set bluetooth netdev trigger"
-		echo hci0 > ${LED_BLUETOOTH}/device_name || \
-			>&2 echo "Failed to set bluetooth device name"
-		echo 1 > ${LED_BLUETOOTH}/link
+	if configure_trigger "Bluetooth" "$LED_BLUETOOTH" "netdev" "ledtrig_netdev"; then
+		echo hci0 > "$LED_BLUETOOTH/device_name" 2>/dev/null || log_warn "Failed to set Bluetooth device name"
+		echo 1 > "$LED_BLUETOOTH/link" 2>/dev/null || log_warn "Failed to enable Bluetooth link monitoring"
 	fi
 
-	if [ -d ${LED_SDCARD} ]
-	then
-		echo mmc0 > ${LED_SDCARD}/trigger || \
-			>&2 echo "Failed to set sdcard mmc0 trigger"
-	fi
-
+	configure_trigger "SD Card" "$LED_SDCARD" "mmc0" "mmc_core"
 }
 
 display_cleanup() {
-	echo "exiting service"
+	log_info "Received exit signal, initiating cleanup"
 	display_time_stop
 	display_clear
 	exit 0
 }
 
 display_time_start() {
-	echo timer > /sys/class/leds/display::colon/trigger || \
-		>&2 echo "Failed to set colon timer trigger"
-	display_time_update &
-	TIME_PID=$!
+
+	if configure_trigger "Time Colon" "$LED_COLON" "timer" "ledtrig_timer"; then
+		display_time_update &
+		TIME_PID=$!
+		log_info "Time display started with PID: $TIME_PID"
+	fi
 }
 
 display_time_stop() {
-	[ -z "$TIME_PID" ] || kill $TIME_PID 2> /dev/nul || true
-	unset TIME_PID
-	echo none > /sys/class/leds/display::colon/trigger
+	if [ -n "$TIME_PID" ]; then
+		log_info "Stopping time display (PID: $TIME_PID)"
+		kill "$TIME_PID" 2>/dev/null || true
+		unset TIME_PID
+	fi
+
+	if [ -d "$LED_COLON" ] && [ -f "$LED_COLON/trigger" ]; then
+		echo none > "$LED_COLON/trigger" 2>/dev/null || true
+	fi
 }
 
 display_time_update() {
 	while true; do
-		sleep $((n=60-$(date +%S), n>0 ? n : 60)) &
-		date +%H%M > /sys/class/leds/display/value
+		current_seconds=$(date +%S)
+		sleep_time=$(expr 60 - "$current_seconds")
+		if [ "$sleep_time" -le 0 ]; then
+			sleep_time=60
+		fi
+		sleep "$sleep_time" &
+
+		if [ -f "$DISPLAY_PATH/value" ]; then
+			date +%H%M > "$DISPLAY_PATH/value" 2>/dev/null || log_warn "Failed to update display time"
+		fi
 		wait
 	done
 }
 
-trap display_cleanup SIGHUP SIGTERM SIGQUIT SIGKILL SIGINT
+trap display_cleanup HUP TERM QUIT KILL INT
 
-echo "starting service"
+
+log_info "Starting TM16xx display service"
+
+if [ ! -d "$DISPLAY_PATH" ]; then
+	log_warn "Display device not found at $DISPLAY_PATH, attempting to load module tm16xx"
+	load_module "tm16xx" || exit 1
+fi
+
+
 display_init
 display_time_start
 wait
