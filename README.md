@@ -84,6 +84,7 @@ CONFIG_LEDS_TRIGGERS=y
 Depending on the icons configured for the auxilary display, additional led triggers modules are required by `display-service`:
 
 | Usage | LEDs | Trigger | Module | Config |
+|-------|------|---------|--------|--------|
 | Time seperator blink | `colon` | `timer` | `ledtrig_timer` | `CONFIG_LEDS_TRIGGER_TIMER=y` or `m` |
 | Network activity | `lan`, `wlan`, `bluetooth` | `netdev` | `ledtrig_netdev` | `CONFIG_LEDS_TRIGGER_NETDEV=y` or `m` |
 | USB activity | `usb` | `usbport` | `ledtrig-usbport` | `CONFIG_USB_LEDS_TRIGGER_USBPORT=y` or `m` |
