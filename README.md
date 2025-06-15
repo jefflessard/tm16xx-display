@@ -81,7 +81,7 @@ CONFIG_LEDS_TRIGGERS=y
 ```
 
 ### Display service
-Depending on the icons configured for the auxilary display, additional led triggers modules are required by `display-service`:
+Depending on the icons configured for the auxiliary display, additional led triggers modules are required by `display-service`:
 
 | Usage | LEDs | Trigger | Module | Config |
 |-------|------|---------|--------|--------|
