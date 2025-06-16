@@ -6,7 +6,7 @@
 
 &{/} {
 
-	display-client {
+	i2c-display {
 		compatible = "i2c-gpio";
 		sda-gpios = <&gpio2 0x16 0>;
 		scl-gpios = <&gpio2 0x13 0>;

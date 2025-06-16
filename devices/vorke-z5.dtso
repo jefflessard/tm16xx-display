@@ -6,7 +6,7 @@
 
 &{/} {
 
-	display-client {
+	display_client: spi {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "spi-gpio";

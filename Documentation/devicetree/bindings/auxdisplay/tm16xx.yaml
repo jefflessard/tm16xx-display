@@ -75,11 +75,11 @@ required:
   - tm16xx,digits
   - tm16xx,segment-mapping
 
-additionalProperties: false
+additionalProperties: true
 
 examples:
   - |
-    i2c-gpio {
+    display_client: i2c {
         #address-cells = <1>;
         #size-cells = <0>;
 
@@ -104,7 +104,7 @@ examples:
         };
     };
   - |
-    spi-gpio {
+    display_client: spi {
         #address-cells = <1>;
         #size-cells = <0>;
 

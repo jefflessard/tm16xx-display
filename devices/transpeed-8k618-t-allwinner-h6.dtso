@@ -5,7 +5,7 @@
 #include <dt-bindings/leds/common.h>
 
 &{/} {
- display-client {
+ i2c-display {
   compatible = "i2c-gpio";
   sda-gpios = <&pio 8 12 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>; /* PI12 */
   scl-gpios = <&pio 8 11 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>; /* PI11 */

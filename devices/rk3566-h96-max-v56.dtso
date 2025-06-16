@@ -7,7 +7,7 @@
 
 &{/} {
 
-	display-client {
+	i2c-display {
 		compatible = "i2c-gpio";
 		sda-gpios = <&gpio0 RK_PB4 0>;
 		scl-gpios = <&gpio0 RK_PB3 0>;
