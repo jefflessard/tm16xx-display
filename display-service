@@ -8,7 +8,6 @@ LED_BLUETOOTH="$DISPLAY_PATH::bluetooth"
 LED_SDCARD="$DISPLAY_PATH::sd"
 LED_COLON="$DISPLAY_PATH::colon"
 
-
 log_info() {
 	echo "[INFO] $1"
 }
@@ -91,11 +90,12 @@ configure_trigger() {
 	fi
 }
 
-
 display_clear() {
-	for led in "$DISPLAY_PATH"::*; do
-		echo none > "$led/trigger" 2>/dev/null || true 
-		echo 0 > "$led/brightness" 2>/dev/null || true
+	for led in $DISPLAY_PATH::*; do
+		if [ -d "$led" ]; then
+			echo none > "$led/trigger" 2>/dev/null || true
+			echo 0 > "$led/brightness" 2>/dev/null || true
+		fi
 	done
 	echo > "$DISPLAY_PATH/value" 2>/dev/null || true
 	echo 0 > "$DISPLAY_PATH/brightness" 2>/dev/null || true
@@ -108,7 +108,7 @@ display_init() {
 
 	if configure_trigger "USB" "$LED_USB" "usbport" "ledtrig-usbport"; then
 		# Enable all USB ports
-		for port in "$LED_USB"/ports/*; do
+		for port in $LED_USB/ports/*; do
 			if [ -f "$port" ]; then
 				echo 1 > "$port" 2>/dev/null || log_warn "Failed to enable USB port: $port"
 			fi
@@ -141,7 +141,6 @@ display_cleanup() {
 }
 
 display_time_start() {
-
 	if configure_trigger "Time Colon" "$LED_COLON" "timer" "ledtrig_timer"; then
 		display_time_update &
 		TIME_PID=$!
@@ -163,8 +162,8 @@ display_time_stop() {
 
 display_time_update() {
 	while true; do
-		current_seconds=$(date +%S)
-		sleep_time=$(expr 60 - "$current_seconds")
+		current_seconds=$(date +%-S)
+		sleep_time=$((60 - current_seconds))
 		if [ "$sleep_time" -le 0 ]; then
 			sleep_time=60
 		fi
@@ -179,7 +178,6 @@ display_time_update() {
 
 trap display_cleanup HUP TERM QUIT KILL INT
 
-
 log_info "Starting TM16xx display service"
 
 if [ ! -d "$DISPLAY_PATH" ]; then
@@ -187,8 +185,6 @@ if [ ! -d "$DISPLAY_PATH" ]; then
 	load_module "tm16xx" || exit 1
 fi
 
-
 display_init
 display_time_start
 wait
-
