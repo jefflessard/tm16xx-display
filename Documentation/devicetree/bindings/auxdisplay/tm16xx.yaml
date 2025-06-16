@@ -33,7 +33,11 @@ properties:
   tm16xx,digits:
     description: Array of grid indexes for each digit
     $ref: /schemas/types.yaml#/definitions/uint8-array
+    items:
+      minimum: 0
+      maximum: 7
     minItems: 1
+    maxItems: 8
 
   tm16xx,segment-mapping:
     description: Array specifying segment mapping (must be exactly 7 elements)
@@ -50,17 +54,20 @@ properties:
       If not present, the default value is false.
     $ref: /schemas/types.yaml#/definitions/flag
 
+  "#address-cells":
+    const: 2
+
+  "#size-cells":
+    const: 0
+
 patternProperties:
-  "^led@[0-9a-f]+,[0-9a-f]+$":
+  "^led@[0-7],[0-7]$":
     $ref: /schemas/leds/common.yaml#
     properties:
       reg:
         description: Grid and segment indexes
-        items:
-          - description: Grid index
-          - description: Segment index
-        minItems: 2
-        maxItems: 2
+    required:
+      - reg
 
 required:
   - compatible
@@ -81,6 +88,9 @@ examples:
             reg = <0x24>;
             tm16xx,digits = /bits/ 8 <0 1 2 3>;
             tm16xx,segment-mapping = /bits/ 8 <0 1 2 3 4 5 6>;
+
+            #address-cells = <2>;
+            #size-cells = <0>;
 
             led@4,0 {
                 reg = <4 0>;
@@ -104,6 +114,9 @@ examples:
             tm16xx,transposed;
             tm16xx,digits = /bits/ 8 <1 2 3 4>;
             tm16xx,segment-mapping = /bits/ 8 <0 1 2 3 4 5 6>;
+
+            #address-cells = <2>;
+            #size-cells = <0>;
 
             led@0,2 {
                 reg = <0 2>;
