@@ -162,7 +162,7 @@ display_time_stop() {
 
 display_time_update() {
 	while true; do
-		current_seconds=$(date +%S)
+		current_seconds=$(date +%-S)
 		sleep_time=$((60 - current_seconds))
 		if [ "$sleep_time" -le 0 ]; then
 			sleep_time=60
