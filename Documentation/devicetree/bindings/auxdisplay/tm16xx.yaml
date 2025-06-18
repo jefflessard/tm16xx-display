@@ -13,14 +13,14 @@ description: |
   TM16xx controllers manage a matrix of LEDs organized in grids (rows) and segments (columns).
   Each grid or segment can be wired to drive either a digit or individual icons, depending on the
   board design.
-  
+
   Typical display example:
-  
-           ---    ---       ---    ---
-  [WIFI]  |   |  |   |  -  |   |  |   |  [USB]  [PLAY]
-           ---    ---       ---    ---
-  [LAN]   |   |  |   |  -  |   |  |   |  [BT]   [PAUSE]
-           ---    ---       ---    ---
+
+           ---    ---       ---    ---
+    WIFI  |   |  |   |  -  |   |  |   |  USB  PLAY
+           ---    ---       ---    ---
+    LAN   |   |  |   |  -  |   |  |   |  BT   PAUSE
+           ---    ---       ---    ---
   
   The controller itself is agnostic of the display layout. The specific arrangement
   (which grids and segments drive which digits or icons) is determined by the board-level
