@@ -279,9 +279,10 @@ static int fd6551_init(struct tm16xx_display *display) {
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-void hbs658_msb_to_lsb(u8 *array, size_t length) {
-	for (size_t i = 0; i < length; i++) {
-		array[i] = (array[i] << 4) | (array[i] >> 4);
+static void hbs658_swap_nibbles(u8 *data, size_t len)
+{
+	for (size_t i = 0; i < len; i++) {
+		data[i] = (data[i] << 4) | (data[i] >> 4);
 	}
 }
 
@@ -293,13 +294,13 @@ static int hbs658_init(struct tm16xx_display *display) {
 	int ret;
 
 	cmd = DATA_CMD | DATA_ADDR_MODE | DATA_WRITE_MODE;
-	hbs658_msb_to_lsb(&cmd, 1);
+	hbs658_swap_nibbles(&cmd, 1);
 	ret = tm16xx_spi_write(display, &cmd, 1);
 	if (ret < 0)
 		return ret;
 
 	cmd = CTRL_CMD | ((brightness && 1) * (((brightness - 1) & BR_MASK) << BR_SHIFT | ON_FLAG));
-	hbs658_msb_to_lsb(&cmd, 1);
+	hbs658_swap_nibbles(&cmd, 1);
 	ret = tm16xx_spi_write(display, &cmd, 1);
 	if (ret < 0)
 		return ret;
@@ -314,7 +315,7 @@ static int hbs658_data(struct tm16xx_display *display, u8 index, u8 data) {
 	cmds[0] = ADDR_CMD + index * 2;
 	cmds[1] = data;
 
-	hbs658_msb_to_lsb(cmds, ARRAY_SIZE(cmds));
+	hbs658_swap_nibbles(cmds, ARRAY_SIZE(cmds));
 	return tm16xx_spi_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
