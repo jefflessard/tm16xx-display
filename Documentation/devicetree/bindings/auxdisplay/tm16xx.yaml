@@ -4,13 +4,28 @@
 $id: http://devicetree.org/schemas/auxdisplay/tm16xx.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: TM16XX and Compatible Auxiliary Display Driver
+title: Auxiliary displays based on TM16xx and compatible LED controllers
 
 maintainers:
   - Jean-François Lessard <jefflessard3@gmail.com>
 
 description: |
-  Bindings for auxiliary displays based on TM16XX and compatible LED controllers.
+  TM16xx controllers manage a matrix of LEDs organized in grids (rows) and segments (columns).
+  Each grid or segment can be wired to drive either a digit or individual icons, depending on the
+  board design.
+  
+  Typical display example:
+  
+           ---    ---       ---    ---
+  [WIFI]  |   |  |   |  -  |   |  |   |  [USB]  [PLAY]
+           ---    ---       ---    ---
+  [LAN]   |   |  |   |  -  |   |  |   |  [BT]   [PAUSE]
+           ---    ---       ---    ---
+  
+  The controller itself is agnostic of the display layout. The specific arrangement
+  (which grids and segments drive which digits or icons) is determined by the board-level
+  wiring. Therefore, these bindings describe hardware configuration at the PCB level
+  to enable support of multiple display implementations using these LED controllers.
 
 properties:
   compatible:
@@ -31,7 +46,9 @@ properties:
     maxItems: 1
 
   tm16xx,digits:
-    description: Array of grid indexes for each digit
+    description: |
+      Array of grid (row) indexes corresponding to  specific wiring of digits in the display matrix.
+      Defines which grid lines are connected to digit elements.
     $ref: /schemas/types.yaml#/definitions/uint8-array
     items:
       minimum: 0
@@ -40,7 +57,9 @@ properties:
     maxItems: 8
 
   tm16xx,segment-mapping:
-    description: Array specifying segment mapping (must be exactly 7 elements)
+    description: |
+      Array of segment (column) indexes specifying the hardware layout mapping used for digit display.
+      Each entry gives the segment index corresponding to a standard 7-segment element (a-g).
     $ref: /schemas/types.yaml#/definitions/uint8-array
     items:
       minimum: 0
@@ -50,8 +69,8 @@ properties:
 
   tm16xx,transposed:
     description: |
-      Optional boolean flag indicating if the device output is transposed.
-      If not present, the default value is false.
+      Optional flag indicating if grids and segments are swapped compared to standard matrix orientation.
+      This accommodates devices where segments are wired to rows and grids to columns.
     $ref: /schemas/types.yaml#/definitions/flag
 
   "#address-cells":
@@ -65,15 +84,13 @@ patternProperties:
     $ref: /schemas/leds/common.yaml#
     properties:
       reg:
-        description: Grid and segment indexes
+        description: Grid (row) and segment (column) index in the matrix of this individual LED icon
     required:
       - reg
 
 required:
   - compatible
   - reg
-  - tm16xx,digits
-  - tm16xx,segment-mapping
 
 additionalProperties: true
 
