@@ -21,8 +21,8 @@ See [Device Table](DEVICES.md)
   * fdhisi,fd6551 ([datasheet](datasheets/FD6551.pdf))
 * Princeton Technology Corp
   * princeton,pt6964 ([datasheet](datasheets/PT6964.pdf))
-* Unknown
-  * hbs,hbs658 (no datasheet)
+* Shenzhen Winrise Technology
+  * hbs,hbs658 ([datasheet](datasheets/HBS-588.pdf))
 
 # Overview
 
