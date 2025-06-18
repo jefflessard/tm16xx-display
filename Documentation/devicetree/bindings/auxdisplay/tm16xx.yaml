@@ -91,6 +91,8 @@ patternProperties:
 required:
   - compatible
   - reg
+  - tm16xx,digits
+  - tm16xx,segment-mapping
 
 additionalProperties: true
 
