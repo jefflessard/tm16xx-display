@@ -25033,6 +25033,12 @@ S:	Maintained
 F:	include/linux/shmem_fs.h
 F:	mm/shmem.c
 
+TM16XX-COMPATIBLE LED CONTROLLERS DISPLAY DRIVER
+M:  Jean-François Lessard <jefflessard3@gmail.com>
+S:  Maintained
+F:  drivers/auxdisplay/tm16xx.c
+F:  Documentation/devicetree/bindings/auxdisplay/tm16xx.yaml
+
 TOMOYO SECURITY MODULE
 M:	Kentaro Takeda <takedakn@nttdata.co.jp>
 M:	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
