@@ -47,7 +47,7 @@ tanix-tx3-s905x3 | i2c | fdhisi,fd6551 | no
 tanix-tx3 | spi | fdhisi,fd628 | no
 tanix-tx5-max | spi | fdhisi,fd628 | no
 tanix-tx5-pro | i2c | fdhisi,fd650 | no
-tanix-tx6-allwinner-h6 | i2c | fdhisi,fd650 | no
+tanix-tx6-allwinner-h6 | i2c | fdhisi,fd650 | yes
 tanix-tx9-pro-1 | spi | fdhisi,fd628 | no
 tanix-tx9-pro-2 | spi | fdhisi,fd628 | no
 tanix-w2 | i2c | fdhisi,fd650 | no
