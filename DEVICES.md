@@ -17,6 +17,7 @@ h96-max-x3 | i2c | fdhisi,fd6551 | no
 hk1-box | i2c | fdhisi,fd6551 | no
 hk1-rbox-x4 | i2c | fdhisi,fd6551 | no
 hk1-x3 | i2c | fdhisi,fd6551 | no
+hk1-max | i2c | fdhisi,fd6551 | yes
 m82 | spi | fdhisi,fd628 | no
 m9-pro-u2c-x-u5x-s | i2c | hbs,hbs658 | no
 magicsee-c400-plus | i2c | fdhisi,fd655 | no
