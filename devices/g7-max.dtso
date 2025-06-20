@@ -6,22 +6,17 @@
 
 &{/} {
 
-	display_client: spi {
+	i2c-display {
+		compatible = "i2c-gpio";
+		sda-gpios = <&gpio 36 0>;
+		scl-gpios = <&gpio 35 0>;
+		i2c-gpio,delay-us = <5>;
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "spi-gpio";
-		sck-gpios = <&gpio 71 0>;
-		mosi-gpios = <&gpio 72 0>;
-		cs-gpios = <&gpio 70 0>;
-		num-chipselects = <1>;
 
-		display-controller@0 {
-			compatible = "fdhisi,fd628";
-			reg = <0x0>;
-			spi-3wire;
-			spi-lsb-first;
-			spi-rx-delay-us = <1>;
-			spi-max-frequency = <500000>;
+		display-controller@24 {
+			compatible = "fdhisi,fd6551";
+			reg = <0x24>;
 
 			tm16xx,digits = [01 02 03 04];
 			tm16xx,segment-mapping = [03 04 05 00 01 02 06];

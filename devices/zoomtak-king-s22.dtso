@@ -11,7 +11,7 @@
 		#size-cells = <0>;
 		compatible = "spi-gpio";
 		sck-gpios = <&gpio_ao 11 0>;
-		mosi-gpios = <&gpio 0 0>;
+		mosi-gpios = <&gpio 24 0>;
 		cs-gpios = <&gpio_ao 2 0>;
 		num-chipselects = <1>;
 

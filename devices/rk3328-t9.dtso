@@ -18,6 +18,7 @@
 			compatible = "fdhisi,fd655";
 			reg = <0x24>;
 
+			tm16xx,transposed;
 			tm16xx,digits = [01 02 03 04];
 			tm16xx,segment-mapping = [03 04 05 00 01 02 06];
 

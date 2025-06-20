@@ -65,6 +65,7 @@ template() {
 	DIGITS=(${vfd_chars[@]:1})
 	DIGITS=${DIGITS[@]/#/0}
 	SEGMENTS=${SEGMENTS_MAP[${vfd_display_type[0]}]}
+	TRANSPOSED=${vfd_display_type[2]}
 
 	display_type=${DISPLAY_MAP[${vfd_display_type[0]}]}
 	LED_INDEX=${vfd_chars[0]}
@@ -98,6 +99,12 @@ template() {
 		-e "s/{SEGMENTS}/${SEGMENTS}/g" \
 		-e "s|{LEDS}|${LEDS}|g" \
 		> ${device_file}
+
+	if [ "$TRANSPOSED" == "0x01" ]; then
+		sed -i "s/{TRANSPOSED}/tm16xx,transposed;/g" ${device_file}
+	else
+		sed -i "/{TRANSPOSED}/d" ${device_file}
+	fi
 }
 
 convert_file() {

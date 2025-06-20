@@ -6,7 +6,7 @@
 
 &{/} {
 
-	display-client {
+	display_client: spi {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "spi-gpio";
@@ -23,6 +23,7 @@
 			spi-rx-delay-us = <1>;
 			spi-max-frequency = <500000>;
 
+			{TRANSPOSED}
 			tm16xx,digits = [{DIGITS}];
 			tm16xx,segment-mapping = [{SEGMENTS}];
 
