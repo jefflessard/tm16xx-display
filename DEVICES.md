@@ -62,7 +62,7 @@ vorke-z5 | spi | fdhisi,fd628 | no
 vorke-z6 | spi | fdhisi,fd628 | no
 whale | i2c | fdhisi,fd6551 | no
 x88-king-x99-max | spi | fdhisi,fd628 | no
-x92 | spi | fdhisi,fd628 | no
+x92 | spi | fdhisi,fd628 | yes
 x96-max-1gbit | spi | fdhisi,fd628 | no
 x96-max | spi | fdhisi,fd628 | yes
 x99-max-plus-x88pro-x3 | i2c | fdhisi,fd6551 | no
