@@ -164,7 +164,11 @@ static int tm1628_init(struct tm16xx_display *display)
 	static const u8 MODE_5GRIDS  = 0 << 1 | 1 << 0;
 	static const u8 MODE_6GRIDS  = 1 << 1 | 0 << 0;
 	static const u8 MODE_7GRIDS  = 1 << 1 | 1 << 0;
-	static const u8 DATA_CMD = 0 << 7 | 1 << 6, DATA_ADDR_MODE = 0 << 2, DATA_WRITE_MODE = 0 << 1 | 0 << 0;
+	static const u8 DATA_CMD = 0 << 7 | 1 << 6;
+	// static const u8 DATA_ADDR_MODE_AUTO = 0 << 2;
+	static const u8 DATA_ADDR_MODE_FIXED = 1 << 2;
+	static const u8 DATA_WRITE_MODE = 0 << 1 | 0 << 0;
+	// static const u8 DATA_READ_MODE = 1 << 1 | 0 << 0;
 	static const u8 CTRL_CMD = 1 << 7 | 0 << 6, ON_FLAG = 1 << 3, BR_MASK = 7, BR_SHIFT = 0;
 	const enum led_brightness brightness = display->main_led.brightness;
 	const u8 num_grids = display->transpose_display_data ? DIGIT_SEGMENTS : display->display_data_len;
@@ -185,7 +189,7 @@ static int tm1628_init(struct tm16xx_display *display)
 	if (ret < 0)
 		return ret;
 
-	cmd = DATA_CMD | DATA_ADDR_MODE | DATA_WRITE_MODE;
+	cmd = DATA_CMD | DATA_ADDR_MODE_FIXED | DATA_WRITE_MODE;
 	ret = tm16xx_spi_write(display, &cmd, 1);
 	if (ret < 0)
 		return ret;
@@ -287,13 +291,17 @@ static void hbs658_swap_nibbles(u8 *data, size_t len)
 }
 
 static int hbs658_init(struct tm16xx_display *display) {
-	u8 cmd;
-	static const u8 DATA_CMD = 0 << 7 | 1 << 6, DATA_ADDR_MODE = 0 << 2, DATA_WRITE_MODE = 0 << 1 | 0 << 0;
+	static const u8 DATA_CMD = 0 << 7 | 1 << 6;
+	// static const u8 DATA_ADDR_MODE_AUTO = 0 << 2;
+	static const u8 DATA_ADDR_MODE_FIXED = 1 << 2;
+	static const u8 DATA_WRITE_MODE = 0 << 1 | 0 << 0;
+	// static const u8 DATA_READ_MODE = 1 << 1 | 0 << 0;
 	static const u8 CTRL_CMD = 1 << 7 | 0 << 6, ON_FLAG = 1 << 3, BR_MASK = 7, BR_SHIFT = 0;
 	const enum led_brightness brightness = display->main_led.brightness;
+	u8 cmd;
 	int ret;
 
-	cmd = DATA_CMD | DATA_ADDR_MODE | DATA_WRITE_MODE;
+	cmd = DATA_CMD | DATA_ADDR_MODE_FIXED | DATA_WRITE_MODE;
 	hbs658_swap_nibbles(&cmd, 1);
 	ret = tm16xx_spi_write(display, &cmd, 1);
 	if (ret < 0)
