@@ -243,7 +243,7 @@ static int tm1628_init(struct tm16xx_display *display)
 		return ret;
 
 	/* Set data command */
-	cmd = TM16XX_CMD_DATA | TM16XX_DATA_ADDR_FIXED | TM16XX_DATA_WRITE;
+	cmd = TM16XX_CMD_DATA | TM16XX_DATA_ADDR_AUTO | TM16XX_DATA_WRITE;
 	ret = tm16xx_spi_write(display, &cmd, 1);
 	if (ret < 0)
 		return ret;
@@ -346,7 +346,7 @@ static int hbs658_init(struct tm16xx_display *display)
 	int ret;
 
 	/* Set data command */
-	cmd = TM16XX_CMD_DATA | TM16XX_DATA_ADDR_FIXED | TM16XX_DATA_WRITE;
+	cmd = TM16XX_CMD_DATA | TM16XX_DATA_ADDR_AUTO | TM16XX_DATA_WRITE;
 	hbs658_swap_nibbles(&cmd, 1);
 	ret = tm16xx_spi_write(display, &cmd, 1);
 	if (ret < 0)
