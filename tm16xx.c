@@ -26,6 +26,68 @@
 #define MIN_SEGMENT 0
 #define MAX_SEGMENT 7 /* data stored as 8 bits (u8) */
 
+/* Common bit field definitions */
+
+/* Command type bits (bits 7-6) */
+#define TM16XX_CMD_TYPE_MASK    GENMASK(7, 6)
+#define TM16XX_CMD_MODE       	0
+#define TM16XX_CMD_DATA         BIT(6)
+#define TM16XX_CMD_CTRL         BIT(7)
+#define TM16XX_CMD_ADDR         (BIT(7) | BIT(6))
+
+/* Mode command grid settings (bits 1-0) */
+#define TM16XX_MODE_GRID_MASK   GENMASK(1, 0)
+#define TM16XX_MODE_4GRIDS      0
+#define TM16XX_MODE_5GRIDS      BIT(0)
+#define TM16XX_MODE_6GRIDS      BIT(1)
+#define TM16XX_MODE_7GRIDS      (BIT(1) | BIT(0))
+
+/* Data command settings */
+#define TM16XX_DATA_ADDR_MASK   BIT(2)
+#define TM16XX_DATA_ADDR_AUTO   0
+#define TM16XX_DATA_ADDR_FIXED  BIT(2)
+#define TM16XX_DATA_MODE_MASK   GENMASK(1, 0)
+#define TM16XX_DATA_WRITE       0
+#define TM16XX_DATA_READ        BIT(1)
+
+/* Control command settings */
+#define TM16XX_CTRL_ON          BIT(3)
+#define TM16XX_CTRL_BR_MASK     GENMASK(2, 0)
+#define TM16XX_CTRL_BR_SHIFT    0
+
+/* TM1618 specific constants */
+#define TM1618_BYTE1_MASK       GENMASK(4, 0)
+#define TM1618_BYTE1_RSHIFT     0
+#define TM1618_BYTE2_MASK       (~TM1618_BYTE1_MASK)
+#define TM1618_BYTE2_RSHIFT     2
+
+/* I2C controller addresses and control settings */
+#define TM1650_CMD_CTRL         0x48
+#define TM1650_CMD_ADDR         0x68
+#define TM1650_CTRL_BR_MASK     GENMASK(6, 4)
+#define TM1650_CTRL_BR_SHIFT    4
+#define TM1650_CTRL_ON          BIT(0)
+#define TM1650_CTRL_SEG_MASK    BIT(3)
+#define TM1650_CTRL_SEG8_MODE   0
+#define TM1650_CTRL_SEG7_MODE   BIT(3)
+
+#define FD655_CMD_CTRL          0x48
+#define FD655_CMD_ADDR          0x66
+#define FD655_CTRL_BR_MASK      GENMASK(6, 5)
+#define FD655_CTRL_BR_SHIFT     5
+#define FD655_CTRL_ON           BIT(0)
+
+#define FD6551_CMD_CTRL         0x48
+#define FD6551_CTRL_BR_MASK     GENMASK(3, 1)
+#define FD6551_CTRL_BR_SHIFT    1
+#define FD6551_CTRL_ON          BIT(0)
+
+#define TM16XX_CTRL_BRIGHTNESS(enabled, value, prefix) \
+	((enabled) ? \
+	 ((((value) << prefix##_CTRL_BR_SHIFT) & prefix##_CTRL_BR_MASK) | prefix##_CTRL_ON) : \
+	 0)
+
+
 static char *default_value = NULL;
 module_param(default_value, charp, 0644);
 MODULE_PARM_DESC(default_value, "Default display value to initialize");
@@ -156,45 +218,38 @@ static int tm16xx_spi_write(struct tm16xx_display *display, u8 *data, size_t len
 	return spi_write(spi, data, len);
 }
 
+
 /* Controller-specific functions */
 static int tm1628_init(struct tm16xx_display *display)
 {
-	static const u8 MODE_CMD = 0 << 7 | 0 << 6;
-	static const u8 MODE_4GRIDS  = 0 << 1 | 0 << 0;
-	static const u8 MODE_5GRIDS  = 0 << 1 | 1 << 0;
-	static const u8 MODE_6GRIDS  = 1 << 1 | 0 << 0;
-	static const u8 MODE_7GRIDS  = 1 << 1 | 1 << 0;
-	static const u8 DATA_CMD = 0 << 7 | 1 << 6;
-	// static const u8 DATA_ADDR_MODE_AUTO = 0 << 2;
-	static const u8 DATA_ADDR_MODE_FIXED = 1 << 2;
-	static const u8 DATA_WRITE_MODE = 0 << 1 | 0 << 0;
-	// static const u8 DATA_READ_MODE = 1 << 1 | 0 << 0;
-	static const u8 CTRL_CMD = 1 << 7 | 0 << 6, ON_FLAG = 1 << 3, BR_MASK = 7, BR_SHIFT = 0;
 	const enum led_brightness brightness = display->main_led.brightness;
 	const u8 num_grids = display->transpose_display_data ? DIGIT_SEGMENTS : display->display_data_len;
 	u8 cmd;
 	int ret;
 
-	cmd = MODE_CMD;
+	/* Set mode command based on grid count */
+	cmd = TM16XX_CMD_MODE;
 	if (num_grids <= 4) {
-		cmd |= MODE_4GRIDS;
+		cmd |= TM16XX_MODE_4GRIDS;
 	} else if (num_grids == 5) {
-		cmd |= MODE_5GRIDS;
+		cmd |= TM16XX_MODE_5GRIDS;
 	} else if (num_grids == 6) {
-		cmd |= MODE_6GRIDS;
+		cmd |= TM16XX_MODE_6GRIDS;
 	} else {
-		cmd |= MODE_7GRIDS;
+		cmd |= TM16XX_MODE_7GRIDS;
 	}
 	ret = tm16xx_spi_write(display, &cmd, 1);
 	if (ret < 0)
 		return ret;
 
-	cmd = DATA_CMD | DATA_ADDR_MODE_FIXED | DATA_WRITE_MODE;
+	/* Set data command */
+	cmd = TM16XX_CMD_DATA | TM16XX_DATA_ADDR_FIXED | TM16XX_DATA_WRITE;
 	ret = tm16xx_spi_write(display, &cmd, 1);
 	if (ret < 0)
 		return ret;
 
-	cmd = CTRL_CMD | ((brightness && 1) * (((brightness-1) & BR_MASK) << BR_SHIFT | ON_FLAG));
+	/* Set control command with brightness */
+	cmd = TM16XX_CMD_CTRL | TM16XX_CTRL_BRIGHTNESS(brightness, brightness - 1, TM16XX);
 	ret = tm16xx_spi_write(display, &cmd, 1);
 	if (ret < 0)
 		return ret;
@@ -202,83 +257,77 @@ static int tm1628_init(struct tm16xx_display *display)
 	return 0;
 }
 
-static int tm1618_data(struct tm16xx_display *display, u8 index, u8 data) {
-	static const u8 ADDR_CMD = 1 << 7 | 1 << 6;
-	static const u8 BYTE1_MASK = 0x1F, BYTE1_RSHIFT = 0;
-	static const u8 BYTE2_MASK = ~BYTE1_MASK, BYTE2_RSHIFT = 5-3;
+static int tm1618_data(struct tm16xx_display *display, u8 index, u8 data)
+{
 	u8 cmds[3];
 
-	cmds[0] = ADDR_CMD + index * 2;
-	cmds[1] = (data & BYTE1_MASK) >> BYTE1_RSHIFT;
-	cmds[2] = (data & BYTE2_MASK) >> BYTE2_RSHIFT;
+	cmds[0] = TM16XX_CMD_ADDR + index * 2;
+	cmds[1] = (data & TM1618_BYTE1_MASK) >> TM1618_BYTE1_RSHIFT;
+	cmds[2] = (data & TM1618_BYTE2_MASK) >> TM1618_BYTE2_RSHIFT;
 
 	return tm16xx_spi_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static int tm1628_data(struct tm16xx_display *display, u8 index, u8 data) {
-	static const u8 ADDR_CMD = 1 << 7 | 1 << 6;
+static int tm1628_data(struct tm16xx_display *display, u8 index, u8 data)
+{
 	u8 cmds[3];
 
-	cmds[0] = ADDR_CMD + index * 2;
+	cmds[0] = TM16XX_CMD_ADDR + index * 2;
 	cmds[1] = data; // SEG 1 to 8
-	cmds[2] = 0; // SEG 9 to 14
+	cmds[2] = 0;    // SEG 9 to 14
 
 	return tm16xx_spi_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static int tm1650_init(struct tm16xx_display *display) {
+static int tm1650_init(struct tm16xx_display *display)
+{
 	u8 cmds[2];
-	static const u8 ON_FLAG = 1, BR_MASK = 7, BR_SHIFT = 4, SEG8_MODE = 0 << 3;
-	/* SEG7_MODE = 1 << 3
-	 * tm1650 and fd650 have only 4 digits and they
-	 * use an 8th segment for the time separator
-	 * */
 	const enum led_brightness brightness = display->main_led.brightness;
 
-	cmds[0]	= 0x48;
-	cmds[1] = (brightness && 1) * ((brightness & BR_MASK) << BR_SHIFT | SEG8_MODE | ON_FLAG);
+	cmds[0] = TM1650_CMD_CTRL;
+	cmds[1] = TM16XX_CTRL_BRIGHTNESS(brightness, brightness, TM1650) | TM1650_CTRL_SEG8_MODE;
 
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static int tm1650_data(struct tm16xx_display *display, u8 index, u8 data) {
-	static const u8 BASE_ADDR = 0x68;
+static int tm1650_data(struct tm16xx_display *display, u8 index, u8 data)
+{
 	u8 cmds[2];
 
-	cmds[0] = BASE_ADDR + index * 2;
+	cmds[0] = TM1650_CMD_ADDR + index * 2;
 	cmds[1] = data; // SEG 1 to 8
 
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static int fd655_init(struct tm16xx_display *display) {
+static int fd655_init(struct tm16xx_display *display)
+{
 	u8 cmds[2];
-	static const u8 ON_FLAG = 1, BR_MASK = 3, BR_SHIFT = 5;
 	const enum led_brightness brightness = display->main_led.brightness;
 
-	cmds[0]	= 0x48;
-	cmds[1] = (brightness && 1) * (((brightness % 3) & BR_MASK) << BR_SHIFT | ON_FLAG);
+	cmds[0] = FD655_CMD_CTRL;
+	cmds[1] = TM16XX_CTRL_BRIGHTNESS(brightness, brightness % 3, FD655);
 
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static int fd655_data(struct tm16xx_display *display, u8 index, u8 data) {
-	static const u8 BASE_ADDR = 0x66;
+static int fd655_data(struct tm16xx_display *display, u8 index, u8 data)
+{
 	u8 cmds[2];
 
-	cmds[0] = BASE_ADDR + index * 2;
+	cmds[0] = FD655_CMD_ADDR + index * 2;
 	cmds[1] = data; // SEG 1 to 8
 
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static int fd6551_init(struct tm16xx_display *display) {
+static int fd6551_init(struct tm16xx_display *display)
+{
 	u8 cmds[2];
-	static const u8 ON_FLAG = 1, BR_MASK = 7, BR_SHIFT = 1;
 	const enum led_brightness brightness = display->main_led.brightness;
 
-	cmds[0]	= 0x48;
-	cmds[1] = (brightness && 1) * ((~(brightness - 1) & BR_MASK) << BR_SHIFT | ON_FLAG);
+	cmds[0] = FD6551_CMD_CTRL;
+	cmds[1] = TM16XX_CTRL_BRIGHTNESS(brightness, ~(brightness - 1), FD6551);
 
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
@@ -290,24 +339,21 @@ static void hbs658_swap_nibbles(u8 *data, size_t len)
 	}
 }
 
-static int hbs658_init(struct tm16xx_display *display) {
-	static const u8 DATA_CMD = 0 << 7 | 1 << 6;
-	// static const u8 DATA_ADDR_MODE_AUTO = 0 << 2;
-	static const u8 DATA_ADDR_MODE_FIXED = 1 << 2;
-	static const u8 DATA_WRITE_MODE = 0 << 1 | 0 << 0;
-	// static const u8 DATA_READ_MODE = 1 << 1 | 0 << 0;
-	static const u8 CTRL_CMD = 1 << 7 | 0 << 6, ON_FLAG = 1 << 3, BR_MASK = 7, BR_SHIFT = 0;
+static int hbs658_init(struct tm16xx_display *display)
+{
 	const enum led_brightness brightness = display->main_led.brightness;
 	u8 cmd;
 	int ret;
 
-	cmd = DATA_CMD | DATA_ADDR_MODE_FIXED | DATA_WRITE_MODE;
+	/* Set data command */
+	cmd = TM16XX_CMD_DATA | TM16XX_DATA_ADDR_FIXED | TM16XX_DATA_WRITE;
 	hbs658_swap_nibbles(&cmd, 1);
 	ret = tm16xx_spi_write(display, &cmd, 1);
 	if (ret < 0)
 		return ret;
 
-	cmd = CTRL_CMD | ((brightness && 1) * (((brightness - 1) & BR_MASK) << BR_SHIFT | ON_FLAG));
+	/* Set control command with brightness */
+	cmd = TM16XX_CMD_CTRL | TM16XX_CTRL_BRIGHTNESS(brightness, brightness - 1, TM16XX);
 	hbs658_swap_nibbles(&cmd, 1);
 	ret = tm16xx_spi_write(display, &cmd, 1);
 	if (ret < 0)
@@ -316,17 +362,18 @@ static int hbs658_init(struct tm16xx_display *display) {
 	return 0;
 }
 
-static int hbs658_data(struct tm16xx_display *display, u8 index, u8 data) {
-	static const u8 ADDR_CMD = 1 << 7 | 1 << 6;
+static int hbs658_data(struct tm16xx_display *display, u8 index, u8 data)
+{
 	u8 cmds[2];
 
-	cmds[0] = ADDR_CMD + index * 2;
+	cmds[0] = TM16XX_CMD_ADDR + index * 2;
 	cmds[1] = data;
 
 	hbs658_swap_nibbles(cmds, ARRAY_SIZE(cmds));
 	return tm16xx_spi_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
+/* Controller definitions */
 static const struct tm16xx_controller tm1618_controller = {
 	.max_brightness = 8,
 	.init = tm1628_init,
