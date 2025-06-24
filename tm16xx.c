@@ -104,7 +104,9 @@ struct tm16xx_display;
  * This structure holds function pointers for controller-specific operations.
  */
 struct tm16xx_controller {
+	const u8 max_grids;
 	const u8 max_brightness;
+	const int (*reset)(struct tm16xx_display *display);
 	const int (*init)(struct tm16xx_display *display);
 	const int (*data)(struct tm16xx_display *display, u8 index, u8 data);
 };
@@ -220,6 +222,23 @@ static int tm16xx_spi_write(struct tm16xx_display *display, u8 *data, size_t len
 
 
 /* Controller-specific functions */
+static int tm1628_reset(struct tm16xx_display *display)
+{
+	int size, ret;
+	u8 *cmds;
+
+	size = display->controller->max_grids * 2 + 1;
+	cmds = kcalloc(size, sizeof(u8), GFP_KERNEL);
+	if (!cmds)
+		return -ENOMEM;
+
+	cmds[0] = TM16XX_CMD_ADDR;
+	ret = tm16xx_spi_write(display, cmds, size);
+
+	kfree(cmds);
+	return ret;
+}
+
 static int tm1628_init(struct tm16xx_display *display)
 {
 	const enum led_brightness brightness = display->main_led.brightness;
@@ -375,36 +394,44 @@ static int hbs658_data(struct tm16xx_display *display, u8 index, u8 data)
 
 /* Controller definitions */
 static const struct tm16xx_controller tm1618_controller = {
+	.max_grids = 7,
 	.max_brightness = 8,
+	.reset = tm1628_reset,
 	.init = tm1628_init,
 	.data = tm1618_data,
 };
 
 static const struct tm16xx_controller tm1628_controller = {
+	.max_grids = 7,
 	.max_brightness = 8,
+	.reset = tm1628_reset,
 	.init = tm1628_init,
 	.data = tm1628_data,
 };
 
 static const struct tm16xx_controller tm1650_controller = {
+	.max_grids = 4,
 	.max_brightness = 8,
 	.init = tm1650_init,
 	.data = tm1650_data,
 };
 
 static const struct tm16xx_controller fd655_controller = {
+	.max_grids = 5,
 	.max_brightness = 3,
 	.init = fd655_init,
 	.data = fd655_data,
 };
 
 static const struct tm16xx_controller fd6551_controller = {
+	.max_grids = 5,
 	.max_brightness = 8,
 	.init = fd6551_init,
 	.data = fd655_data,
 };
 
 static const struct tm16xx_controller hbs658_controller = {
+	.max_grids = 5,
 	.max_brightness = 8,
 	.init = hbs658_init,
 	.data = hbs658_data,
@@ -880,6 +907,17 @@ ATTRIBUTE_GROUPS(tm16xx_main_led);
  */
 static int tm16xx_display_init(struct tm16xx_display *display)
 {
+	int ret;
+
+	if (display->controller->reset) {
+		mutex_lock(&display->lock);
+		ret = display->controller->reset(display);
+		mutex_unlock(&display->lock);
+		if (ret < 0)
+			dev_err(display->dev, "Failed to reset controller: %d\n", ret);
+		return ret;
+	}
+
 	schedule_work(&display->flush_init);
 	flush_work(&display->flush_init);
 	if (display->flush_status < 0)
