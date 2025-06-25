@@ -8,8 +8,8 @@
 
 	i2c-display {
 		compatible = "i2c-gpio";
-		sda-gpios = <&gpio 23 0>;
-		scl-gpios = <&gpio 24 0>;
+		sda-gpios = <&gpio 23 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		scl-gpios = <&gpio 24 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 		i2c-gpio,delay-us = <5>;
 		#address-cells = <1>;
 		#size-cells = <0>;

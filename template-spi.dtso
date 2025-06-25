@@ -10,9 +10,9 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "spi-gpio";
-		sck-gpios = <{CLK_GPIO} {CLK_PIN} {CLK_FLAG}>;
-		mosi-gpios = <{DAT_GPIO} {DAT_PIN} {DAT_FLAG}>;
-		cs-gpios = <{CS_GPIO} {CS_PIN} {CS_FLAG}>;
+		sck-gpios = <{CLK_GPIO} {CLK_PIN} GPIO_ACTIVE_HIGH>;
+		mosi-gpios = <{DAT_GPIO} {DAT_PIN} GPIO_ACTIVE_HIGH>;
+		cs-gpios = <{CS_GPIO} {CS_PIN} GPIO_ACTIVE_LOW>;
 		num-chipselects = <1>;
 
 		display-controller@0 {
