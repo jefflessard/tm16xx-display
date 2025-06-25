@@ -978,6 +978,12 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 		return -ENOMEM;
 
 	for (i = 0; i < display->num_digits; i++) {
+		if (digits[i] >= display->controller->max_grids) {
+			dev_err(dev, "Digit grid %d exceeds controller max_grids %d\n",
+				digits[i], display->controller->max_grids);
+			return -EINVAL;
+		}
+
 		display->digits[i].grid = digits[i];
 		max_grid = umax(max_grid, digits[i]);
 	}
@@ -994,7 +1000,8 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 	for (i = 0; i < DIGIT_SEGMENTS; i++) {
 		if (display->segment_mapping[i] < MIN_SEGMENT ||
 			display->segment_mapping[i] > MAX_SEGMENT) {
-			dev_err(dev, "Invalid 'tm16xx,segment-mapping' value: %d (must be between %d and %d)\n", display->segment_mapping[i], MIN_SEGMENT, MAX_SEGMENT);
+			dev_err(dev, "Invalid 'tm16xx,segment-mapping' value: %d (must be between %d and %d)\n",
+				display->segment_mapping[i], MIN_SEGMENT, MAX_SEGMENT);
 			return -EINVAL;
 		}
 
@@ -1008,7 +1015,22 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 		ret = fwnode_property_read_u32_array(child, "reg", reg, 2);
 		if (ret < 0) {
 			dev_err(dev, "Failed to read 'reg' property of led node: %d\n", ret);
+			fwnode_handle_put(child);
 			return ret;
+		}
+
+		if (reg[0] >= display->controller->max_grids) {
+			dev_err(dev, "LED grid %d exceeds controller max_grids %d\n",
+				reg[0], display->controller->max_grids);
+			fwnode_handle_put(child);
+			return -EINVAL;
+		}
+
+		if (reg[1] < MIN_SEGMENT || reg[1] > MAX_SEGMENT) {
+			dev_err(dev, "LED segment %d is invalid (must be between %d and %d)\n",
+				reg[1], MIN_SEGMENT, MAX_SEGMENT);
+			fwnode_handle_put(child);
+			return -EINVAL;
 		}
 
 		max_grid = umax(max_grid, reg[0]);
@@ -1085,6 +1107,7 @@ static int tm16xx_probe(struct tm16xx_display *display)
 
 		ret = fwnode_property_read_u32_array(child, "reg", reg, 2);
 		if (ret < 0) {
+			fwnode_handle_put(child);
 			dev_err(dev, "Failed to read LED reg property: %d\n", ret);
 			return ret;
 		}
@@ -1098,6 +1121,7 @@ static int tm16xx_probe(struct tm16xx_display *display)
 
 		ret = devm_led_classdev_register_ext(dev, &led->cdev, &led_init);
 		if (ret < 0) {
+			fwnode_handle_put(child);
 			dev_err(dev, "Failed to register LED %s: %d\n", led->cdev.name, ret);
 			return ret;
 		}
