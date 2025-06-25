@@ -8,22 +8,22 @@ See [Device Table](DEVICES.md)
 
 *Other similar controllers may already be compatible using one of these identifiers.*
 
-* Shenzhen TITAN MICRO Electronics
+* Shenzhen Titan Micro Electronics Co., Ltd.
   * titanmec,tm1618 ([datasheet](datasheets/TM1618_V2.1_EN.pdf))
   * titanmec,tm1620 ([datasheet](datasheets/TM1620_V2.1_EN.pdf))
   * titanmec,tm1628 ([datasheet](datasheets/TM1628_V1.1_EN.pdf))
   * titanmec,tm1650 ([datasheet](datasheets/TM1650_V2.2_EN.pdf))
-* FUDA HISI MICROELECTRONICS
+* Fuzhou Fuda Hisi Microelectronics Co., Ltd.
   * fdhisi,fd620 ([datasheet](datasheets/FD620.pdf))
   * fdhisi,fd628 ([datasheet](datasheets/FD628.pdf))
   * fdhisi,fd650 ([datasheet](datasheets/FD650.pdf))
   * fdhisi,fd655 ([datasheet](datasheets/FD655.pdf))
   * fdhisi,fd6551 ([datasheet](datasheets/FD6551.pdf))
-* Wuxi I-CORE Electronics
+* Wuxi i-Core Electronics Co., Ltd.
   * wxi-core,aip1628 ([datasheet](datasheets/AiP1628.pdf))
-* Princeton Technology Corp
+* Princeton Technology Corporation
   * princeton,pt6964 ([datasheet](datasheets/PT6964.pdf))
-* Shenzhen Winrise Technology
+* Shenzhen Winrise Technology Co., Ltd.
   * winrise,hbs658 ([datasheet](datasheets/HBS-588.pdf))
 
 # Overview
