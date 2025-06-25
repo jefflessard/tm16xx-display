@@ -20,11 +20,11 @@ See [Device Table](DEVICES.md)
   * fdhisi,fd655 ([datasheet](datasheets/FD655.pdf))
   * fdhisi,fd6551 ([datasheet](datasheets/FD6551.pdf))
 * Wuxi I-CORE Electronics
-  * titanmec,tm1628 ([datasheet](datasheets/AiP1628.pdf))
+  * wxi-core,aip1628 ([datasheet](datasheets/AiP1628.pdf))
 * Princeton Technology Corp
   * princeton,pt6964 ([datasheet](datasheets/PT6964.pdf))
 * Shenzhen Winrise Technology
-  * hbs,hbs658 ([datasheet](datasheets/HBS-588.pdf))
+  * winrise,hbs658 ([datasheet](datasheets/HBS-588.pdf))
 
 # Overview
 

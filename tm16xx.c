@@ -1179,8 +1179,9 @@ static const struct of_device_id tm16xx_spi_of_match[] = {
 	{ .compatible = "titanmec,tm1628", .data = &tm1628_controller },
 	{ .compatible = "fdhisi,fd620", .data = &tm1628_controller },
 	{ .compatible = "fdhisi,fd628", .data = &tm1628_controller },
+	{ .compatible = "wxi-core,aip1628", .data = &tm1628_controller },
 	{ .compatible = "princeton,pt6964", .data = &tm1628_controller },
-	{ .compatible = "hbs,hbs658", .data = &hbs658_controller },
+	{ .compatible = "winrise,hbs658", .data = &hbs658_controller },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, tm16xx_spi_of_match);
@@ -1191,6 +1192,7 @@ static const struct spi_device_id tm16xx_spi_id[] = {
 	{ "tm1628", 0 },
 	{ "fd620", 0 },
 	{ "fd628", 0 },
+	{ "aip1628", 0 },
 	{ "pt6964", 0 },
 	{ "hbs658", 0 },
 	{ /* sentinel */ }

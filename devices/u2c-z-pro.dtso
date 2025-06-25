@@ -15,7 +15,7 @@
 		#size-cells = <0>;
 
 		display-controller@24 {
-			compatible = "hbs,hbs658";
+			compatible = "winrise,hbs658";
 			reg = <0x24>;
 
 			tm16xx,digits = [00 01 02 03];

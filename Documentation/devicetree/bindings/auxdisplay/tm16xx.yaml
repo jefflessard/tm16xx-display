@@ -39,8 +39,9 @@ properties:
       - fdhisi,fd650
       - fdhisi,fd6551
       - fdhisi,fd655
+      - wxi-core,aip1628
       - princeton,pt6964
-      - hbs,hbs658
+      - winrise,hbs658
 
   reg:
     maxItems: 1

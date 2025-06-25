@@ -19,7 +19,7 @@ hk1-rbox-x4 | i2c | fdhisi,fd6551 | no
 hk1-x3 | i2c | fdhisi,fd6551 | no
 hk1-max | i2c | fdhisi,fd6551 | yes
 m82 | spi | fdhisi,fd628 | no
-m9-pro-u2c-x-u5x-s | i2c | hbs,hbs658 | no
+m9-pro-u2c-x-u5x-s | i2c | winrise,hbs658 | no
 magicsee-c400-plus | i2c | fdhisi,fd655 | no
 magicsee-c500-pro | i2c | fdhisi,fd655 | no
 magicsee-n5 | i2c | fdhisi,fd655 | yes
@@ -56,7 +56,7 @@ tap1 | spi | titanmec,tm1618 | no
 tappro | spi | titanmec,tm1618 | no
 trident-t527 | i2c | fdhisi,fd6551 | no
 tx92 | spi | fdhisi,fd628 | no
-u2c-z-pro | i2c | hbs,hbs658 | no
+u2c-z-pro | i2c | winrise,hbs658 | no
 vontar-w2-atv | i2c | fdhisi,fd655 | no
 vontar-x4 | i2c | fdhisi,fd6551 | no
 vorke-z5 | spi | fdhisi,fd628 | no

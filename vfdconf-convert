@@ -6,7 +6,7 @@ CONTROLLER_MAP=( \
 	0x01 "fdhisi,fd620" \
 	0x02 "titanmec,tm1618" \
 	0x03 "fdhisi,fd650" \
-	0x04 "hbs,hbs658" \
+	0x04 "winrise,hbs658" \
 	0x05 "fdhisi,fd655" \
 	0x06 "fdhisi,fd6551" \
 )
