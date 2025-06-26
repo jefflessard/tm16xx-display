@@ -1148,8 +1148,8 @@ static const struct of_device_id tm16xx_spi_of_match[] = {
 	{ .compatible = "titanmec,tm1628", .data = &tm1628_controller },
 	{ .compatible = "fdhisi,fd620", .data = &tm1628_controller },
 	{ .compatible = "fdhisi,fd628", .data = &tm1628_controller },
-	{ .compatible = "wxi-core,aip1618", .data = &tm1618_controller },
-	{ .compatible = "wxi-core,aip1628", .data = &tm1628_controller },
+	{ .compatible = "icore,aip1618", .data = &tm1618_controller },
+	{ .compatible = "icore,aip1628", .data = &tm1628_controller },
 	{ .compatible = "princeton,pt6964", .data = &tm1628_controller },
 	{ .compatible = "winrise,hbs658", .data = &hbs658_controller },
 	{ /* sentinel */ }

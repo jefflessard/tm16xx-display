@@ -20,8 +20,8 @@ See [Device Table](DEVICES.md)
   * fdhisi,fd655 ([datasheet](datasheets/FD655.pdf))
   * fdhisi,fd6551 ([datasheet](datasheets/FD6551.pdf))
 * Wuxi i-Core Electronics Co., Ltd.
-  * wxi-core,aip1618 ([datasheet](datasheets/AiP1618.pdf))
-  * wxi-core,aip1628 ([datasheet](datasheets/AiP1628.pdf))
+  * icore,aip1618 ([datasheet](datasheets/AiP1618.pdf))
+  * icore,aip1628 ([datasheet](datasheets/AiP1628.pdf))
 * Princeton Technology Corporation
   * princeton,pt6964 ([datasheet](datasheets/PT6964.pdf))
 * Shenzhen Winrise Technology Co., Ltd.
