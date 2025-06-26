@@ -39,6 +39,7 @@ properties:
       - fdhisi,fd650
       - fdhisi,fd6551
       - fdhisi,fd655
+      - icore,aip650
       - icore,aip1618
       - icore,aip1628
       - princeton,pt6964

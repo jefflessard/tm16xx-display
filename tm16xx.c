@@ -1217,6 +1217,7 @@ static void tm16xx_i2c_remove(struct i2c_client *client)
 
 static const struct of_device_id tm16xx_i2c_of_match[] = {
 	{ .compatible = "titanmec,tm1650", .data = &tm1650_controller },
+	{ .compatible = "icore,aip650", .data = &tm1650_controller },
 	{ .compatible = "fdhisi,fd650", .data = &tm1650_controller },
 	{ .compatible = "fdhisi,fd6551", .data = &fd6551_controller },
 	{ .compatible = "fdhisi,fd655", .data = &fd655_controller },
@@ -1226,6 +1227,7 @@ MODULE_DEVICE_TABLE(of, tm16xx_i2c_of_match);
 
 static const struct i2c_device_id tm16xx_i2c_id[] = {
 	{ "tm1650", 0 },
+	{ "aip650", 0 },
 	{ "fd650", 0 },
 	{ "fd6551", 0 },
 	{ "fd655", 0 },
