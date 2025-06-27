@@ -95,7 +95,7 @@ static SEG7_CONVERSION_MAP(map_seg7, MAP_ASCII7SEG_ALPHANUM);
 struct tm16xx_display;
 
 /**
- * struct tm16xx_controller - Controller-specific operations
+ * DOC: struct tm16xx_controller - Controller-specific operations
  * @max_grids: Maximum number of grids supported by the controller
  * @max_brightness: Maximum brightness level supported by the controller
  * @init: Configures the controller mode and brightness
@@ -106,8 +106,8 @@ struct tm16xx_display;
 struct tm16xx_controller {
 	const u8 max_grids;
 	const u8 max_brightness;
-	const int (*init)(struct tm16xx_display *display);
-	const int (*data)(struct tm16xx_display *display, u8 index, u8 data);
+	int (* const init)(struct tm16xx_display *display);
+	int (* const data)(struct tm16xx_display *display, u8 index, u8 data);
 };
 
 /**
