@@ -8,6 +8,7 @@
  * FD6XX family, PT6964, and HBS658. It provides support for both I2C and SPI interfaces.
  */
 
+#include <linux/bitfield.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/slab.h>
@@ -53,7 +54,6 @@
 /* Control command settings */
 #define TM16XX_CTRL_ON          BIT(3)
 #define TM16XX_CTRL_BR_MASK     GENMASK(2, 0)
-#define TM16XX_CTRL_BR_SHIFT    0
 
 /* TM1618 specific constants */
 #define TM1618_BYTE1_MASK       GENMASK(4, 0)
@@ -65,7 +65,6 @@
 #define TM1650_CMD_CTRL         0x48
 #define TM1650_CMD_ADDR         0x68
 #define TM1650_CTRL_BR_MASK     GENMASK(6, 4)
-#define TM1650_CTRL_BR_SHIFT    4
 #define TM1650_CTRL_ON          BIT(0)
 #define TM1650_CTRL_SEG_MASK    BIT(3)
 #define TM1650_CTRL_SEG8_MODE   0
@@ -74,17 +73,15 @@
 #define FD655_CMD_CTRL          0x48
 #define FD655_CMD_ADDR          0x66
 #define FD655_CTRL_BR_MASK      GENMASK(6, 5)
-#define FD655_CTRL_BR_SHIFT     5
 #define FD655_CTRL_ON           BIT(0)
 
 #define FD6551_CMD_CTRL         0x48
 #define FD6551_CTRL_BR_MASK     GENMASK(3, 1)
-#define FD6551_CTRL_BR_SHIFT    1
 #define FD6551_CTRL_ON          BIT(0)
 
 #define TM16XX_CTRL_BRIGHTNESS(enabled, value, prefix) \
 	((enabled) ? \
-	 ((((value) << prefix##_CTRL_BR_SHIFT) & prefix##_CTRL_BR_MASK) | prefix##_CTRL_ON) : \
+	 (FIELD_PREP(prefix##_CTRL_BR_MASK, (value)) | prefix##_CTRL_ON) : \
 	 0)
 // clang-format on
 
@@ -171,7 +168,7 @@ struct tm16xx_display {
 	u8 digit_bitmask;
 	u8 *display_data;
 	size_t display_data_len;
-	struct mutex lock; /* for concurrent access protection */
+	struct mutex lock; /* protect shared display state in work functions */
 	struct work_struct flush_init;
 	struct work_struct flush_display;
 	int flush_status;
@@ -1302,7 +1299,7 @@ module_init(tm16xx_init);
 module_exit(tm16xx_exit);
 
 MODULE_AUTHOR("Jean-François Lessard");
-MODULE_DESCRIPTION("TM16XX-compatible LED controllers display");
+MODULE_DESCRIPTION("TM16XX Compatible LED Display Controllers");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("spi:tm16xx");
 MODULE_ALIAS("i2c:tm16xx");
