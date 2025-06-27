@@ -88,7 +88,7 @@
 	 0)
 // clang-format on
 
-static char *default_value = NULL;
+static char *default_value;
 module_param(default_value, charp, 0644);
 MODULE_PARM_DESC(default_value, "Default display value to initialize");
 
@@ -171,7 +171,7 @@ struct tm16xx_display {
 	u8 digit_bitmask;
 	u8 *display_data;
 	size_t display_data_len;
-	struct mutex lock;
+	struct mutex lock; /* for concurrent access protection */
 	struct work_struct flush_init;
 	struct work_struct flush_display;
 	int flush_status;
@@ -233,15 +233,15 @@ static int tm1628_init(struct tm16xx_display *display)
 
 	/* Set mode command based on grid count */
 	cmd = TM16XX_CMD_MODE;
-	if (num_grids <= 4) {
+	if (num_grids <= 4)
 		cmd |= TM16XX_MODE_4GRIDS;
-	} else if (num_grids == 5) {
+	else if (num_grids == 5)
 		cmd |= TM16XX_MODE_5GRIDS;
-	} else if (num_grids == 6) {
+	else if (num_grids == 6)
 		cmd |= TM16XX_MODE_6GRIDS;
-	} else {
+	else
 		cmd |= TM16XX_MODE_7GRIDS;
-	}
+
 	ret = tm16xx_spi_write(display, &cmd, 1);
 	if (ret < 0)
 		return ret;
@@ -340,9 +340,8 @@ static int fd6551_init(struct tm16xx_display *display)
 
 static void hbs658_swap_nibbles(u8 *data, size_t len)
 {
-	for (size_t i = 0; i < len; i++) {
+	for (size_t i = 0; i < len; i++)
 		data[i] = (data[i] << 4) | (data[i] >> 4);
-	}
 }
 
 static int hbs658_init(struct tm16xx_display *display)
@@ -593,9 +592,9 @@ static ssize_t tm16xx_display_value_show(struct device *dev,
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
 	int i;
 
-	for (i = 0; i < display->num_digits && i < PAGE_SIZE - 1; i++) {
+	for (i = 0; i < display->num_digits && i < PAGE_SIZE - 1; i++)
 		buf[i] = display->digits[i].value;
-	}
+
 	buf[i++] = '\n';
 
 	return i;
@@ -665,7 +664,7 @@ static int tm16xx_parse_int_array(const char *buf, int **array)
 	int *values, value, count = 0, len;
 	const char *ptr = buf;
 
-	while (1 == sscanf(ptr, "%d %n", &value, &len)) {
+	while (sscanf(ptr, "%d %n", &value, &len) == 1) {
 		count++;
 		ptr += len;
 	}
@@ -681,7 +680,7 @@ static int tm16xx_parse_int_array(const char *buf, int **array)
 
 	ptr = buf;
 	count = 0;
-	while (1 == sscanf(ptr, "%d %n", &value, &len)) {
+	while (sscanf(ptr, "%d %n", &value, &len) == 1) {
 		values[count++] = value;
 		ptr += len;
 	}
@@ -707,9 +706,9 @@ static ssize_t tm16xx_segment_mapping_show(struct device *dev,
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
 	int i, count = 0;
 
-	for (i = 0; i < DIGIT_SEGMENTS; i++) {
+	for (i = 0; i < DIGIT_SEGMENTS; i++)
 		count += sprintf(buf + count, "%d ", display->segment_mapping[i]);
-	}
+
 	count += sprintf(buf + count, "\n");
 
 	return count;
@@ -779,9 +778,9 @@ static ssize_t tm16xx_digits_ordering_show(struct device *dev,
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
 	int i, count = 0;
 
-	for (i = 0; i < display->num_digits; i++) {
+	for (i = 0; i < display->num_digits; i++)
 		count += sprintf(buf + count, "%d ", display->digits[i].grid);
-	}
+
 	count += sprintf(buf + count, "\n");
 
 	return count;
@@ -834,9 +833,8 @@ static ssize_t tm16xx_digits_ordering_store(struct device *dev,
 		}
 	}
 
-	for (i = 0; i < display->num_digits; i++) {
+	for (i = 0; i < display->num_digits; i++)
 		display->digits[i].grid = (u8)array[i];
-	}
 
 	kfree(array);
 	return count;
@@ -1167,6 +1165,7 @@ static int tm16xx_spi_probe(struct spi_device *spi)
 static void tm16xx_spi_remove(struct spi_device *spi)
 {
 	struct tm16xx_display *display = spi_get_drvdata(spi);
+
 	tm16xx_display_remove(display);
 }
 
@@ -1242,6 +1241,7 @@ static int tm16xx_i2c_probe(struct i2c_client *client)
 static void tm16xx_i2c_remove(struct i2c_client *client)
 {
 	struct tm16xx_display *display = i2c_get_clientdata(client);
+
 	tm16xx_display_remove(display);
 }
 
