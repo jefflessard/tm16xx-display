@@ -578,15 +578,15 @@ static void tm16xx_led_set(struct led_classdev *led_cdev, enum led_brightness va
 }
 
 /**
- * tm16xx_display_value_show - Show current display value
+ * tm16xx_value_show - Show current display value
  * @dev: Pointer to device structure
  * @attr: Pointer to device attribute structure
  * @buf: Buffer to write the display value
  *
  * Return: Number of bytes written to buffer
  */
-static ssize_t tm16xx_display_value_show(struct device *dev,
-					 struct device_attribute *attr, char *buf)
+static ssize_t tm16xx_value_show(struct device *dev, struct device_attribute *attr,
+				 char *buf)
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
@@ -601,7 +601,7 @@ static ssize_t tm16xx_display_value_show(struct device *dev,
 }
 
 /**
- * tm16xx_display_value_store - Store new display value
+ * tm16xx_value_store - Store new display value
  * @dev: Pointer to device structure
  * @attr: Pointer to device attribute structure
  * @buf: Buffer containing the new display value
@@ -609,9 +609,8 @@ static ssize_t tm16xx_display_value_show(struct device *dev,
  *
  * Return: Number of bytes written or negative error code
  */
-static ssize_t tm16xx_display_value_store(struct device *dev,
-					  struct device_attribute *attr, const char *buf,
-					  size_t count)
+static ssize_t tm16xx_value_store(struct device *dev, struct device_attribute *attr,
+				  const char *buf, size_t count)
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
@@ -690,7 +689,7 @@ static int tm16xx_parse_int_array(const char *buf, int **array)
 }
 
 /**
- * tm16xx_segment_mapping_show - Show the current segment mapping
+ * tm16xx_segments_show - Show the current segment mapping
  * @dev: The device struct
  * @attr: The device_attribute struct
  * @buf: The output buffer
@@ -699,8 +698,8 @@ static int tm16xx_parse_int_array(const char *buf, int **array)
  *
  * Return: Number of bytes written to buf
  */
-static ssize_t tm16xx_segment_mapping_show(struct device *dev,
-					   struct device_attribute *attr, char *buf)
+static ssize_t tm16xx_segments_show(struct device *dev, struct device_attribute *attr,
+				    char *buf)
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
@@ -715,7 +714,7 @@ static ssize_t tm16xx_segment_mapping_show(struct device *dev,
 }
 
 /**
- * tm16xx_segment_mapping_store - Set a new segment mapping
+ * tm16xx_segments_store - Set a new segment mapping
  * @dev: The device struct
  * @attr: The device_attribute struct
  * @buf: The input buffer
@@ -727,9 +726,8 @@ static ssize_t tm16xx_segment_mapping_show(struct device *dev,
  *
  * Return: count on success, negative errno on failure
  */
-static ssize_t tm16xx_segment_mapping_store(struct device *dev,
-					    struct device_attribute *attr,
-					    const char *buf, size_t count)
+static ssize_t tm16xx_segments_store(struct device *dev, struct device_attribute *attr,
+				     const char *buf, size_t count)
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
@@ -762,7 +760,7 @@ static ssize_t tm16xx_segment_mapping_store(struct device *dev,
 }
 
 /**
- * tm16xx_digits_ordering_show - Show the current digit ordering
+ * tm16xx_digits_show - Show the current digit ordering
  * @dev: The device struct
  * @attr: The device_attribute struct
  * @buf: The output buffer
@@ -771,8 +769,8 @@ static ssize_t tm16xx_segment_mapping_store(struct device *dev,
  *
  * Return: Number of bytes written to buf
  */
-static ssize_t tm16xx_digits_ordering_show(struct device *dev,
-					   struct device_attribute *attr, char *buf)
+static ssize_t tm16xx_digits_show(struct device *dev, struct device_attribute *attr,
+				  char *buf)
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
@@ -787,7 +785,7 @@ static ssize_t tm16xx_digits_ordering_show(struct device *dev,
 }
 
 /**
- * tm16xx_digits_ordering_store - Set a new digit ordering
+ * tm16xx_digits_store - Set a new digit ordering
  * @dev: The device struct
  * @attr: The device_attribute struct
  * @buf: The input buffer
@@ -799,9 +797,8 @@ static ssize_t tm16xx_digits_ordering_show(struct device *dev,
  *
  * Return: count on success, negative errno on failure
  */
-static ssize_t tm16xx_digits_ordering_store(struct device *dev,
-					    struct device_attribute *attr,
-					    const char *buf, size_t count)
+static ssize_t tm16xx_digits_store(struct device *dev, struct device_attribute *attr,
+				   const char *buf, size_t count)
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
@@ -878,10 +875,10 @@ static ssize_t tm16xx_map_seg7_store(struct device *dev, struct device_attribute
 }
 
 // clang-format off
-static DEVICE_ATTR(value, 0644, tm16xx_display_value_show, tm16xx_display_value_store);
+static DEVICE_ATTR(value, 0644, tm16xx_value_show, tm16xx_value_store);
 static DEVICE_ATTR(num_digits, 0444, tm16xx_num_digits_show, NULL);
-static DEVICE_ATTR(segments, 0644, tm16xx_segment_mapping_show, tm16xx_segment_mapping_store);
-static DEVICE_ATTR(digits, 0644, tm16xx_digits_ordering_show, tm16xx_digits_ordering_store);
+static DEVICE_ATTR(segments, 0644, tm16xx_segments_show, tm16xx_segments_store);
+static DEVICE_ATTR(digits, 0644, tm16xx_digits_show, tm16xx_digits_store);
 static DEVICE_ATTR(map_seg7, 0644, tm16xx_map_seg7_show, tm16xx_map_seg7_store);
 
 static struct attribute *tm16xx_main_led_attrs[] = {
@@ -909,8 +906,8 @@ static int tm16xx_display_init(struct tm16xx_display *display)
 		return display->flush_status;
 
 	if (default_value && strlen(default_value) > 0) {
-		tm16xx_display_value_store(display->main_led.dev, NULL, default_value,
-					   strlen(default_value));
+		tm16xx_value_store(display->main_led.dev, NULL, default_value,
+				   strlen(default_value));
 	} else {
 		memset(display->display_data, 0xFF, display->display_data_len);
 		schedule_work(&display->flush_display);
