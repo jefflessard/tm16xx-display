@@ -101,7 +101,7 @@ template() {
 		> ${device_file}
 
 	if [ "$TRANSPOSED" == "0x01" ]; then
-		sed -i "s/{TRANSPOSED}/tm16xx,transposed;/g" ${device_file}
+		sed -i "s/{TRANSPOSED}/titanmec,transposed;/g" ${device_file}
 	else
 		sed -i "/{TRANSPOSED}/d" ${device_file}
 	fi

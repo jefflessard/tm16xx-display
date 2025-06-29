@@ -18,9 +18,9 @@
 			compatible = "fdhisi,fd6551";
 			reg = <0x24>;
 
-			tm16xx,transposed;
-			tm16xx,digits = [00 01 02 03];
-			tm16xx,segment-mapping = [00 01 02 03 04 05 06];
+			titanmec,transposed;
+			titanmec,digits = [00 01 02 03];
+			titanmec,segment-mapping = [00 01 02 03 04 05 06];
 
 			#address-cells = <2>;
 			#size-cells = <0>;

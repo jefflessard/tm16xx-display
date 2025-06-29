@@ -209,8 +209,8 @@ reorder_digits() {
 print_dt_config() {
     echo "Update your device tree configuration to:"
     echo
-    echo "    tm16xx,digits = [$DIGITS];"
-    echo "    tm16xx,segment-mapping = [$SEGMENTS];"
+    echo "    titanmec,digits = [$DIGITS];"
+    echo "    titanmec,segment-mapping = [$SEGMENTS];"
     echo
 }
 

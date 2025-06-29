@@ -216,8 +216,8 @@ Digit order: [1 2 3 4]
 
 Update your device tree configuration to:
 
-        tm16xx,digits = [1 2 3 4];
-        tm16xx,segment-mapping = [3 4 5 0 1 2 6];
+        titanmec,digits = [1 2 3 4];
+        titanmec,segment-mapping = [3 4 5 0 1 2 6];
 
 ```
 
@@ -274,9 +274,9 @@ Create a .dtso file in `devices` directory
       * `scl-gpios`: clock gpio pin
   * `display-controller`
     * `compatible`: your display controller chip
-    * `tm16xx,transposed` : optional flag indicating that the data matrix should be transposed when writing to the controller (grids and segments are inverted), required on some devices
-    * `tm16xx,digits`: variable lengh byte array determining the number of text grid digits and their index position 
-    * `tm16xx,segment-mapping`: array of 7 bytes specifying which bit of a grid digit should be used for each ascii map segment
+    * `titanmec,transposed` : optional flag indicating that the data matrix should be transposed when writing to the controller (grids and segments are inverted), required on some devices
+    * `titanmec,digits`: variable lengh byte array determining the number of text grid digits and their index position 
+    * `titanmec,segment-mapping`: array of 7 bytes specifying which bit of a grid digit should be used for each ascii map segment
   * `led@X,Y`
     * X: grid cell index
     * Y: segment index

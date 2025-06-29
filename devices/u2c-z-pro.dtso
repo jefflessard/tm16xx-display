@@ -18,8 +18,8 @@
 			compatible = "winrise,hbs658";
 			reg = <0x24>;
 
-			tm16xx,digits = [00 01 02 03];
-			tm16xx,segment-mapping = [03 01 02 06 04 05 00];
+			titanmec,digits = [00 01 02 03];
+			titanmec,segment-mapping = [03 01 02 06 04 05 00];
 
 			#address-cells = <2>;
 			#size-cells = <0>;

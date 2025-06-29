@@ -23,8 +23,8 @@
 			spi-rx-delay-us = <1>;
 			spi-max-frequency = <500000>;
 
-			tm16xx,digits = [03 02 01 00];
-			tm16xx,segment-mapping = [00 04 05 01 03 02 06];
+			titanmec,digits = [03 02 01 00];
+			titanmec,segment-mapping = [00 04 05 01 03 02 06];
 
 			#address-cells = <2>;
 			#size-cells = <0>;

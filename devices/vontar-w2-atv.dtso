@@ -18,8 +18,8 @@
 			compatible = "fdhisi,fd655";
 			reg = <0x24>;
 
-			tm16xx,digits = [04 03 02 01];
-			tm16xx,segment-mapping = [03 01 02 06 04 05 00];
+			titanmec,digits = [04 03 02 01];
+			titanmec,segment-mapping = [03 01 02 06 04 05 00];
 
 			#address-cells = <2>;
 			#size-cells = <0>;

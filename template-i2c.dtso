@@ -19,8 +19,8 @@
 			reg = <0x24>;
 
 			{TRANSPOSED}
-			tm16xx,digits = [{DIGITS}];
-			tm16xx,segment-mapping = [{SEGMENTS}];
+			titanmec,digits = [{DIGITS}];
+			titanmec,segment-mapping = [{SEGMENTS}];
 
 			{LEDS}
 

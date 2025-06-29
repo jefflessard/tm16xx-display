@@ -931,11 +931,11 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 	u8 *digits;
 
 	display->transpose_display_data =
-		device_property_read_bool(dev, "tm16xx,transposed");
+		device_property_read_bool(dev, "titanmec,transposed");
 
-	ret = device_property_count_u8(dev, "tm16xx,digits");
+	ret = device_property_count_u8(dev, "titanmec,digits");
 	if (ret < 0) {
-		dev_err(dev, "Failed to count 'tm16xx,digits' property: %d\n", ret);
+		dev_err(dev, "Failed to count 'titanmec,digits' property: %d\n", ret);
 		return ret;
 	}
 
@@ -946,10 +946,10 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 	if (!digits)
 		return -ENOMEM;
 
-	ret = device_property_read_u8_array(dev, "tm16xx,digits", digits,
+	ret = device_property_read_u8_array(dev, "titanmec,digits", digits,
 					    display->num_digits);
 	if (ret < 0) {
-		dev_err(dev, "Failed to read 'tm16xx,digits' property: %d\n", ret);
+		dev_err(dev, "Failed to read 'titanmec,digits' property: %d\n", ret);
 		return ret;
 	}
 
@@ -971,10 +971,10 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 
 	devm_kfree(dev, digits);
 
-	ret = device_property_read_u8_array(dev, "tm16xx,segment-mapping",
+	ret = device_property_read_u8_array(dev, "titanmec,segment-mapping",
 					    display->segment_mapping, DIGIT_SEGMENTS);
 	if (ret < 0) {
-		dev_err(dev, "Failed to read 'tm16xx,segment-mapping' property: %d\n",
+		dev_err(dev, "Failed to read 'titanmec,segment-mapping' property: %d\n",
 			ret);
 		return ret;
 	}
@@ -984,7 +984,7 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 		if (display->segment_mapping[i] < MIN_SEGMENT ||
 		    display->segment_mapping[i] > MAX_SEGMENT) {
 			dev_err(dev,
-				"Invalid 'tm16xx,segment-mapping' value: %d (must be between %d and %d)\n",
+				"Invalid 'titanmec,segment-mapping' value: %d (must be between %d and %d)\n",
 				display->segment_mapping[i], MIN_SEGMENT, MAX_SEGMENT);
 			return -EINVAL;
 		}
