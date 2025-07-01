@@ -24,8 +24,6 @@
 #define TM16XX_DRIVER_NAME "tm16xx"
 #define TM16XX_DEVICE_NAME "display"
 #define DIGIT_SEGMENTS 7
-#define MIN_SEGMENT 0
-#define MAX_SEGMENT 7 /* data stored as 8 bits (u8) */
 
 /* Common bit field definitions */
 // clang-format off
@@ -44,7 +42,7 @@
 #define TM16XX_MODE_7GRIDS      (BIT(1) | BIT(0))
 
 /* Data command settings */
-#define TM16XX_DATA_ADDR_MASK   BIT(2)
+#define TM16XX_DATA_ADDR_MASK   GENMASK(2, 2)
 #define TM16XX_DATA_ADDR_AUTO   0
 #define TM16XX_DATA_ADDR_FIXED  BIT(2)
 #define TM16XX_DATA_MODE_MASK   GENMASK(1, 0)
@@ -58,15 +56,27 @@
 /* TM1618 specific constants */
 #define TM1618_BYTE1_MASK       GENMASK(4, 0)
 #define TM1618_BYTE1_RSHIFT     0
-#define TM1618_BYTE2_MASK       (~TM1618_BYTE1_MASK)
+#define TM1618_BYTE2_MASK       GENMASK(7, 5)
 #define TM1618_BYTE2_RSHIFT     2
+
+/* TM1628 specific constants */
+#define TM1628_BYTE1_MASK       GENMASK(7, 0)
+#define TM1628_BYTE1_RSHIFT     0
+#define TM1628_BYTE2_MASK       GENMASK(13, 8)
+#define TM1628_BYTE2_RSHIFT     2
+
+/* FD620 specific constants */
+#define FD620_BYTE1_MASK        GENMASK(6, 0)
+#define FD620_BYTE1_RSHIFT      0
+#define FD620_BYTE2_MASK        GENMASK(7, 7)
+#define FD620_BYTE2_RSHIFT      2
 
 /* I2C controller addresses and control settings */
 #define TM1650_CMD_CTRL         0x48
 #define TM1650_CMD_ADDR         0x68
 #define TM1650_CTRL_BR_MASK     GENMASK(6, 4)
 #define TM1650_CTRL_ON          BIT(0)
-#define TM1650_CTRL_SEG_MASK    BIT(3)
+#define TM1650_CTRL_SEG_MASK    GENMASK(3, 3)
 #define TM1650_CTRL_SEG8_MODE   0
 #define TM1650_CTRL_SEG7_MODE   BIT(3)
 
@@ -97,6 +107,7 @@ struct tm16xx_display;
 /**
  * DOC: struct tm16xx_controller - Controller-specific operations
  * @max_grids: Maximum number of grids supported by the controller
+ * @max_segments: Maximum number of segments supported by the controller (max 16)
  * @max_brightness: Maximum brightness level supported by the controller
  * @init: Configures the controller mode and brightness
  * @data: Writes display data to the controller
@@ -105,9 +116,10 @@ struct tm16xx_display;
  */
 struct tm16xx_controller {
 	const u8 max_grids;
+	const u8 max_segments;
 	const u8 max_brightness;
 	int (* const init)(struct tm16xx_display *display);
-	int (* const data)(struct tm16xx_display *display, u8 index, u8 data);
+	int (* const data)(struct tm16xx_display *display, u8 index, u16 data);
 };
 
 /**
@@ -165,8 +177,8 @@ struct tm16xx_display {
 	struct tm16xx_digit *digits;
 	int num_digits;
 	u8 segment_mapping[DIGIT_SEGMENTS];
-	u8 digit_bitmask;
-	u8 *display_data;
+	u16 digit_bitmask;
+	u16 *display_data;
 	size_t display_data_len;
 	struct mutex lock; /* protect shared display state in work functions */
 	struct work_struct flush_init;
@@ -259,7 +271,7 @@ static int tm1628_init(struct tm16xx_display *display)
 	return 0;
 }
 
-static int tm1618_data(struct tm16xx_display *display, u8 index, u8 data)
+static int tm1618_data(struct tm16xx_display *display, u8 index, u16 data)
 {
 	u8 cmds[3];
 
@@ -270,13 +282,13 @@ static int tm1618_data(struct tm16xx_display *display, u8 index, u8 data)
 	return tm16xx_spi_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static int tm1628_data(struct tm16xx_display *display, u8 index, u8 data)
+static int tm1628_data(struct tm16xx_display *display, u8 index, u16 data)
 {
 	u8 cmds[3];
 
 	cmds[0] = TM16XX_CMD_ADDR + index * 2;
-	cmds[1] = data; // SEG 1 to 8
-	cmds[2] = 0; // SEG 9 to 14
+	cmds[1] = (data & TM1628_BYTE1_MASK) >> TM1628_BYTE1_RSHIFT;
+	cmds[2] = (data & TM1628_BYTE2_MASK) >> TM1628_BYTE2_RSHIFT;
 
 	return tm16xx_spi_write(display, cmds, ARRAY_SIZE(cmds));
 }
@@ -293,7 +305,7 @@ static int tm1650_init(struct tm16xx_display *display)
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static int tm1650_data(struct tm16xx_display *display, u8 index, u8 data)
+static int tm1650_data(struct tm16xx_display *display, u8 index, u16 data)
 {
 	u8 cmds[2];
 
@@ -301,6 +313,17 @@ static int tm1650_data(struct tm16xx_display *display, u8 index, u8 data)
 	cmds[1] = data; // SEG 1 to 8
 
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
+}
+
+static int fd620_data(struct tm16xx_display *display, u8 index, u16 data)
+{
+	u8 cmds[3];
+
+	cmds[0] = TM16XX_CMD_ADDR + index * 2;
+	cmds[1] = (data & FD620_BYTE1_MASK) >> FD620_BYTE1_RSHIFT;
+	cmds[2] = (data & FD620_BYTE2_MASK) >> FD620_BYTE2_RSHIFT;
+
+	return tm16xx_spi_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
 static int fd655_init(struct tm16xx_display *display)
@@ -314,7 +337,7 @@ static int fd655_init(struct tm16xx_display *display)
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static int fd655_data(struct tm16xx_display *display, u8 index, u8 data)
+static int fd655_data(struct tm16xx_display *display, u8 index, u16 data)
 {
 	u8 cmds[2];
 
@@ -365,7 +388,7 @@ static int hbs658_init(struct tm16xx_display *display)
 	return 0;
 }
 
-static int hbs658_data(struct tm16xx_display *display, u8 index, u8 data)
+static int hbs658_data(struct tm16xx_display *display, u8 index, u16 data)
 {
 	u8 cmds[2];
 
@@ -379,13 +402,23 @@ static int hbs658_data(struct tm16xx_display *display, u8 index, u8 data)
 /* Controller definitions */
 static const struct tm16xx_controller tm1618_controller = {
 	.max_grids = 7,
+	.max_segments = 8,
 	.max_brightness = 8,
 	.init = tm1628_init,
 	.data = tm1618_data,
 };
 
+static const struct tm16xx_controller tm1620_controller = {
+	.max_grids = 6,
+	.max_segments = 10,
+	.max_brightness = 8,
+	.init = tm1628_init,
+	.data = tm1628_data,
+};
+
 static const struct tm16xx_controller tm1628_controller = {
 	.max_grids = 7,
+	.max_segments = 14, // seg 11 unused
 	.max_brightness = 8,
 	.init = tm1628_init,
 	.data = tm1628_data,
@@ -393,13 +426,23 @@ static const struct tm16xx_controller tm1628_controller = {
 
 static const struct tm16xx_controller tm1650_controller = {
 	.max_grids = 4,
+	.max_segments = 8,
 	.max_brightness = 8,
 	.init = tm1650_init,
 	.data = tm1650_data,
 };
 
+static const struct tm16xx_controller fd620_controller = {
+	.max_grids = 5,
+	.max_segments = 8,
+	.max_brightness = 8,
+	.init = tm1628_init,
+	.data = fd620_data,
+};
+
 static const struct tm16xx_controller fd655_controller = {
 	.max_grids = 5,
+	.max_segments = 7,
 	.max_brightness = 3,
 	.init = fd655_init,
 	.data = fd655_data,
@@ -407,6 +450,7 @@ static const struct tm16xx_controller fd655_controller = {
 
 static const struct tm16xx_controller fd6551_controller = {
 	.max_grids = 5,
+	.max_segments = 7,
 	.max_brightness = 8,
 	.init = fd6551_init,
 	.data = fd655_data,
@@ -414,6 +458,7 @@ static const struct tm16xx_controller fd6551_controller = {
 
 static const struct tm16xx_controller hbs658_controller = {
 	.max_grids = 5,
+	.max_segments = 8,
 	.max_brightness = 8,
 	.init = hbs658_init,
 	.data = hbs658_data,
@@ -426,9 +471,10 @@ static const struct tm16xx_controller hbs658_controller = {
  *
  * Return: Segment pattern for the given ASCII character
  */
-static u8 tm16xx_ascii_to_segments(struct tm16xx_display *display, char c)
+static u16 tm16xx_ascii_to_segments(struct tm16xx_display *display, char c)
 {
-	u8 standard_segments, mapped_segments = 0;
+	u8 standard_segments;
+	u16 mapped_segments = 0;
 	int i;
 
 	standard_segments = map_to_seg7(&map_seg7, c);
@@ -498,18 +544,19 @@ static void tm16xx_display_flush_data_transposed(struct work_struct *work)
 	struct tm16xx_display *display =
 		container_of(work, struct tm16xx_display, flush_display);
 	int i, j, ret = 0;
-	u8 transposed_data;
+	u8 max_segment = display->controller->max_segments - 1;
+	u16 transposed_data;
 
 	mutex_lock(&display->lock);
 
 	if (display->controller->data) {
 		/* Write operations based on number of segments */
-		for (i = MIN_SEGMENT; i <= MAX_SEGMENT; i++) {
+		for (i = 0; i <= max_segment; i++) {
 			/* Gather bits from each grid for this segment */
 			transposed_data = 0;
 			for (j = 0; j < display->display_data_len; j++) {
 				if (display->display_data[j] & BIT(i))
-					transposed_data |= BIT(MAX_SEGMENT - j);
+					transposed_data |= BIT(max_segment - j);
 			}
 
 			ret = display->controller->data(display, i, transposed_data);
@@ -531,7 +578,7 @@ static void tm16xx_display_flush_data_transposed(struct work_struct *work)
  */
 static void tm16xx_display_remove(struct tm16xx_display *display)
 {
-	memset(display->display_data, 0x00, display->display_data_len);
+	memset(display->display_data, 0x00, display->display_data_len * sizeof(*display->display_data));
 	schedule_work(&display->flush_display);
 	flush_work(&display->flush_display);
 
@@ -567,9 +614,9 @@ static void tm16xx_led_set(struct led_classdev *led_cdev, enum led_brightness va
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
 
 	if (value)
-		display->display_data[led->grid] |= (1 << led->segment);
+		display->display_data[led->grid] |= BIT(led->segment);
 	else
-		display->display_data[led->grid] &= ~(1 << led->segment);
+		display->display_data[led->grid] &= ~BIT(led->segment);
 
 	schedule_work(&display->flush_display);
 }
@@ -613,7 +660,7 @@ static ssize_t tm16xx_value_store(struct device *dev, struct device_attribute *a
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
 	struct tm16xx_digit *digit;
 	int i;
-	u8 data;
+	u16 data;
 
 	for (i = 0; i < display->num_digits; i++) {
 		digit = &display->digits[i];
@@ -740,7 +787,7 @@ static ssize_t tm16xx_segments_store(struct device *dev, struct device_attribute
 	}
 
 	for (i = 0; i < DIGIT_SEGMENTS; i++) {
-		if (array[i] < MIN_SEGMENT || array[i] > MAX_SEGMENT) {
+		if (array[i] >= display->controller->max_segments) {
 			kfree(array);
 			return -EINVAL;
 		}
@@ -906,10 +953,10 @@ static int tm16xx_display_init(struct tm16xx_display *display)
 		tm16xx_value_store(display->main_led.dev, NULL, default_value,
 				   strlen(default_value));
 	} else {
-		memset(display->display_data, 0xFF, display->display_data_len);
+		memset(display->display_data, 0xFF, display->display_data_len * sizeof(*display->display_data));
 		schedule_work(&display->flush_display);
 		flush_work(&display->flush_display);
-		memset(display->display_data, 0x00, display->display_data_len);
+		memset(display->display_data, 0x00, display->display_data_len * sizeof(*display->display_data));
 		if (display->flush_status < 0)
 			return display->flush_status;
 	}
@@ -981,11 +1028,10 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 
 	display->digit_bitmask = 0;
 	for (i = 0; i < DIGIT_SEGMENTS; i++) {
-		if (display->segment_mapping[i] < MIN_SEGMENT ||
-		    display->segment_mapping[i] > MAX_SEGMENT) {
+		if (display->segment_mapping[i] >= display->controller->max_segments) {
 			dev_err(dev,
-				"Invalid 'titanmec,segment-mapping' value: %d (must be between %d and %d)\n",
-				display->segment_mapping[i], MIN_SEGMENT, MAX_SEGMENT);
+				"Invalid 'titanmec,segment-mapping' value: %d (must be less than  %d)\n",
+				display->segment_mapping[i], display->controller->max_segments);
 			return -EINVAL;
 		}
 
@@ -1011,10 +1057,10 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 			return -EINVAL;
 		}
 
-		if (reg[1] < MIN_SEGMENT || reg[1] > MAX_SEGMENT) {
+		if (reg[1] >= display->controller->max_segments) {
 			dev_err(dev,
-				"LED segment %d is invalid (must be between %d and %d)\n",
-				reg[1], MIN_SEGMENT, MAX_SEGMENT);
+				"LED segment %d is invalid (must be less than %d)\n",
+				reg[1], display->controller->max_segments);
 			fwnode_handle_put(child);
 			return -EINVAL;
 		}
@@ -1166,9 +1212,9 @@ static void tm16xx_spi_remove(struct spi_device *spi)
 // clang-format off
 static const struct of_device_id tm16xx_spi_of_match[] = {
 	{ .compatible = "titanmec,tm1618", .data = &tm1618_controller },
-	{ .compatible = "titanmec,tm1620", .data = &tm1628_controller },
+	{ .compatible = "titanmec,tm1620", .data = &tm1620_controller },
 	{ .compatible = "titanmec,tm1628", .data = &tm1628_controller },
-	{ .compatible = "fdhisi,fd620", .data = &tm1628_controller },
+	{ .compatible = "fdhisi,fd620", .data = &fd620_controller },
 	{ .compatible = "fdhisi,fd628", .data = &tm1628_controller },
 	{ .compatible = "icore,aip1618", .data = &tm1618_controller },
 	{ .compatible = "icore,aip1628", .data = &tm1628_controller },
