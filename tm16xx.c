@@ -4,8 +4,9 @@
  *
  * Copyright (C) 2024 Jean-François Lessard
  *
- * This driver supports various LED controller chips, including TM16XX family,
- * FD6XX family, PT6964, and HBS658. It provides support for both I2C and SPI interfaces.
+ * This driver supports various LED controller chips, including
+ * TM16XX family, FD6XX family, PT6964, and HBS658.
+ * It provides support for both I2C and SPI interfaces.
  */
 
 #include <linux/bitfield.h>
@@ -26,7 +27,7 @@
 #define DIGIT_SEGMENTS 7
 
 /* Common bit field definitions */
-// clang-format off
+
 /* Command type bits (bits 7-6) */
 #define TM16XX_CMD_TYPE_MASK    GENMASK(7, 6)
 #define TM16XX_CMD_MODE         0
@@ -91,9 +92,8 @@
 
 #define TM16XX_CTRL_BRIGHTNESS(enabled, value, prefix) \
 	((enabled) ? \
-	 (FIELD_PREP(prefix##_CTRL_BR_MASK, (value)) | prefix##_CTRL_ON) : \
-	 0)
-// clang-format on
+		(FIELD_PREP(prefix##_CTRL_BR_MASK, (value)) | prefix##_CTRL_ON) : \
+		0)
 
 static char *default_value;
 module_param(default_value, charp, 0644);
@@ -156,13 +156,14 @@ struct tm16xx_digit {
  * @num_digits: Number of digits
  * @segment_mapping: Segment mapping array
  * @digit_bitmask: Bitmask for setting digit values
- * @display_data: Display data buffer
- * @display_data_len: Length of display data buffer
+ * @data: Display data buffer
+ * @data_len: Length of display data buffer
  * @lock: Mutex for concurrent access protection
  * @flush_init: Work structure for brightness update
  * @flush_display: Work structure for display update
  * @flush_status: Result of the last flush work
- * @transpose_display_data: Flag indicating if segments and grids should be transposed when writing data
+ * @transposed: Flag indicating if segments and grids
+ *		should be transposed when writing data
  */
 struct tm16xx_display {
 	struct device *dev;
@@ -178,17 +179,17 @@ struct tm16xx_display {
 	int num_digits;
 	u8 segment_mapping[DIGIT_SEGMENTS];
 	u16 digit_bitmask;
-	u16 *display_data;
-	size_t display_data_len;
+	u16 *data;
+	size_t data_len;
 	struct mutex lock; /* protect shared display state in work functions */
 	struct work_struct flush_init;
 	struct work_struct flush_display;
 	int flush_status;
-	bool transpose_display_data;
+	bool transposed;
 };
 
 /**
- * tm16xx_i2c_write - Write data to I2C client
+ * tm16xx_i2c_write() - Write data to I2C client
  * @display: Pointer to tm16xx_display structure
  * @data: Data to write
  * @len: Length of data
@@ -215,7 +216,7 @@ static int tm16xx_i2c_write(struct tm16xx_display *display, u8 *data, size_t len
 }
 
 /**
- * tm16xx_spi_write - Write data to SPI client
+ * tm16xx_spi_write() - Write data to SPI client
  * @display: Pointer to tm16xx_display structure
  * @data: Data to write
  * @len: Length of data
@@ -235,8 +236,7 @@ static int tm16xx_spi_write(struct tm16xx_display *display, u8 *data, size_t len
 static int tm1628_init(struct tm16xx_display *display)
 {
 	const enum led_brightness brightness = display->main_led.brightness;
-	const u8 num_grids = display->transpose_display_data ? DIGIT_SEGMENTS :
-							       display->display_data_len;
+	const u8 num_grids = display->transposed ? DIGIT_SEGMENTS : display->data_len;
 	u8 cmd;
 	int ret;
 
@@ -465,7 +465,7 @@ static const struct tm16xx_controller hbs658_controller = {
 };
 
 /**
- * tm16xx_ascii_to_segments - Convert ASCII character to segment pattern
+ * tm16xx_ascii_to_segments() - Convert ASCII character to segment pattern
  * @display: Pointer to tm16xx_display structure
  * @c: ASCII character to convert
  *
@@ -488,13 +488,13 @@ static u16 tm16xx_ascii_to_segments(struct tm16xx_display *display, char c)
 }
 
 /**
- * tm16xx_display_flush_init - Work function to update controller configuration (mode and brightness)
+ * tm16xx_display_flush_init() - Controller configuration Work function
  * @work: Pointer to work_struct
  */
 static void tm16xx_display_flush_init(struct work_struct *work)
 {
-	struct tm16xx_display *display =
-		container_of(work, struct tm16xx_display, flush_init);
+	struct tm16xx_display *display = container_of(work,
+			struct tm16xx_display, flush_init);
 	int ret;
 
 	if (display->controller->init) {
@@ -503,29 +503,30 @@ static void tm16xx_display_flush_init(struct work_struct *work)
 		display->flush_status = ret;
 		mutex_unlock(&display->lock);
 		if (ret < 0)
-			dev_err(display->dev, "Failed to set brightness: %d\n", ret);
+			dev_err(display->dev,
+				"Failed to set brightness: %d\n", ret);
 	}
 }
 
 /**
- * tm16xx_display_flush_data - Work function to update display data
+ * tm16xx_display_flush_data() - Work function to update display data
  * @work: Pointer to work_struct
  */
 static void tm16xx_display_flush_data(struct work_struct *work)
 {
-	struct tm16xx_display *display =
-		container_of(work, struct tm16xx_display, flush_display);
+	struct tm16xx_display *display = container_of(work,
+			struct tm16xx_display, flush_display);
 	int i, ret = 0;
 
 	mutex_lock(&display->lock);
 
 	if (display->controller->data) {
-		for (i = 0; i < display->display_data_len; i++) {
-			ret = display->controller->data(display, i,
-							display->display_data[i]);
+		for (i = 0; i < display->data_len; i++) {
+			ret = display->controller->data(display, i, display->data[i]);
 			if (ret < 0) {
 				dev_err(display->dev,
-					"Failed to write display data: %d\n", ret);
+					"Failed to write display data: %d\n",
+					ret);
 				break;
 			}
 		}
@@ -536,13 +537,13 @@ static void tm16xx_display_flush_data(struct work_struct *work)
 }
 
 /**
- * tm16xx_display_flush_data_transposed - Transposed flush work function
+ * tm16xx_display_flush_data_transposed() - Transposed flush work function
  * @work: Pointer to work_struct
  */
 static void tm16xx_display_flush_data_transposed(struct work_struct *work)
 {
-	struct tm16xx_display *display =
-		container_of(work, struct tm16xx_display, flush_display);
+	struct tm16xx_display *display = container_of(work,
+			struct tm16xx_display, flush_display);
 	int i, j, ret = 0;
 	u8 max_segment = display->controller->max_segments - 1;
 	u16 transposed_data;
@@ -554,15 +555,16 @@ static void tm16xx_display_flush_data_transposed(struct work_struct *work)
 		for (i = 0; i <= max_segment; i++) {
 			/* Gather bits from each grid for this segment */
 			transposed_data = 0;
-			for (j = 0; j < display->display_data_len; j++) {
-				if (display->display_data[j] & BIT(i))
+			for (j = 0; j < display->data_len; j++) {
+				if (display->data[j] & BIT(i))
 					transposed_data |= BIT(max_segment - j);
 			}
 
 			ret = display->controller->data(display, i, transposed_data);
 			if (ret < 0) {
 				dev_err(display->dev,
-					"Failed to write transposed data: %d\n", ret);
+					"Failed to write transposed data: %d\n",
+					ret);
 				break;
 			}
 		}
@@ -573,12 +575,12 @@ static void tm16xx_display_flush_data_transposed(struct work_struct *work)
 }
 
 /**
- * tm16xx_display_remove - Remove the display
+ * tm16xx_display_remove() - Remove the display
  * @display: Pointer to tm16xx_display structure
  */
 static void tm16xx_display_remove(struct tm16xx_display *display)
 {
-	memset(display->display_data, 0x00, display->display_data_len * sizeof(*display->display_data));
+	memset(display->data, 0x00, display->data_len * sizeof(*display->data));
 	schedule_work(&display->flush_display);
 	flush_work(&display->flush_display);
 
@@ -590,7 +592,7 @@ static void tm16xx_display_remove(struct tm16xx_display *display)
 }
 
 /**
- * tm16xx_brightness_set - Set brightness of the display
+ * tm16xx_brightness_set() - Set brightness of the display
  * @led_cdev: Pointer to led_classdev
  * @brightness: Brightness value to set
  */
@@ -604,33 +606,34 @@ static void tm16xx_brightness_set(struct led_classdev *led_cdev,
 }
 
 /**
- * tm16xx_led_set - Set state of an individual LED
+ * tm16xx_led_set() - Set state of an individual LED
  * @led_cdev: Pointer to led_classdev
  * @value: Value to set (on/off)
  */
-static void tm16xx_led_set(struct led_classdev *led_cdev, enum led_brightness value)
+static void tm16xx_led_set(struct led_classdev *led_cdev,
+			   enum led_brightness value)
 {
 	struct tm16xx_led *led = container_of(led_cdev, struct tm16xx_led, cdev);
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
 
 	if (value)
-		display->display_data[led->grid] |= BIT(led->segment);
+		display->data[led->grid] |= BIT(led->segment);
 	else
-		display->display_data[led->grid] &= ~BIT(led->segment);
+		display->data[led->grid] &= ~BIT(led->segment);
 
 	schedule_work(&display->flush_display);
 }
 
 /**
- * tm16xx_value_show - Show current display value
+ * tm16xx_value_show() - Show current display value
  * @dev: Pointer to device structure
  * @attr: Pointer to device attribute structure
  * @buf: Buffer to write the display value
  *
  * Return: Number of bytes written to buffer
  */
-static ssize_t tm16xx_value_show(struct device *dev, struct device_attribute *attr,
-				 char *buf)
+static ssize_t tm16xx_value_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
@@ -645,7 +648,7 @@ static ssize_t tm16xx_value_show(struct device *dev, struct device_attribute *at
 }
 
 /**
- * tm16xx_value_store - Store new display value
+ * tm16xx_value_store() - Store new display value
  * @dev: Pointer to device structure
  * @attr: Pointer to device attribute structure
  * @buf: Buffer containing the new display value
@@ -653,7 +656,8 @@ static ssize_t tm16xx_value_show(struct device *dev, struct device_attribute *at
  *
  * Return: Number of bytes written or negative error code
  */
-static ssize_t tm16xx_value_store(struct device *dev, struct device_attribute *attr,
+static ssize_t tm16xx_value_store(struct device *dev,
+				  struct device_attribute *attr,
 				  const char *buf, size_t count)
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
@@ -673,9 +677,9 @@ static ssize_t tm16xx_value_store(struct device *dev, struct device_attribute *a
 			data = 0;
 		}
 
-		display->display_data[digit->grid] =
-			(display->display_data[digit->grid] & ~display->digit_bitmask) |
-			(data & display->digit_bitmask);
+		display->data[digit->grid] = (display->data[digit->grid] &
+						~display->digit_bitmask) |
+					     (data & display->digit_bitmask);
 	}
 
 	schedule_work(&display->flush_display);
@@ -684,7 +688,7 @@ static ssize_t tm16xx_value_store(struct device *dev, struct device_attribute *a
 }
 
 /**
- * tm16xx_num_digits_show - Show the number of digits in the display
+ * tm16xx_num_digits_show() - Show the number of digits in the display
  * @dev: The device struct
  * @attr: The device_attribute struct
  * @buf: The output buffer
@@ -693,8 +697,8 @@ static ssize_t tm16xx_value_store(struct device *dev, struct device_attribute *a
  *
  * Return: Number of bytes written to buf
  */
-static ssize_t tm16xx_num_digits_show(struct device *dev, struct device_attribute *attr,
-				      char *buf)
+static ssize_t tm16xx_num_digits_show(struct device *dev,
+				      struct device_attribute *attr, char *buf)
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
@@ -733,7 +737,7 @@ static int tm16xx_parse_int_array(const char *buf, int **array)
 }
 
 /**
- * tm16xx_segments_show - Show the current segment mapping
+ * tm16xx_segments_show() - Show the current segment mapping
  * @dev: The device struct
  * @attr: The device_attribute struct
  * @buf: The output buffer
@@ -742,8 +746,8 @@ static int tm16xx_parse_int_array(const char *buf, int **array)
  *
  * Return: Number of bytes written to buf
  */
-static ssize_t tm16xx_segments_show(struct device *dev, struct device_attribute *attr,
-				    char *buf)
+static ssize_t tm16xx_segments_show(struct device *dev,
+				    struct device_attribute *attr, char *buf)
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
@@ -758,7 +762,7 @@ static ssize_t tm16xx_segments_show(struct device *dev, struct device_attribute 
 }
 
 /**
- * tm16xx_segments_store - Set a new segment mapping
+ * tm16xx_segments_store() - Set a new segment mapping
  * @dev: The device struct
  * @attr: The device_attribute struct
  * @buf: The input buffer
@@ -770,7 +774,8 @@ static ssize_t tm16xx_segments_show(struct device *dev, struct device_attribute 
  *
  * Return: count on success, negative errno on failure
  */
-static ssize_t tm16xx_segments_store(struct device *dev, struct device_attribute *attr,
+static ssize_t tm16xx_segments_store(struct device *dev,
+				     struct device_attribute *attr,
 				     const char *buf, size_t count)
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
@@ -804,7 +809,7 @@ static ssize_t tm16xx_segments_store(struct device *dev, struct device_attribute
 }
 
 /**
- * tm16xx_digits_show - Show the current digit ordering
+ * tm16xx_digits_show() - Show the current digit ordering
  * @dev: The device struct
  * @attr: The device_attribute struct
  * @buf: The output buffer
@@ -813,8 +818,8 @@ static ssize_t tm16xx_segments_store(struct device *dev, struct device_attribute
  *
  * Return: Number of bytes written to buf
  */
-static ssize_t tm16xx_digits_show(struct device *dev, struct device_attribute *attr,
-				  char *buf)
+static ssize_t tm16xx_digits_show(struct device *dev,
+				  struct device_attribute *attr, char *buf)
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
@@ -829,7 +834,7 @@ static ssize_t tm16xx_digits_show(struct device *dev, struct device_attribute *a
 }
 
 /**
- * tm16xx_digits_store - Set a new digit ordering
+ * tm16xx_digits_store() - Set a new digit ordering
  * @dev: The device struct
  * @attr: The device_attribute struct
  * @buf: The input buffer
@@ -841,7 +846,8 @@ static ssize_t tm16xx_digits_show(struct device *dev, struct device_attribute *a
  *
  * Return: count on success, negative errno on failure
  */
-static ssize_t tm16xx_digits_store(struct device *dev, struct device_attribute *attr,
+static ssize_t tm16xx_digits_store(struct device *dev,
+				   struct device_attribute *attr,
 				   const char *buf, size_t count)
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
@@ -882,7 +888,7 @@ static ssize_t tm16xx_digits_store(struct device *dev, struct device_attribute *
 }
 
 /**
- * tm16xx_map_seg7_show - Show the current 7-segment character map
+ * tm16xx_map_seg7_show() - Show the current 7-segment character map
  * @dev: The device struct
  * @attr: The device_attribute struct
  * @buf: The output buffer
@@ -891,15 +897,15 @@ static ssize_t tm16xx_digits_store(struct device *dev, struct device_attribute *
  *
  * Return: Number of bytes written to buf
  */
-static ssize_t tm16xx_map_seg7_show(struct device *dev, struct device_attribute *attr,
-				    char *buf)
+static ssize_t tm16xx_map_seg7_show(struct device *dev,
+				    struct device_attribute *attr, char *buf)
 {
 	memcpy(buf, &map_seg7, sizeof(map_seg7));
 	return sizeof(map_seg7);
 }
 
 /**
- * tm16xx_map_seg7_store - Set a new 7-segment character map
+ * tm16xx_map_seg7_store() - Set a new 7-segment character map
  * @dev: The device struct
  * @attr: The device_attribute struct
  * @buf: The input buffer
@@ -909,7 +915,8 @@ static ssize_t tm16xx_map_seg7_show(struct device *dev, struct device_attribute 
  *
  * Return: cnt on success, negative errno on failure
  */
-static ssize_t tm16xx_map_seg7_store(struct device *dev, struct device_attribute *attr,
+static ssize_t tm16xx_map_seg7_store(struct device *dev,
+				     struct device_attribute *attr,
 				     const char *buf, size_t cnt)
 {
 	if (cnt != sizeof(map_seg7))
@@ -918,7 +925,6 @@ static ssize_t tm16xx_map_seg7_store(struct device *dev, struct device_attribute
 	return cnt;
 }
 
-// clang-format off
 static DEVICE_ATTR(value, 0644, tm16xx_value_show, tm16xx_value_store);
 static DEVICE_ATTR(num_digits, 0444, tm16xx_num_digits_show, NULL);
 static DEVICE_ATTR(segments, 0644, tm16xx_segments_show, tm16xx_segments_store);
@@ -934,10 +940,9 @@ static struct attribute *tm16xx_main_led_attrs[] = {
 	NULL,
 };
 ATTRIBUTE_GROUPS(tm16xx_main_led);
-// clang-format on
 
 /**
- * tm16xx_display_init - Initialize the display
+ * tm16xx_display_init() - Initialize the display
  * @display: Pointer to tm16xx_display structure
  *
  * Return: 0 on success, negative error code on failure
@@ -953,10 +958,10 @@ static int tm16xx_display_init(struct tm16xx_display *display)
 		tm16xx_value_store(display->main_led.dev, NULL, default_value,
 				   strlen(default_value));
 	} else {
-		memset(display->display_data, 0xFF, display->display_data_len * sizeof(*display->display_data));
+		memset(display->data, 0xFF, display->data_len * sizeof(*display->data));
 		schedule_work(&display->flush_display);
 		flush_work(&display->flush_display);
-		memset(display->display_data, 0x00, display->display_data_len * sizeof(*display->display_data));
+		memset(display->data, 0x00, display->data_len * sizeof(*display->data));
 		if (display->flush_status < 0)
 			return display->flush_status;
 	}
@@ -965,7 +970,7 @@ static int tm16xx_display_init(struct tm16xx_display *display)
 }
 
 /**
- * tm16xx_parse_dt - Parse device tree data
+ * tm16xx_parse_dt() - Parse device tree data
  * @dev: Pointer to device structure
  * @display: Pointer to tm16xx_display structure
  *
@@ -977,8 +982,7 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 	int ret, i, max_grid = 0;
 	u8 *digits;
 
-	display->transpose_display_data =
-		device_property_read_bool(dev, "titanmec,transposed");
+	display->transposed = device_property_read_bool(dev, "titanmec,transposed");
 
 	ret = device_property_count_u8(dev, "titanmec,digits");
 	if (ret < 0) {
@@ -1000,14 +1004,15 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 		return ret;
 	}
 
-	display->digits = devm_kcalloc(dev, display->num_digits, sizeof(*display->digits),
-				       GFP_KERNEL);
+	display->digits = devm_kcalloc(dev, display->num_digits,
+				       sizeof(*display->digits), GFP_KERNEL);
 	if (!display->digits)
 		return -ENOMEM;
 
 	for (i = 0; i < display->num_digits; i++) {
 		if (digits[i] >= display->controller->max_grids) {
-			dev_err(dev, "Digit grid %d exceeds controller max_grids %d\n",
+			dev_err(dev,
+				"Digit grid %d exceeds controller max_grids %d\n",
 				digits[i], display->controller->max_grids);
 			return -EINVAL;
 		}
@@ -1019,9 +1024,11 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 	devm_kfree(dev, digits);
 
 	ret = device_property_read_u8_array(dev, "titanmec,segment-mapping",
-					    display->segment_mapping, DIGIT_SEGMENTS);
+					    display->segment_mapping,
+					    DIGIT_SEGMENTS);
 	if (ret < 0) {
-		dev_err(dev, "Failed to read 'titanmec,segment-mapping' property: %d\n",
+		dev_err(dev,
+			"Failed to read 'titanmec,segment-mapping' property: %d\n",
 			ret);
 		return ret;
 	}
@@ -1031,7 +1038,8 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 		if (display->segment_mapping[i] >= display->controller->max_segments) {
 			dev_err(dev,
 				"Invalid 'titanmec,segment-mapping' value: %d (must be less than  %d)\n",
-				display->segment_mapping[i], display->controller->max_segments);
+				display->segment_mapping[i],
+				display->controller->max_segments);
 			return -EINVAL;
 		}
 
@@ -1044,14 +1052,16 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 
 		ret = fwnode_property_read_u32_array(child, "reg", reg, 2);
 		if (ret < 0) {
-			dev_err(dev, "Failed to read 'reg' property of led node: %d\n",
+			dev_err(dev,
+				"Failed to read 'reg' property of led node: %d\n",
 				ret);
 			fwnode_handle_put(child);
 			return ret;
 		}
 
 		if (reg[0] >= display->controller->max_grids) {
-			dev_err(dev, "LED grid %d exceeds controller max_grids %d\n",
+			dev_err(dev,
+				"LED grid %d exceeds controller max_grids %d\n",
 				reg[0], display->controller->max_grids);
 			fwnode_handle_put(child);
 			return -EINVAL;
@@ -1071,19 +1081,19 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 
 	dev_dbg(dev, "Number of LEDs: %d\n", display->num_leds);
 
-	display->display_data_len = max_grid + 1;
-	dev_dbg(dev, "Number of display grids: %zu\n", display->display_data_len);
+	display->data_len = max_grid + 1;
+	dev_dbg(dev, "Number of display grids: %zu\n", display->data_len);
 
-	display->display_data = devm_kcalloc(dev, display->display_data_len,
-					     sizeof(*display->display_data), GFP_KERNEL);
-	if (!display->display_data)
+	display->data = devm_kcalloc(dev, display->data_len,
+				     sizeof(*display->data), GFP_KERNEL);
+	if (!display->data)
 		return -ENOMEM;
 
 	return 0;
 }
 
 /**
- * tm16xx_probe - Probe function for tm16xx devices
+ * tm16xx_probe() - Probe function for tm16xx devices
  * @display: Pointer to tm16xx_display structure
  *
  * Return: 0 on success, negative error code on failure
@@ -1104,7 +1114,7 @@ static int tm16xx_probe(struct tm16xx_display *display)
 	INIT_WORK(&display->flush_init, tm16xx_display_flush_init);
 
 	/* Initialize work structure with appropriate flush function */
-	if (display->transpose_display_data) {
+	if (display->transposed) {
 		INIT_WORK(&display->flush_display, tm16xx_display_flush_data_transposed);
 		dev_info(display->dev, "Operating in transposed mode\n");
 	} else {
@@ -1124,8 +1134,8 @@ static int tm16xx_probe(struct tm16xx_display *display)
 		return ret;
 	}
 
-	display->leds =
-		devm_kcalloc(dev, display->num_leds, sizeof(*display->leds), GFP_KERNEL);
+	display->leds = devm_kcalloc(dev, display->num_leds,
+				     sizeof(*display->leds), GFP_KERNEL);
 	if (!display->leds)
 		return -ENOMEM;
 
@@ -1156,8 +1166,9 @@ static int tm16xx_probe(struct tm16xx_display *display)
 		ret = devm_led_classdev_register_ext(dev, &led->cdev, &led_init);
 		if (ret < 0) {
 			fwnode_handle_put(child);
-			dev_err(dev, "Failed to register LED %s: %d\n", led->cdev.name,
-				ret);
+			dev_err(dev,
+				"Failed to register LED %s: %d\n",
+				led->cdev.name, ret);
 			return ret;
 		}
 
@@ -1209,7 +1220,6 @@ static void tm16xx_spi_remove(struct spi_device *spi)
 	tm16xx_display_remove(display);
 }
 
-// clang-format off
 static const struct of_device_id tm16xx_spi_of_match[] = {
 	{ .compatible = "titanmec,tm1618", .data = &tm1618_controller },
 	{ .compatible = "titanmec,tm1620", .data = &tm1620_controller },
@@ -1237,7 +1247,6 @@ static const struct spi_device_id tm16xx_spi_id[] = {
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(spi, tm16xx_spi_id);
-// clang-format on
 
 static struct spi_driver tm16xx_spi_driver = {
 	.driver = {
@@ -1285,7 +1294,6 @@ static void tm16xx_i2c_remove(struct i2c_client *client)
 	tm16xx_display_remove(display);
 }
 
-// clang-format off
 static const struct of_device_id tm16xx_i2c_of_match[] = {
 	{ .compatible = "titanmec,tm1650", .data = &tm1650_controller },
 	{ .compatible = "icore,aip650", .data = &tm1650_controller },
@@ -1305,7 +1313,6 @@ static const struct i2c_device_id tm16xx_i2c_id[] = {
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(i2c, tm16xx_i2c_id);
-// clang-format on
 
 static struct i2c_driver tm16xx_i2c_driver = {
 	.driver = {
@@ -1347,5 +1354,3 @@ module_exit(tm16xx_exit);
 MODULE_AUTHOR("Jean-François Lessard");
 MODULE_DESCRIPTION("TM16XX Compatible LED Display Controllers");
 MODULE_LICENSE("GPL");
-MODULE_ALIAS("spi:tm16xx");
-MODULE_ALIAS("i2c:tm16xx");
