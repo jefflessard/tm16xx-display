@@ -911,6 +911,39 @@ static int tm16xx_probe(struct tm16xx_display *display)
 
 /* SPI specific code */
 #if IS_ENABLED(CONFIG_SPI_MASTER)
+static int tm16xx_spi_probe(struct spi_device *spi)
+{
+	const struct tm16xx_controller *controller;
+	struct tm16xx_display *display;
+	int ret;
+
+	controller = of_device_get_match_data(&spi->dev);
+	if (!controller)
+		return -EINVAL;
+
+	display = devm_kzalloc(&spi->dev, sizeof(*display), GFP_KERNEL);
+	if (!display)
+		return -ENOMEM;
+
+	display->client.spi = spi;
+	display->dev = &spi->dev;
+	display->controller = controller;
+
+	spi_set_drvdata(spi, display);
+
+	ret = tm16xx_probe(display);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+static void tm16xx_spi_remove(struct spi_device *spi)
+{
+	struct tm16xx_display *display = spi_get_drvdata(spi);
+
+	tm16xx_display_remove(display);
+}
 
 /**
  * tm16xx_spi_write() - Write data to SPI client
@@ -1083,41 +1116,6 @@ static const struct tm16xx_controller hbs658_controller = {
 	.data = hbs658_data,
 };
 
-
-static int tm16xx_spi_probe(struct spi_device *spi)
-{
-	const struct tm16xx_controller *controller;
-	struct tm16xx_display *display;
-	int ret;
-
-	controller = of_device_get_match_data(&spi->dev);
-	if (!controller)
-		return -EINVAL;
-
-	display = devm_kzalloc(&spi->dev, sizeof(*display), GFP_KERNEL);
-	if (!display)
-		return -ENOMEM;
-
-	display->client.spi = spi;
-	display->dev = &spi->dev;
-	display->controller = controller;
-
-	spi_set_drvdata(spi, display);
-
-	ret = tm16xx_probe(display);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
-static void tm16xx_spi_remove(struct spi_device *spi)
-{
-	struct tm16xx_display *display = spi_get_drvdata(spi);
-
-	tm16xx_display_remove(display);
-}
-
 static const struct of_device_id tm16xx_spi_of_match[] = {
 	{ .compatible = "titanmec,tm1618", .data = &tm1618_controller },
 	{ .compatible = "titanmec,tm1620", .data = &tm1620_controller },
@@ -1179,6 +1177,39 @@ static void tm16xx_spi_unregister(void)
 
 /* I2C specific code */
 #if IS_ENABLED(CONFIG_I2C)
+static int tm16xx_i2c_probe(struct i2c_client *client)
+{
+	const struct tm16xx_controller *controller;
+	struct tm16xx_display *display;
+	int ret;
+
+	controller = of_device_get_match_data(&client->dev);
+	if (!controller)
+		return -EINVAL;
+
+	display = devm_kzalloc(&client->dev, sizeof(*display), GFP_KERNEL);
+	if (!display)
+		return -ENOMEM;
+
+	display->client.i2c = client;
+	display->dev = &client->dev;
+	display->controller = controller;
+
+	i2c_set_clientdata(client, display);
+
+	ret = tm16xx_probe(display);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+static void tm16xx_i2c_remove(struct i2c_client *client)
+{
+	struct tm16xx_display *display = i2c_get_clientdata(client);
+
+	tm16xx_display_remove(display);
+}
 
 /**
  * tm16xx_i2c_write() - Write data to I2C client
@@ -1286,40 +1317,6 @@ static const struct tm16xx_controller fd6551_controller = {
 	.init = fd6551_init,
 	.data = fd655_data,
 };
-
-static int tm16xx_i2c_probe(struct i2c_client *client)
-{
-	const struct tm16xx_controller *controller;
-	struct tm16xx_display *display;
-	int ret;
-
-	controller = of_device_get_match_data(&client->dev);
-	if (!controller)
-		return -EINVAL;
-
-	display = devm_kzalloc(&client->dev, sizeof(*display), GFP_KERNEL);
-	if (!display)
-		return -ENOMEM;
-
-	display->client.i2c = client;
-	display->dev = &client->dev;
-	display->controller = controller;
-
-	i2c_set_clientdata(client, display);
-
-	ret = tm16xx_probe(display);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
-static void tm16xx_i2c_remove(struct i2c_client *client)
-{
-	struct tm16xx_display *display = i2c_get_clientdata(client);
-
-	tm16xx_display_remove(display);
-}
 
 static const struct of_device_id tm16xx_i2c_of_match[] = {
 	{ .compatible = "titanmec,tm1650", .data = &tm1650_controller },
