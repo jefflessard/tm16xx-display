@@ -82,6 +82,28 @@ properties:
   "#size-cells":
     const: 0
 
+if:
+  properties:
+    compatible:
+      contains:
+        enum:
+          - titanmec,tm1618
+          - titanmec,tm1620
+          - titanmec,tm1628
+          - fdhisi,fd620
+          - fdhisi,fd628
+          - icore,aip1618
+          - icore,aip1628
+          - princeton,pt6964
+          - winrise,hbs658
+then:
+  allOf:
+    - $ref: /schemas/spi/spi-peripheral-props.yaml#
+  properties:
+    spi-3wire: true
+  required:
+    - spi-3wire
+
 patternProperties:
   "^led@[0-7],[0-7]$":
     $ref: /schemas/leds/common.yaml#
@@ -97,7 +119,7 @@ required:
   - titanmec,digits
   - titanmec,segment-mapping
 
-additionalProperties: true
+unevaluatedProperties: false
 
 examples:
   - |
