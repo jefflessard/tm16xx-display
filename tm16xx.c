@@ -916,7 +916,7 @@ static int tm16xx_spi_probe(struct spi_device *spi)
 	struct tm16xx_display *display;
 	int ret;
 
-	controller = of_device_get_match_data(&spi->dev);
+	controller = spi_get_device_match_data(spi);
 	if (!controller)
 		return -EINVAL;
 
@@ -1115,30 +1115,32 @@ static const struct tm16xx_controller hbs658_controller = {
 	.data = hbs658_data,
 };
 
+#if IS_ENABLED(CONFIG_OF)
 static const struct of_device_id tm16xx_spi_of_match[] = {
-	{ .compatible = "titanmec,tm1618", .data = &tm1618_controller },
-	{ .compatible = "titanmec,tm1620", .data = &tm1620_controller },
-	{ .compatible = "titanmec,tm1628", .data = &tm1628_controller },
-	{ .compatible = "fdhisi,fd620", .data = &fd620_controller },
-	{ .compatible = "fdhisi,fd628", .data = &tm1628_controller },
-	{ .compatible = "icore,aip1618", .data = &tm1618_controller },
-	{ .compatible = "icore,aip1628", .data = &tm1628_controller },
+	{ .compatible = "titanmec,tm1618",  .data = &tm1618_controller },
+	{ .compatible = "titanmec,tm1620",  .data = &tm1620_controller },
+	{ .compatible = "titanmec,tm1628",  .data = &tm1628_controller },
+	{ .compatible = "fdhisi,fd620",     .data = &fd620_controller },
+	{ .compatible = "fdhisi,fd628",     .data = &tm1628_controller },
+	{ .compatible = "icore,aip1618",    .data = &tm1618_controller },
+	{ .compatible = "icore,aip1628",    .data = &tm1628_controller },
 	{ .compatible = "princeton,pt6964", .data = &tm1628_controller },
-	{ .compatible = "winrise,hbs658", .data = &hbs658_controller },
+	{ .compatible = "winrise,hbs658",   .data = &hbs658_controller },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, tm16xx_spi_of_match);
+#endif
 
 static const struct spi_device_id tm16xx_spi_id[] = {
-	{ "tm1618", 0 },
-	{ "tm1620", 0 },
-	{ "tm1628", 0 },
-	{ "fd620", 0 },
-	{ "fd628", 0 },
-	{ "aip1618", 0 },
-	{ "aip1628", 0 },
-	{ "pt6964", 0 },
-	{ "hbs658", 0 },
+	{ "tm1618",  (kernel_ulong_t)&tm1618_controller },
+	{ "tm1620",  (kernel_ulong_t)&tm1620_controller },
+	{ "tm1628",  (kernel_ulong_t)&tm1628_controller },
+	{ "fd620",   (kernel_ulong_t)&fd620_controller },
+	{ "fd628",   (kernel_ulong_t)&tm1628_controller },
+	{ "aip1618", (kernel_ulong_t)&tm1618_controller },
+	{ "aip1628", (kernel_ulong_t)&tm1628_controller },
+	{ "pt6964",  (kernel_ulong_t)&tm1628_controller },
+	{ "hbs658",  (kernel_ulong_t)&hbs658_controller },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(spi, tm16xx_spi_id);
@@ -1182,7 +1184,7 @@ static int tm16xx_i2c_probe(struct i2c_client *client)
 	struct tm16xx_display *display;
 	int ret;
 
-	controller = of_device_get_match_data(&client->dev);
+	controller = i2c_get_match_data(client);
 	if (!controller)
 		return -EINVAL;
 
@@ -1317,22 +1319,24 @@ static const struct tm16xx_controller fd6551_controller = {
 	.data = fd655_data,
 };
 
+#if IS_ENABLED(CONFIG_OF)
 static const struct of_device_id tm16xx_i2c_of_match[] = {
 	{ .compatible = "titanmec,tm1650", .data = &tm1650_controller },
-	{ .compatible = "icore,aip650", .data = &tm1650_controller },
-	{ .compatible = "fdhisi,fd650", .data = &tm1650_controller },
-	{ .compatible = "fdhisi,fd6551", .data = &fd6551_controller },
-	{ .compatible = "fdhisi,fd655", .data = &fd655_controller },
+	{ .compatible = "icore,aip650",    .data = &tm1650_controller },
+	{ .compatible = "fdhisi,fd650",    .data = &tm1650_controller },
+	{ .compatible = "fdhisi,fd6551",   .data = &fd6551_controller },
+	{ .compatible = "fdhisi,fd655",    .data = &fd655_controller },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, tm16xx_i2c_of_match);
+#endif
 
 static const struct i2c_device_id tm16xx_i2c_id[] = {
-	{ "tm1650", 0 },
-	{ "aip650", 0 },
-	{ "fd650", 0 },
-	{ "fd6551", 0 },
-	{ "fd655", 0 },
+	{ "tm1650", (kernel_ulong_t)&tm1650_controller },
+	{ "aip650", (kernel_ulong_t)&tm1650_controller },
+	{ "fd650",  (kernel_ulong_t)&tm1650_controller },
+	{ "fd6551", (kernel_ulong_t)&fd6551_controller },
+	{ "fd655",  (kernel_ulong_t)&fd655_controller },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(i2c, tm16xx_i2c_id);
