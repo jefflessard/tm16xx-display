@@ -689,6 +689,8 @@ static int tm16xx_display_init(struct tm16xx_display *display)
 		if (display->flush_status < 0)
 			return display->flush_status;
 	}
+	
+	dev_info(display->dev, "Display turned on\n");
 
 	return 0;
 }
@@ -1148,7 +1150,7 @@ MODULE_DEVICE_TABLE(spi, tm16xx_spi_id);
 static struct spi_driver tm16xx_spi_driver = {
 	.driver = {
 		.name = TM16XX_DRIVER_NAME,
-		.of_match_table = tm16xx_spi_of_match,
+		.of_match_table = of_match_ptr(tm16xx_spi_of_match),
 	},
 	.probe = tm16xx_spi_probe,
 	.remove = tm16xx_spi_remove,
@@ -1344,7 +1346,7 @@ MODULE_DEVICE_TABLE(i2c, tm16xx_i2c_id);
 static struct i2c_driver tm16xx_i2c_driver = {
 	.driver = {
 		.name = TM16XX_DRIVER_NAME,
-		.of_match_table = tm16xx_i2c_of_match,
+		.of_match_table = of_match_ptr(tm16xx_i2c_of_match),
 	},
 	.probe = tm16xx_i2c_probe,
 	.remove = tm16xx_i2c_remove,
