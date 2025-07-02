@@ -905,7 +905,6 @@ static int tm16xx_probe(struct tm16xx_display *display)
 		return ret;
 	}
 
-	dev_info(display->dev, "Display initialized successfully\n");
 	return 0;
 }
 
