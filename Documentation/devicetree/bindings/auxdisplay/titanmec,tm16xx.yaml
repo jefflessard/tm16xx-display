@@ -10,6 +10,14 @@ maintainers:
   - Jean-François Lessard <jefflessard3@gmail.com>
 
 description: |
+  LED matrix controllers used in auxiliary display devices that drive
+  individual LED icons and 7-segment digit groups through a grid/segment
+  addressing scheme. The controller's physical capabilities (grid count,
+  segment count, brightness levels) are determined by the compatible string.
+
+  Board-specific LED wiring is described through child nodes that specify
+  grid/segment coordinates for individual icons and segment mapping for
+  7-segment digits.
   TM16xx controllers manage a matrix of LEDs organized in grids (rows) and segments (columns).
   Each grid or segment can be wired to drive either a digit or individual icons, depending on the
   board design.
@@ -48,39 +56,74 @@ properties:
   reg:
     maxItems: 1
 
-  titanmec,digits:
-    description: |
-      Array of grid (row) indexes corresponding to specific wiring of digits in the display matrix.
-      Defines which grid lines are connected to digit elements.
-    $ref: /schemas/types.yaml#/definitions/uint8-array
-    items:
-      minimum: 0
-      maximum: 7
-    minItems: 1
-    maxItems: 8
+  digits:
+    type: object
+    description: Container for 7-segment digit group definitions
 
-  titanmec,segment-mapping:
-    description: |
-      Array of segment (column) indexes specifying the hardware layout mapping used for digit display.
-      Each entry gives the segment index corresponding to a standard 7-segment element (a-g).
-    $ref: /schemas/types.yaml#/definitions/uint8-array
-    items:
-      minimum: 0
-      maximum: 7
-    minItems: 7
-    maxItems: 7
+    properties:
+      "#address-cells":
+        const: 1
+      "#size-cells":
+        const: 0
 
-  titanmec,transposed:
-    description: |
-      Optional flag indicating if grids and segments are swapped compared to standard matrix orientation.
-      This accommodates devices where segments are wired to rows and grids to columns.
-    $ref: /schemas/types.yaml#/definitions/flag
+    patternProperties:
+      "^digit@[0-9]+$":
+        type: object
+        properties:
+          reg:
+            description: Digit position identifier
+            maxItems: 1
+          segments:
+            $ref: /schemas/types.yaml#/definitions/uint32-matrix
+            description: |
+              Array of grid/segment coordinate pairs for each 7-segment position.
+              Each entry is <grid segment> mapping to standard 7-segment positions
+              in order: a, b, c, d, e, f, g
 
-  "#address-cells":
-    const: 2
+              Standard 7-segment layout:
+                 aaa
+                f   b
+                f   b
+                 ggg
+                e   c
+                e   c
+                 ddd
+            items:
+              items:
+               - description: Grid index (column/bank)
+               - description: Segment index (row/bit position)
+            # minItems: 2
+            # maxItems: 2
+            minItems: 7
+            maxItems: 7
+        required:
+          - reg
+          - segments
+        unevaluatedProperties: false
 
-  "#size-cells":
-    const: 0
+    additionalProperties: false
+
+  leds:
+    type: object
+    description: Container for individual LED icon definitions
+    properties:
+      "#address-cells":
+        const: 2
+      "#size-cells":
+        const: 0
+
+    patternProperties:
+      "^led@[0-8],[0-9a-d]$":
+        type: object
+        $ref: /schemas/leds/common.yaml#
+        properties:
+          reg:
+            description: Grid and segment indices as <grid segment> of this individual LED icon
+        required:
+          - reg
+        unevaluatedProperties: false
+
+    additionalProperties: false
 
 if:
   properties:
@@ -104,20 +147,9 @@ then:
   required:
     - spi-3wire
 
-patternProperties:
-  "^led@[0-7],[0-7]$":
-    $ref: /schemas/leds/common.yaml#
-    properties:
-      reg:
-        description: Grid (row) and segment (column) index in the matrix of this individual LED icon
-    required:
-      - reg
-
 required:
   - compatible
   - reg
-  - titanmec,digits
-  - titanmec,segment-mapping
 
 unevaluatedProperties: false
 
@@ -132,44 +164,45 @@ examples:
       display-controller@24 {
         reg = <0x24>;
         compatible = "fdhisi,fd655";
-        titanmec,digits = [01 02 03 04];
-        titanmec,segment-mapping = [03 04 05 00 01 02 06];
-        #address-cells = <2>;
-        #size-cells = <0>;
 
-        led@0,0 {
-          reg = <0 0>;
-          function = LED_FUNCTION_ALARM;
-        };
+        leds {
+          #address-cells = <2>;
+          #size-cells = <0>;
 
-        led@0,1 {
-          reg = <0 1>;
-          function = LED_FUNCTION_USB;
-        };
+          led@0,0 {
+            reg = <0 0>;
+            function = LED_FUNCTION_ALARM;
+          };
 
-        led@0,2 {
-          reg = <0 2>;
-          function = "play";
-        };
+          led@0,1 {
+            reg = <0 1>;
+            function = LED_FUNCTION_USB;
+          };
 
-        led@0,3 {
-          reg = <0 3>;
-          function = "pause";
-        };
+          led@0,2 {
+            reg = <0 2>;
+            function = "play";
+          };
 
-        led@0,4 {
-          reg = <0 4>;
-          function = "colon";
-        };
+          led@0,3 {
+            reg = <0 3>;
+            function = "pause";
+          };
 
-        led@0,5 {
-          reg = <0 5>;
-          function = LED_FUNCTION_LAN;
-        };
+          led@0,4 {
+            reg = <0 4>;
+            function = "colon";
+          };
 
-        led@0,6 {
-          reg = <0 6>;
-          function = LED_FUNCTION_WLAN;
+          led@0,5 {
+            reg = <0 5>;
+            function = LED_FUNCTION_LAN;
+          };
+
+          led@0,6 {
+            reg = <0 6>;
+            function = LED_FUNCTION_WLAN;
+          };
         };
       };
     };
@@ -184,49 +217,49 @@ examples:
       display-controller@0 {
         reg = <0x0>;
         compatible = "fdhisi,fd628";
-        titanmec,transposed;
-        titanmec,digits = [00 01 02 03];
-        titanmec,segment-mapping = [00 01 02 03 04 05 06];
         spi-3wire;
         spi-lsb-first;
         spi-rx-delay-us = <1>;
         spi-max-frequency = <500000>;
-        #address-cells = <2>;
-        #size-cells = <0>;
 
-        led@4,0 {
-          reg = <4 0>;
-          function = "apps";
-        };
+        leds {
+          #address-cells = <2>;
+          #size-cells = <0>;
 
-        led@4,1 {
-          reg = <4 1>;
-          function = "setup";
-        };
+          led@4,0 {
+            reg = <0 4>;
+            function = "apps";
+          };
 
-        led@4,2 {
-          reg = <4 2>;
-          function = LED_FUNCTION_USB;
-        };
+          led@4,1 {
+            reg = <1 4>;
+            function = "setup";
+          };
 
-        led@4,3 {
-          reg = <4 3>;
-          function = LED_FUNCTION_SD;
-        };
+          led@4,2 {
+            reg = <2 4>;
+            function = LED_FUNCTION_USB;
+          };
 
-        led@4,4 {
-          reg = <4 4>;
-          function = "colon";
-        };
+          led@4,3 {
+            reg = <3 4>;
+            function = LED_FUNCTION_SD;
+          };
 
-        led@4,5 {
-          reg = <4 5>;
-          function = "hdmi";
-        };
+          led@4,4 {
+            reg = <4 4>;
+            function = "colon";
+          };
 
-        led@4,6 {
-          reg = <4 6>;
-          function = "video";
+          led@4,5 {
+            reg = <5 4>;
+            function = "hdmi";
+          };
+
+          led@4,6 {
+            reg = <6 4>;
+            function = "video";
+          };
         };
       };
     };
