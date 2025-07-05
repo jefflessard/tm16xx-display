@@ -786,47 +786,6 @@ static int fd620_data(struct tm16xx_display *display, u8 index, u16 data)
 	return tm16xx_spi_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static void hbs658_swap_nibbles(u8 *data, size_t len)
-{
-	for (size_t i = 0; i < len; i++)
-		data[i] = (data[i] << 4) | (data[i] >> 4);
-}
-
-static int hbs658_init(struct tm16xx_display *display)
-{
-	const enum led_brightness brightness = display->main_led.brightness;
-	u8 cmd;
-	int ret;
-
-	/* Set data command */
-	cmd = TM16XX_CMD_DATA | TM16XX_DATA_ADDR_AUTO | TM16XX_DATA_WRITE;
-	hbs658_swap_nibbles(&cmd, 1);
-	ret = tm16xx_spi_write(display, &cmd, 1);
-	if (ret < 0)
-		return ret;
-
-	/* Set control command with brightness */
-	cmd = TM16XX_CMD_CTRL |
-	      TM16XX_CTRL_BRIGHTNESS(brightness, brightness - 1, TM16XX);
-	hbs658_swap_nibbles(&cmd, 1);
-	ret = tm16xx_spi_write(display, &cmd, 1);
-	if (ret < 0)
-		return ret;
-
-	return 0;
-}
-
-static int hbs658_data(struct tm16xx_display *display, u8 index, u16 data)
-{
-	u8 cmds[2];
-
-	cmds[0] = TM16XX_CMD_ADDR + index * 2;
-	cmds[1] = data;
-
-	hbs658_swap_nibbles(cmds, ARRAY_SIZE(cmds));
-	return tm16xx_spi_write(display, cmds, ARRAY_SIZE(cmds));
-}
-
 /* SPI controller definitions */
 static const struct tm16xx_controller tm1618_controller = {
 	.max_grids = 7,
@@ -860,14 +819,6 @@ static const struct tm16xx_controller fd620_controller = {
 	.data = fd620_data,
 };
 
-static const struct tm16xx_controller hbs658_controller = {
-	.max_grids = 5,
-	.max_segments = 8,
-	.max_brightness = 8,
-	.init = hbs658_init,
-	.data = hbs658_data,
-};
-
 #if IS_ENABLED(CONFIG_OF)
 static const struct of_device_id tm16xx_spi_of_match[] = {
 	{ .compatible = "titanmec,tm1618",  .data = &tm1618_controller },
@@ -878,7 +829,6 @@ static const struct of_device_id tm16xx_spi_of_match[] = {
 	{ .compatible = "icore,aip1618",    .data = &tm1618_controller },
 	{ .compatible = "icore,aip1628",    .data = &tm1628_controller },
 	{ .compatible = "princeton,pt6964", .data = &tm1628_controller },
-	{ .compatible = "winrise,hbs658",   .data = &hbs658_controller },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, tm16xx_spi_of_match);
@@ -893,7 +843,6 @@ static const struct spi_device_id tm16xx_spi_id[] = {
 	{ "aip1618", (kernel_ulong_t)&tm1618_controller },
 	{ "aip1628", (kernel_ulong_t)&tm1628_controller },
 	{ "pt6964",  (kernel_ulong_t)&tm1628_controller },
-	{ "hbs658",  (kernel_ulong_t)&hbs658_controller },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(spi, tm16xx_spi_id);
@@ -1047,6 +996,47 @@ static int fd6551_init(struct tm16xx_display *display)
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
+static void hbs658_swap_nibbles(u8 *data, size_t len)
+{
+	for (size_t i = 0; i < len; i++)
+		data[i] = (data[i] << 4) | (data[i] >> 4);
+}
+
+static int hbs658_init(struct tm16xx_display *display)
+{
+	const enum led_brightness brightness = display->main_led.brightness;
+	u8 cmd;
+	int ret;
+
+	/* Set data command */
+	cmd = TM16XX_CMD_DATA | TM16XX_DATA_ADDR_AUTO | TM16XX_DATA_WRITE;
+	hbs658_swap_nibbles(&cmd, 1);
+	ret = tm16xx_i2c_write(display, &cmd, 1);
+	if (ret < 0)
+		return ret;
+
+	/* Set control command with brightness */
+	cmd = TM16XX_CMD_CTRL |
+	      TM16XX_CTRL_BRIGHTNESS(brightness, brightness - 1, TM16XX);
+	hbs658_swap_nibbles(&cmd, 1);
+	ret = tm16xx_i2c_write(display, &cmd, 1);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static int hbs658_data(struct tm16xx_display *display, u8 index, u16 data)
+{
+	u8 cmds[2];
+
+	cmds[0] = TM16XX_CMD_ADDR + index * 2;
+	cmds[1] = data;
+
+	hbs658_swap_nibbles(cmds, ARRAY_SIZE(cmds));
+	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
+}
+
 /* I2C controller definitions */
 static const struct tm16xx_controller tm1650_controller = {
 	.max_grids = 4,
@@ -1072,6 +1062,14 @@ static const struct tm16xx_controller fd6551_controller = {
 	.data = fd655_data,
 };
 
+static const struct tm16xx_controller hbs658_controller = {
+	.max_grids = 5,
+	.max_segments = 8,
+	.max_brightness = 8,
+	.init = hbs658_init,
+	.data = hbs658_data,
+};
+
 #if IS_ENABLED(CONFIG_OF)
 static const struct of_device_id tm16xx_i2c_of_match[] = {
 	{ .compatible = "titanmec,tm1650", .data = &tm1650_controller },
@@ -1079,6 +1077,7 @@ static const struct of_device_id tm16xx_i2c_of_match[] = {
 	{ .compatible = "fdhisi,fd650",    .data = &tm1650_controller },
 	{ .compatible = "fdhisi,fd6551",   .data = &fd6551_controller },
 	{ .compatible = "fdhisi,fd655",    .data = &fd655_controller },
+	{ .compatible = "winrise,hbs658",   .data = &hbs658_controller },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, tm16xx_i2c_of_match);
@@ -1090,6 +1089,7 @@ static const struct i2c_device_id tm16xx_i2c_id[] = {
 	{ "fd650",  (kernel_ulong_t)&tm1650_controller },
 	{ "fd6551", (kernel_ulong_t)&fd6551_controller },
 	{ "fd655",  (kernel_ulong_t)&fd655_controller },
+	{ "hbs658",  (kernel_ulong_t)&hbs658_controller },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(i2c, tm16xx_i2c_id);

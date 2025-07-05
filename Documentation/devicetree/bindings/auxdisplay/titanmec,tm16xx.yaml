@@ -138,7 +138,6 @@ if:
           - icore,aip1618
           - icore,aip1628
           - princeton,pt6964
-          - winrise,hbs658
 then:
   allOf:
     - $ref: /schemas/spi/spi-peripheral-props.yaml#
