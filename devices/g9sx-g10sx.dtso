@@ -99,9 +99,7 @@
 					reg = <4 4>;
 					function = LED_FUNCTION_WLAN;
 				};
-			}
-
+			};
 		};
 	};
 };
-
