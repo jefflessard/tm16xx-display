@@ -11,13 +11,14 @@ eachlink-h6-mini | i2c | fdhisi,fd650 | no
 eachlink-x3-mini | i2c | fdhisi,fd6551 | no
 em95 | spi | fdhisi,fd628 | no
 freesat-gtc | i2c | fdhisi,fd650 | no
+g7-max | i2c | fdhisi,fd6551 | no
 g9sx-g10sx | spi | fdhisi,fd628 | no
 h96-max | i2c | fdhisi,fd6551 | no
 h96-max-x3 | i2c | fdhisi,fd6551 | no
 hk1-box | i2c | fdhisi,fd6551 | no
+hk1-max | i2c | fdhisi,fd6551 | yes
 hk1-rbox-x4 | i2c | fdhisi,fd6551 | no
 hk1-x3 | i2c | fdhisi,fd6551 | no
-hk1-max | i2c | fdhisi,fd6551 | yes
 m82 | spi | fdhisi,fd628 | no
 m9-pro-u2c-x-u5x-s | i2c | winrise,hbs658 | no
 magicsee-c400-plus | i2c | fdhisi,fd655 | no
@@ -57,6 +58,7 @@ tappro | spi | titanmec,tm1618 | no
 trident-t527 | i2c | fdhisi,fd6551 | no
 tx92 | spi | fdhisi,fd628 | no
 u2c-z-pro | i2c | winrise,hbs658 | no
+ugoos-tox3 | spi | fdhisi,fd6551 | no
 vontar-w2-atv | i2c | fdhisi,fd655 | no
 vontar-x4 | i2c | fdhisi,fd6551 | no
 vorke-z5 | spi | fdhisi,fd628 | no

@@ -155,7 +155,6 @@ convert_file() {
 	if [[ -n $controller ]]
 	then
 		client=$([ "${vfd_gpio_stb[2]}" = "0xFF" ] && echo i2c || echo spi)
-		#echo "$device: $client $controller"
 		echo "$device | $client | $controller | no"
 		template "template-${client}.dtso" "$dst_file"
 	else
