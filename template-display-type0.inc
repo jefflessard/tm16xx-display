@@ -1,7 +1,4 @@
-#address-cells = <2>;
-#size-cells = <0>;
-
-led@{GRID},{LED4} {
-	reg = <{GRID} {LED4}>;
+led@{GRID4},{LED4} {
+	reg = <{GRID4} {LED4}>;
 	function = "colon";
 };

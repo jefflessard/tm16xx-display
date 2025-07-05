@@ -35,17 +35,17 @@ DISPLAY_MAP=( \
 
 declare -A SEGMENTS_MAP
 SEGMENTS_MAP=( \
-	0x00 "03 01 02 06 04 05 00" \
-	0x01 "03 04 05 00 01 02 06" \
-	0x02 "00 01 02 03 04 05 06" \
-	0x03 "03 01 02 06 04 05 00" \
-	0x04 "03 01 02 06 04 05 00" \
-	0x05 "03 01 02 06 04 05 00" \
-	0x06 "03 01 02 06 04 05 00" \
-	0x07 "00 04 05 01 03 02 06" \
-	0x08 "02 06 07 03 01 04 05" \
-	0x09 "06 04 05 00 01 02 03" \
-	0x0A "03 01 02 06 04 05 00" \
+	0x00 "3 1 2 6 4 5 0" \
+	0x01 "3 4 5 0 1 2 6" \
+	0x02 "0 1 2 3 4 5 6" \
+	0x03 "3 1 2 6 4 5 0" \
+	0x04 "3 1 2 6 4 5 0" \
+	0x05 "3 1 2 6 4 5 0" \
+	0x06 "3 1 2 6 4 5 0" \
+	0x07 "0 4 5 1 3 2 6" \
+	0x08 "2 6 7 3 1 4 5" \
+	0x09 "6 4 5 0 1 2 3" \
+	0x0A "3 1 2 6 4 5 0" \
 )
 
 template() {
@@ -63,26 +63,59 @@ template() {
 	CS_FLAG=${vfd_gpio_stb[2]}
 	CONTROLLER=${CONTROLLER_MAP[${vfd_display_type[3]}]}
 	DIGITS=(${vfd_chars[@]:1})
-	DIGITS=${DIGITS[@]/#/0}
-	SEGMENTS=${SEGMENTS_MAP[${vfd_display_type[0]}]}
+	IFS=" " SEGMENTS=(${SEGMENTS_MAP[${vfd_display_type[0]}]})
 	TRANSPOSED=${vfd_display_type[2]}
-
 	display_type=${DISPLAY_MAP[${vfd_display_type[0]}]}
 	LED_INDEX=${vfd_chars[0]}
-	ICONS=${vfd_dot_bits[@]}
-	ICONS=${ICONS// /, }
-	LEDS=$( \
-		sed "$display_type" \
-			-e "s/{GRID}/${LED_INDEX}/g" \
-			-e "s/{LED0}/${vfd_dot_bits[0]}/g" \
-			-e "s/{LED1}/${vfd_dot_bits[1]}/g" \
-			-e "s/{LED2}/${vfd_dot_bits[2]}/g" \
-			-e "s/{LED3}/${vfd_dot_bits[3]}/g" \
-			-e "s/{LED4}/${vfd_dot_bits[4]}/g" \
-			-e "s/{LED5}/${vfd_dot_bits[5]}/g" \
-			-e "s/{LED6}/${vfd_dot_bits[6]}/g" \
-	)
-	LEDS=${LEDS//$'\n'/\\n\\t\\t\\t}
+
+	# for digit in "${DIGITS[@]}"; do
+	digit_items=""
+	for (( i=${#DIGITS[@]}-1; i>=0; i-- )); do
+		digit="${DIGITS[$i]}"
+		index=$((${#DIGITS[@]}-1-$i))
+		addresses=""
+		for segment in "${SEGMENTS[@]}"; do
+			if [ "$TRANSPOSED" == "0x00" ]; then
+				addresses+="<$digit $segment>,\n\t\t\t\t\t\t   "
+			else
+				addresses+="<$segment $digit>,\n\t\t\t\t\t\t   "
+			fi
+		done
+		digit_items+=\
+"digit@$index {
+	reg = <$index>;
+	segments = ${addresses%,\\n\\t* *};
+};
+"
+	done
+	digit_items=${digit_items:0:-1}
+	digit_items=${digit_items//$'\n'/\\n\\t\\t\\t\\t}
+
+	if [ "$CONTROLLER" == "fdhisi,fd650" ]; then
+		led_items="$(cat "template-display-type-fd650.inc")"
+		if [ "$TRANSPOSED" == "0x00" ]; then
+			grid="${DIGITS[-1]}"
+			segment=7
+			led_items="${led_items//'{GRID}'/$grid}"
+			led_items="${led_items//'{LED}'/$segment}"
+		else
+			led_items="${led_items//'{GRID}'/$segment}"
+			led_items="${led_items//'{LED}'/$grid}"
+		fi
+	else
+		led_items="$(cat "$display_type")"
+		for (( i=0; i<${#vfd_dot_bits[@]}; i++ )); do
+			segment="${vfd_dot_bits[$i]}"
+			if [ "$TRANSPOSED" == "0x00" ]; then
+				led_items="${led_items//'{GRID'$i'}'/$LED_INDEX}"
+				led_items="${led_items//'{LED'$i'}'/$segment}"
+			else
+				led_items="${led_items//'{GRID'$i'}'/$segment}"
+				led_items="${led_items//'{LED'$i'}'/$LED_INDEX}"
+			fi
+		done
+	fi
+	led_items=${led_items//$'\n'/\\n\\t\\t\\t\\t}
 
 	sed ${template_file} \
 		-e "s/{DAT_GPIO}/${DAT_GPIO}/g" \
@@ -95,16 +128,9 @@ template() {
 		-e "s/{CS_PIN}/${CS_PIN}/g" \
 		-e "s/{CS_FLAG}/${CS_FLAG}/g" \
 		-e "s/{CONTROLLER}/${CONTROLLER}/g" \
-		-e "s/{DIGITS}/${DIGITS}/g" \
-		-e "s/{SEGMENTS}/${SEGMENTS}/g" \
-		-e "s|{LEDS}|${LEDS}|g" \
+		-e "s/{DIGITS}$/${digit_items}/g" \
+		-e "s|{LEDS}|${led_items}|g" \
 		> ${device_file}
-
-	if [ "$TRANSPOSED" == "0x01" ]; then
-		sed -i "s/{TRANSPOSED}/titanmec,transposed;/g" ${device_file}
-	else
-		sed -i "/{TRANSPOSED}/d" ${device_file}
-	fi
 }
 
 convert_file() {

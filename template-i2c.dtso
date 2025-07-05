@@ -18,11 +18,17 @@
 			compatible = "{CONTROLLER}";
 			reg = <0x24>;
 
-			{TRANSPOSED}
-			titanmec,digits = [{DIGITS}];
-			titanmec,segment-mapping = [{SEGMENTS}];
+			digits {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				{DIGITS}
+			};
 
-			{LEDS}
+			leds {
+				#address-cells = <2>;
+				#size-cells = <0>;
+				{LEDS}
+			};
 
 		};
 	};

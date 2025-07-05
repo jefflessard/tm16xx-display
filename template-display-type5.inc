@@ -1,37 +1,28 @@
-#address-cells = <2>;
-#size-cells = <0>;
-
-led@{GRID},{LED0} {
-	reg = <{GRID} {LED0}>;
+led@{GRID0},{LED0} {
+	reg = <{GRID0} {LED0}>;
 	function = "apps";
 };
-
-led@{GRID},{LED1} {
-	reg = <{GRID} {LED1}>;
+led@{GRID1},{LED1} {
+	reg = <{GRID1} {LED1}>;
 	function = LED_FUNCTION_LAN;
 };
-
-led@{GRID},{LED2} {
-	reg = <{GRID} {LED2}>;
+led@{GRID2},{LED2} {
+	reg = <{GRID2} {LED2}>;
 	function = LED_FUNCTION_USB;
 };
-
-led@{GRID},{LED3} {
-	reg = <{GRID} {LED3}>;
+led@{GRID3},{LED3} {
+	reg = <{GRID3} {LED3}>;
 	function = LED_FUNCTION_SD;
 };
-
-led@{GRID},{LED4} {
-	reg = <{GRID} {LED4}>;
+led@{GRID4},{LED4} {
+	reg = <{GRID4} {LED4}>;
 	function = "colon";
 };
-
-led@{GRID},{LED5} {
-	reg = <{GRID} {LED5}>;
+led@{GRID5},{LED5} {
+	reg = <{GRID5} {LED5}>;
 	function = "wlan-lo";
 };
-
-led@{GRID},{LED6} {
-	reg = <{GRID} {LED6}>;
+led@{GRID6},{LED6} {
+	reg = <{GRID6} {LED6}>;
 	function = "wlan-hi";
 };
