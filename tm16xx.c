@@ -1,3 +1,4 @@
+
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Auxiliary Display Driver for TM16XX and compatible LED controllers
@@ -10,6 +11,7 @@
  */
 
 #include <linux/bitfield.h>
+#include <linux/bitmap.h>
 #include <linux/bitops.h>
 #include <linux/module.h>
 #include <linux/init.h>
@@ -23,11 +25,18 @@
 #include <linux/delay.h>
 #include <linux/workqueue.h>
 #include <linux/map_to_7segment.h>
+#include <linux/input.h>
+#include <linux/input/matrix_keypad.h>
 
 #define TM16XX_DRIVER_NAME "tm16xx"
 #define TM16XX_DEVICE_NAME "display"
-#define TM16XX_MAX_SEGMENTS 16
 #define TM16XX_DIGIT_SEGMENTS 7
+#define TM16XX_LED_MAX_GRIDS  8
+#define TM16XX_LED_MAX_SEGS  16
+#define TM16XX_LED_BITS (TM16XX_LED_MAX_GRIDS * TM16XX_LED_MAX_SEGS)
+#define TM16XX_KEY_MAX_ROWS   8
+#define TM16XX_KEY_MAX_COLS  16
+#define TM16XX_KEY_BITS (TM16XX_KEY_MAX_ROWS * TM16XX_KEY_MAX_COLS)
 
 /* Common bit field definitions */
 
@@ -77,12 +86,18 @@
 
 /* I2C controller addresses and control settings */
 #define TM1650_CMD_CTRL         0x48
+#define TM1650_CMD_READ         0x4F
 #define TM1650_CMD_ADDR         0x68
 #define TM1650_CTRL_BR_MASK     GENMASK(6, 4)
 #define TM1650_CTRL_ON          BIT(0)
+#define TM1650_CTRL_SLEEP       BIT(2)
 #define TM1650_CTRL_SEG_MASK    GENMASK(3, 3)
 #define TM1650_CTRL_SEG8_MODE   0
 #define TM1650_CTRL_SEG7_MODE   BIT(3)
+#define TM1650_KEY_ROW_MASK     GENMASK(1, 0)
+#define TM1650_KEY_COL_MASK     GENMASK(5, 3)
+#define TM1650_KEY_DOWN_MASK    GENMASK(6, 6)
+#define TM1650_KEY_COMBINED     GENMASK(5, 3)
 
 #define FD655_CMD_CTRL          0x48
 #define FD655_CMD_ADDR          0x66
@@ -98,10 +113,15 @@
 		(FIELD_PREP(prefix##_CTRL_BR_MASK, (value)) | prefix##_CTRL_ON) : \
 		0)
 
-#define TM16XX_SET_BIT(display, grid, segment, val) \
+#define TM16XX_SET_LED(display, grid, segment, val) \
 	(assign_bit( \
-		((grid) * TM16XX_MAX_SEGMENTS + (segment)), \
+		((grid) * TM16XX_LED_MAX_SEGS + (segment)), \
 		((display)->data), (val)))
+
+#define TM16XX_SET_KEY(bitmap, row, col, val) \
+	(assign_bit( \
+		((row) * TM16XX_KEY_MAX_COLS + (col)), \
+		(bitmap), (val)))
 
 static char *default_value;
 module_param(default_value, charp, 0644);
@@ -119,6 +139,7 @@ struct tm16xx_display;
  * @max_brightness: Maximum brightness level supported by the controller
  * @init: Configures the controller mode and brightness
  * @data: Writes display data to the controller
+ * @keys: Reads controller key state into bitmap
  *
  * This structure holds function pointers for controller-specific operations.
  */
@@ -128,6 +149,7 @@ struct tm16xx_controller {
 	const u8 max_brightness;
 	int (* const init)(struct tm16xx_display *display);
 	int (* const data)(struct tm16xx_display *display, u8 index, u16 data);
+	int (* const keys)(struct tm16xx_display *display, unsigned long *bitmap);
 };
 
 /**
@@ -179,7 +201,6 @@ struct tm16xx_digit {
  * @flush_status: Result of the last flush work
  * @lock: Mutex for concurrent access protection
  * @data: Display data bitmap
- * @data_len: Length of display data bitmap
  */
 struct tm16xx_display {
 	struct device *dev;
@@ -199,9 +220,129 @@ struct tm16xx_display {
 	struct work_struct flush_display;
 	int flush_status;
 	struct mutex lock; /* prevents concurrent work operations */
-	unsigned long *data;
-	int data_len;
+	DECLARE_BITMAP(data, TM16XX_KEY_BITS);
 };
+
+struct tm16xx_keypad {
+	struct tm16xx_display *display;
+	struct input_dev *input;
+	u8 row_shift;
+	DECLARE_BITMAP(last_state, TM16XX_KEY_BITS);
+};
+
+static void tm16xx_keypad_poll(struct input_dev *input)
+{
+	struct tm16xx_keypad *keypad = input_get_drvdata(input);
+	const unsigned short *keycodes = keypad->input->keycode;
+	DECLARE_BITMAP(new_state, TM16XX_KEY_BITS) = {0};
+	DECLARE_BITMAP(change, TM16XX_KEY_BITS);
+	unsigned int bit_pos;
+	u8 row, col;
+	bool pressed;
+	int ret;
+
+	mutex_lock(&keypad->display->lock);
+	ret = keypad->display->controller->keys(keypad->display, new_state);
+	mutex_unlock(&keypad->display->lock);
+
+	if (ret < 0) {
+		dev_err(keypad->display->dev, "Reading failed: %d\n", ret);
+		return;
+	}
+
+	bitmap_xor(change, new_state, keypad->last_state, TM16XX_KEY_BITS);
+
+	for_each_set_bit(bit_pos, change, TM16XX_KEY_BITS) {
+		row = bit_pos / TM16XX_KEY_MAX_COLS;
+		col = bit_pos % TM16XX_KEY_MAX_COLS;
+		pressed = test_bit(bit_pos, new_state);
+		u16 scancode = MATRIX_SCAN_CODE(row, col, keypad->row_shift);
+
+		dev_dbg(keypad->display->dev, "key changed: %u, row=%u col=%u down=%d\n", bit_pos, row, col, pressed);
+
+		input_event(keypad->input, EV_MSC, MSC_SCAN, scancode);
+		input_report_key(keypad->input, keycodes[scancode], pressed);
+		input_sync(keypad->input);
+	}
+
+	bitmap_copy(keypad->last_state, new_state, TM16XX_KEY_BITS);
+}
+
+static int tm16xx_keypad_probe(struct tm16xx_display *display)
+{
+	struct tm16xx_keypad *keypad;
+	struct input_dev *input;
+	unsigned int poll_interval;
+	int ret = 0;
+
+	dev_dbg(display->dev, "Configuring keypad\n");
+
+#ifdef TM16XX_I2C_NOSTART
+	if (!i2c_check_functionality(display->client.i2c->adapter, I2C_FUNC_PROTOCOL_MANGLING)) {
+		dev_err(display->dev, "No I2C_FUNC_NOPROTOCOL_MANGLING support, consider using i2c-gpio\n");
+		return -EINVAL;
+	}
+
+	if (!i2c_check_functionality(display->client.i2c->adapter, I2C_FUNC_NOSTART)) {
+		dev_err(display->dev, "No I2C_FUNC_NOSTART support, consider using i2c-gpio\n");
+		return -EINVAL;
+	}
+#endif
+
+	ret = device_property_read_u32(display->dev, "poll-interval", &poll_interval);
+	if (ret < 0) {
+		dev_err(display->dev, "Failed to read poll-interval: %d\n", ret);
+		return ret;
+	}
+	dev_dbg(display->dev, "Polling interval: %u ms\n", poll_interval);
+
+	keypad = devm_kzalloc(display->dev, sizeof(*keypad), GFP_KERNEL);
+	if (!keypad)
+		return -ENOMEM;
+	keypad->display = display;
+
+	input = devm_input_allocate_device(display->dev);
+	if (!input) {
+		dev_err(display->dev, "Failed to allocate input device\n");
+		ret = -ENOMEM;
+		goto free_keypad;
+	}
+	input->name = TM16XX_DRIVER_NAME"-keypad";
+	input_setup_polling(input, tm16xx_keypad_poll);
+	input_set_poll_interval(input, poll_interval);
+	keypad->input = input;
+	input_set_drvdata(input, keypad);
+
+	// Parse keymap from DT
+	unsigned int rows, cols;
+	ret = matrix_keypad_parse_properties(display->dev, &rows, &cols);
+	if (ret < 0) {
+		dev_err(display->dev, "Failed to parse keypad properties: %d\n", ret);
+		goto free_input;
+	}
+	keypad->row_shift = get_count_order(cols);
+	dev_dbg(display->dev, "Number of keypad rows=%u, cols=%u\n", rows, cols);
+
+	ret = matrix_keypad_build_keymap(NULL, NULL, rows, cols, NULL, input);
+	if (ret < 0) {
+		dev_err(display->dev, "Failed to build keymap: %d\n", ret);
+		goto free_input;
+	}
+
+	ret = input_register_device(input);
+	if (ret < 0) {
+		dev_err(display->dev, "Failed to register input device: %d\n", ret);
+		goto free_input;
+	}
+
+	return 0;
+
+free_input:
+	input_free_device(input);
+free_keypad:
+	devm_kfree(display->dev, keypad);
+	return ret;
+}
 
 /**
  * tm16xx_display_flush_init() - Controller configuration Work function
@@ -263,7 +404,7 @@ static void tm16xx_display_remove(struct tm16xx_display *display)
 {
 	dev_dbg(display->dev, "Removing display\n");
 
-	memset(display->data, 0x00, display->data_len * sizeof(*display->data));
+	memset(display->data, 0x00, sizeof(display->data));
 	schedule_work(&display->flush_display);
 	flush_work(&display->flush_display);
 
@@ -302,7 +443,7 @@ static void tm16xx_led_set(struct led_classdev *led_cdev,
 
 	dev_dbg(display->dev, "Setting led %u,%u to %d\n", led->grid, led->segment, value);
 
-	TM16XX_SET_BIT(display, led->grid, led->segment, value);
+	TM16XX_SET_LED(display, led->grid, led->segment, value);
 	schedule_work(&display->flush_display);
 }
 
@@ -359,7 +500,7 @@ static ssize_t tm16xx_value_store(struct device *dev,
 		for (j = 0; j < TM16XX_DIGIT_SEGMENTS; j++) {
 			ds = &digit->segments[j];
 			val = seg_pattern & BIT(j);
-			TM16XX_SET_BIT(display, ds->grid, ds->segment, val);
+			TM16XX_SET_LED(display, ds->grid, ds->segment, val);
 		}
 	}
 
@@ -454,10 +595,10 @@ static int tm16xx_display_init(struct tm16xx_display *display)
 		tm16xx_value_store(display->main_led.dev, NULL, default_value,
 				   strlen(default_value));
 	} else {
-		memset(display->data, 0xFF, display->data_len * sizeof(*display->data));
+		memset(display->data, 0xFF, sizeof(display->data));
 		schedule_work(&display->flush_display);
 		flush_work(&display->flush_display);
-		memset(display->data, 0x00, display->data_len * sizeof(*display->data));
+		memset(display->data, 0x00, sizeof(display->data));
 		if (display->flush_status < 0)
 			return display->flush_status;
 	}
@@ -593,12 +734,6 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 	dev_dbg(dev, "Number of grids: %u\n", display->num_grids);
 	dev_dbg(dev, "Number of segments: %u\n", display->num_segments);
 
-	display->data_len = BITS_TO_LONGS(display->num_grids * TM16XX_MAX_SEGMENTS);
-	display->data = devm_kcalloc(dev, display->data_len,
-				     sizeof(*display->data), GFP_KERNEL);
-	if (!display->data)
-		return -ENOMEM;
-
 	return 0;
 }
 
@@ -667,6 +802,13 @@ static int tm16xx_probe(struct tm16xx_display *display)
 	if (ret < 0) {
 		dev_err(display->dev, "Failed to initialize display: %d\n", ret);
 		return ret;
+	}
+
+	if (display->controller->keys) {
+		ret = tm16xx_keypad_probe(display);
+		if (ret < 0)
+			dev_warn(display->dev,
+				 "Failed to initialize keypad: %d\n", ret);
 	}
 
 	return 0;
@@ -937,12 +1079,21 @@ static int tm16xx_i2c_write(struct tm16xx_display *display, u8 *data, size_t len
 {
 	dev_dbg(display->dev, "i2c_write %*ph", (char)len, data);
 
+	/* expected sequence: S Command [A] Data [A] P */
+#ifdef TM16XX_I2C_NOSTART
+	struct i2c_msg msg = {
+		.flags = I2C_M_NOSTART,
+		.len = len,
+		.buf = data,
+	};
+#else
 	struct i2c_msg msg = {
 		.addr = data[0] >> 1,
 		.flags = 0,
 		.len = len - 1,
 		.buf = &data[1],
 	};
+#endif
 	int ret;
 
 	ret = i2c_transfer(display->client.i2c->adapter, &msg, 1);
@@ -950,6 +1101,42 @@ static int tm16xx_i2c_write(struct tm16xx_display *display, u8 *data, size_t len
 		return ret;
 
 	return (ret == 1) ? len : -EIO;
+}
+
+static int tm16xx_i2c_read(struct tm16xx_display *display, u8 cmd, u8 *data, size_t len)
+{
+	/* expected sequence: S Command [A] [Data] [A] P */
+#ifdef TM16XX_I2C_NOSTART
+	struct i2c_msg msgs[2] = {
+		{
+			.flags = I2C_M_NOSTART,
+			.len = 1,
+			.buf = &cmd,
+		}, {
+			.flags = I2C_M_NOSTART | I2C_M_RD | I2C_M_NO_RD_ACK,
+			.len = len,
+			.buf = data,
+		}
+	};
+#else
+	struct i2c_msg msgs[1] = {
+		{
+			.addr = cmd >> 1,
+			.flags = I2C_M_RD | I2C_M_NO_RD_ACK,
+			.len = len,
+			.buf = data,
+		}
+	};
+#endif
+	int ret;
+
+	ret = i2c_transfer(display->client.i2c->adapter, msgs, ARRAY_SIZE(msgs));
+	if (ret < 0)
+		return ret;
+
+	dev_dbg(display->dev, "i2c_read %ph: %*ph\n", &cmd, (char)len, data);
+
+	return (ret == ARRAY_SIZE(msgs)) ? len : -EIO;
 }
 
 /* I2C controller-specific functions */
@@ -973,6 +1160,33 @@ static int tm1650_data(struct tm16xx_display *display, u8 index, u16 data)
 	cmds[1] = data; // SEG 1 to 8
 
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
+}
+
+static int tm1650_keys(struct tm16xx_display *display, unsigned long *bitmap)
+{
+	u8 keycode, row, col;
+	bool pressed;
+	int ret;
+
+	ret = tm16xx_i2c_read(display, TM1650_CMD_READ, &keycode, 1);
+	if (ret)
+		return ret;
+
+	if (keycode == 0x00 || keycode == 0xFF) {
+		return -EINVAL;
+	}
+
+	row = FIELD_GET(TM1650_KEY_ROW_MASK, keycode);
+	pressed = FIELD_GET(TM1650_KEY_DOWN_MASK, keycode) != 0;
+	if ((keycode & TM1650_KEY_COMBINED) == TM1650_KEY_COMBINED) {
+		TM16XX_SET_KEY(bitmap, row, 0, pressed);
+		TM16XX_SET_KEY(bitmap, row, 1, pressed);
+	} else {
+		col = FIELD_GET(TM1650_KEY_COL_MASK, keycode);
+		TM16XX_SET_KEY(bitmap, row, col, pressed);
+	}
+
+	return 0;
 }
 
 static int fd655_init(struct tm16xx_display *display)
@@ -1055,6 +1269,7 @@ static const struct tm16xx_controller tm1650_controller = {
 	.max_brightness = 8,
 	.init = tm1650_init,
 	.data = tm1650_data,
+	.keys = tm1650_keys,
 };
 
 static const struct tm16xx_controller fd655_controller = {
@@ -1063,6 +1278,7 @@ static const struct tm16xx_controller fd655_controller = {
 	.max_brightness = 3,
 	.init = fd655_init,
 	.data = fd655_data,
+	.keys = tm1650_keys,
 };
 
 static const struct tm16xx_controller fd6551_controller = {
@@ -1071,6 +1287,7 @@ static const struct tm16xx_controller fd6551_controller = {
 	.max_brightness = 8,
 	.init = fd6551_init,
 	.data = fd655_data,
+	.keys = tm1650_keys,
 };
 
 static const struct tm16xx_controller hbs658_controller = {

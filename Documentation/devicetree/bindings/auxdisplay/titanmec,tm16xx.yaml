@@ -146,6 +146,9 @@ then:
   required:
     - spi-3wire
 
+allOf:
+  - $ref: /schemas/input/input.yaml
+
 required:
   - compatible
   - reg
