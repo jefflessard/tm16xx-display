@@ -46,6 +46,7 @@
 #define TM16XX_CMD_DATA         BIT(6)
 #define TM16XX_CMD_CTRL         BIT(7)
 #define TM16XX_CMD_ADDR         (BIT(7) | BIT(6))
+#define TM16XX_CMD_READ         (TM16XX_CMD_DATA | TM16XX_DATA_WRITE)
 
 /* Mode command grid settings (bits 1-0) */
 #define TM16XX_MODE_GRID_MASK   GENMASK(1, 0)
@@ -108,6 +109,8 @@
 #define FD6551_CTRL_BR_MASK     GENMASK(3, 1)
 #define FD6551_CTRL_ON          BIT(0)
 
+#define HBS658_KEY_COL_MASK     GENMASK(7, 5)
+
 #define TM16XX_CTRL_BRIGHTNESS(enabled, value, prefix) \
 	((enabled) ? \
 		(FIELD_PREP(prefix##_CTRL_BR_MASK, (value)) | prefix##_CTRL_ON) : \
@@ -135,8 +138,10 @@ struct tm16xx_display;
 /**
  * DOC: struct tm16xx_controller - Controller-specific operations
  * @max_grids: Maximum number of grids supported by the controller
- * @max_segments: Maximum number of segments supported by the controller (max 16)
+ * @max_segments: Maximum number of segments supported by the controller
  * @max_brightness: Maximum brightness level supported by the controller
+ * @max_key_rows: Maximum number of key input rows supported by the controller
+ * @max_key_cols: Maximum number of key input columns supported by the controller
  * @init: Configures the controller mode and brightness
  * @data: Writes display data to the controller
  * @keys: Reads controller key state into bitmap
@@ -147,6 +152,8 @@ struct tm16xx_controller {
 	const u8 max_grids;
 	const u8 max_segments;
 	const u8 max_brightness;
+	const u8 max_key_rows;
+	const u8 max_key_cols;
 	int (* const init)(struct tm16xx_display *display);
 	int (* const data)(struct tm16xx_display *display, u8 index, u16 data);
 	int (* const keys)(struct tm16xx_display *display, unsigned long *bitmap);
@@ -850,6 +857,15 @@ static void tm16xx_spi_remove(struct spi_device *spi)
 	tm16xx_display_remove(display);
 }
 
+static int tm16xx_spi_read(struct tm16xx_display *display, u8 cmd, u8 *data, size_t len)
+{
+	dev_dbg(display->dev, "spi_write %*ph", (char)len, data);
+
+	struct spi_device *spi = display->client.spi;
+
+	return spi_write_then_read(spi, &cmd, 1, data, len);
+}
+
 /**
  * tm16xx_spi_write() - Write data to SPI client
  * @display: Pointer to tm16xx_display structure
@@ -928,6 +944,43 @@ static int tm1628_data(struct tm16xx_display *display, u8 index, u16 data)
 	return tm16xx_spi_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
+static int tm1628_keys(struct tm16xx_display *display, unsigned long *bitmap)
+{
+	u8 keycodes[5];
+	int ret, i;
+
+	ret = tm16xx_spi_read(display, TM16XX_CMD_READ, keycodes, sizeof(keycodes));
+	if (ret)
+		return ret;
+
+	for (i = 0; i < sizeof(keycodes); i++) {
+		TM16XX_SET_KEY(bitmap, 0, i * 2, keycodes[i] & BIT(0));
+		TM16XX_SET_KEY(bitmap, 1, i * 2, keycodes[i] & BIT(1));
+		TM16XX_SET_KEY(bitmap, 0, i * 2 + 1, keycodes[i] & BIT(3));
+		TM16XX_SET_KEY(bitmap, 1, i * 2 + 1, keycodes[i] & BIT(4));
+	}
+
+	return 0;
+}
+
+static int tm1618_keys(struct tm16xx_display *display, unsigned long *bitmap)
+{
+	u8 keycodes[3];
+	int ret;
+
+	ret = tm16xx_spi_read(display, TM16XX_CMD_READ, keycodes, sizeof(keycodes));
+	if (ret)
+		return ret;
+
+	TM16XX_SET_KEY(bitmap, 0, 0, keycodes[0] & BIT(1));
+	TM16XX_SET_KEY(bitmap, 0, 1, keycodes[0] & BIT(4));
+	TM16XX_SET_KEY(bitmap, 0, 2, keycodes[1] & BIT(1));
+	TM16XX_SET_KEY(bitmap, 0, 3, keycodes[1] & BIT(4));
+	TM16XX_SET_KEY(bitmap, 0, 4, keycodes[2] & BIT(1));
+
+	return 0;
+}
+
 static int fd620_data(struct tm16xx_display *display, u8 index, u16 data)
 {
 	u8 cmds[3];
@@ -939,37 +992,70 @@ static int fd620_data(struct tm16xx_display *display, u8 index, u16 data)
 	return tm16xx_spi_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
+static int fd620_keys(struct tm16xx_display *display, unsigned long *bitmap)
+{
+	u8 keycodes[4];
+	int ret;
+
+	ret = tm16xx_spi_read(display, TM16XX_CMD_READ, keycodes, sizeof(keycodes));
+	if (ret)
+		return ret;
+
+	TM16XX_SET_KEY(bitmap, 0, 0, keycodes[0] & BIT(0));
+	TM16XX_SET_KEY(bitmap, 0, 1, keycodes[0] & BIT(3));
+	TM16XX_SET_KEY(bitmap, 0, 2, keycodes[1] & BIT(0));
+	TM16XX_SET_KEY(bitmap, 0, 3, keycodes[1] & BIT(3));
+	TM16XX_SET_KEY(bitmap, 0, 4, keycodes[2] & BIT(0));
+	TM16XX_SET_KEY(bitmap, 0, 5, keycodes[2] & BIT(3));
+	TM16XX_SET_KEY(bitmap, 0, 6, keycodes[3] & BIT(0));
+
+	return 0;
+}
+
+
 /* SPI controller definitions */
 static const struct tm16xx_controller tm1618_controller = {
 	.max_grids = 7,
 	.max_segments = 8,
 	.max_brightness = 8,
+	.max_key_rows = 1,
+	.max_key_cols = 5,
 	.init = tm1628_init,
 	.data = tm1618_data,
+	.keys = tm1618_keys,
 };
 
 static const struct tm16xx_controller tm1620_controller = {
 	.max_grids = 6,
 	.max_segments = 10,
 	.max_brightness = 8,
+	.max_key_rows = 0,
+	.max_key_cols = 0,
 	.init = tm1628_init,
 	.data = tm1628_data,
+	.keys = NULL,
 };
 
 static const struct tm16xx_controller tm1628_controller = {
 	.max_grids = 7,
 	.max_segments = 14, // seg 11 unused
 	.max_brightness = 8,
+	.max_key_rows = 2,
+	.max_key_cols = 10,
 	.init = tm1628_init,
 	.data = tm1628_data,
+	.keys = tm1628_keys,
 };
 
 static const struct tm16xx_controller fd620_controller = {
 	.max_grids = 5,
 	.max_segments = 8,
 	.max_brightness = 8,
+	.max_key_rows = 1,
+	.max_key_cols = 7,
 	.init = tm1628_init,
 	.data = fd620_data,
+	.keys = fd620_keys,
 };
 
 #if IS_ENABLED(CONFIG_OF)
@@ -1262,11 +1348,34 @@ static int hbs658_data(struct tm16xx_display *display, u8 index, u16 data)
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
+static int hbs658_keys(struct tm16xx_display *display, unsigned long *bitmap)
+{
+	u8 cmd, keycode, col;
+	int ret;
+
+	cmd = TM16XX_CMD_READ;
+	hbs658_swap_nibbles(&cmd, 1);
+	ret = tm16xx_i2c_read(display, cmd, &keycode, 1);
+	if (ret)
+		return ret;
+
+	hbs658_swap_nibbles(&keycode, 1);
+
+	if (keycode != 0xFF) {
+		col = FIELD_GET(HBS658_KEY_COL_MASK, keycode);
+		TM16XX_SET_KEY(bitmap, 0, col, true);
+	}
+
+	return 0;
+}
+
 /* I2C controller definitions */
 static const struct tm16xx_controller tm1650_controller = {
 	.max_grids = 4,
 	.max_segments = 8,
 	.max_brightness = 8,
+	.max_key_rows = 4,
+	.max_key_cols = 7,
 	.init = tm1650_init,
 	.data = tm1650_data,
 	.keys = tm1650_keys,
@@ -1276,6 +1385,8 @@ static const struct tm16xx_controller fd655_controller = {
 	.max_grids = 5,
 	.max_segments = 7,
 	.max_brightness = 3,
+	.max_key_rows = 5,
+	.max_key_cols = 7,
 	.init = fd655_init,
 	.data = fd655_data,
 	.keys = tm1650_keys,
@@ -1285,17 +1396,22 @@ static const struct tm16xx_controller fd6551_controller = {
 	.max_grids = 5,
 	.max_segments = 7,
 	.max_brightness = 8,
+	.max_key_rows = 0,
+	.max_key_cols = 0,
 	.init = fd6551_init,
 	.data = fd655_data,
-	.keys = tm1650_keys,
+	.keys = NULL,
 };
 
 static const struct tm16xx_controller hbs658_controller = {
 	.max_grids = 5,
 	.max_segments = 8,
 	.max_brightness = 8,
+	.max_key_rows = 1,
+	.max_key_cols = 8,
 	.init = hbs658_init,
 	.data = hbs658_data,
+	.keys = hbs658_keys,
 };
 
 #if IS_ENABLED(CONFIG_OF)
