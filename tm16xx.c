@@ -32,11 +32,12 @@
 #define TM16XX_DEVICE_NAME "display"
 #define TM16XX_DIGIT_SEGMENTS 7
 #define TM16XX_LED_MAX_GRIDS  7
-#define TM16XX_LED_MAX_SEGS  14
+#define TM16XX_LED_MAX_SEGS  16
 #define TM16XX_LED_BITS (TM16XX_LED_MAX_GRIDS * TM16XX_LED_MAX_SEGS)
 #define TM16XX_KEY_MAX_ROWS   5
 #define TM16XX_KEY_MAX_COLS  10
 #define TM16XX_KEY_BITS (TM16XX_KEY_MAX_ROWS * TM16XX_KEY_MAX_COLS)
+static_assert(TM16XX_LED_MAX_SEGS % 16 == 0, "TM16XX_LED_MAX_SEG must be a multiple of 16 bits");
 
 /* Common bit field definitions */
 

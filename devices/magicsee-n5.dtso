@@ -49,12 +49,14 @@
 	display-controller@24 {
 		compatible = "fdhisi,fd655";
 		reg = <0x24>;
+/*
 		poll-interval = <50>;
 		linux,keymap =
 			<MATRIX_KEY(0, 0, KEY_F1)>,
 			<MATRIX_KEY(0, 1, KEY_F2)>,
 			<MATRIX_KEY(1, 0, KEY_F3)>,
 			<MATRIX_KEY(1, 1, KEY_F4)>;
+*/
 
 		digits {
 			#address-cells = <1>;
