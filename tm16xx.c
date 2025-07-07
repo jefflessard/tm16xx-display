@@ -277,6 +277,8 @@ static void tm16xx_keypad_poll(struct input_dev *input)
 
 static int tm16xx_keypad_probe(struct tm16xx_display *display)
 {
+	const u8 rows = display->controller->max_key_rows;
+	const u8 cols = display->controller->max_key_cols;
 	struct tm16xx_keypad *keypad;
 	struct input_dev *input;
 	unsigned int poll_interval;
@@ -320,13 +322,6 @@ static int tm16xx_keypad_probe(struct tm16xx_display *display)
 	keypad->input = input;
 	input_set_drvdata(input, keypad);
 
-	// Parse keymap from DT
-	unsigned int rows, cols;
-	ret = matrix_keypad_parse_properties(display->dev, &rows, &cols);
-	if (ret < 0) {
-		dev_err(display->dev, "Failed to parse keypad properties: %d\n", ret);
-		goto free_input;
-	}
 	keypad->row_shift = get_count_order(cols);
 	dev_dbg(display->dev, "Number of keypad rows=%u, cols=%u\n", rows, cols);
 
@@ -811,7 +806,8 @@ static int tm16xx_probe(struct tm16xx_display *display)
 		return ret;
 	}
 
-	if (display->controller->keys) {
+	if (display->controller->keys && display->controller->max_key_rows &&
+	    display->controller->max_key_cols) {
 		ret = tm16xx_keypad_probe(display);
 		if (ret < 0)
 			dev_warn(display->dev,
