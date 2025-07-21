@@ -748,6 +748,7 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
  */
 static int tm16xx_probe(struct tm16xx_display *display)
 {
+	const char *label = TM16XX_DEVICE_NAME;;
 	struct device *dev = display->dev;
 	struct fwnode_handle *leds_node, *child;
 	int ret, i;
@@ -763,7 +764,8 @@ static int tm16xx_probe(struct tm16xx_display *display)
 	INIT_WORK(&display->flush_init, tm16xx_display_flush_init);
 	INIT_WORK(&display->flush_display, tm16xx_display_flush_data);
 
-	display->main_led.name = TM16XX_DEVICE_NAME;
+	device_property_read_string(dev, "label", &label);
+	display->main_led.name = label;
 	display->main_led.brightness = display->controller->max_brightness;
 	display->main_led.max_brightness = display->controller->max_brightness;
 	display->main_led.brightness_set = tm16xx_brightness_set;
@@ -782,8 +784,9 @@ static int tm16xx_probe(struct tm16xx_display *display)
 		struct tm16xx_led *led = &display->leds[i];
 		struct led_init_data led_init = {
 			.fwnode = child,
-			.devicename = display->main_led.name,
+			.devicename = dev_name(display->main_led.dev),
 			.devname_mandatory = true,
+			.default_label = "led",
 		};
 		led->cdev.max_brightness = 1;
 		led->cdev.brightness_set = tm16xx_led_set;
@@ -1044,6 +1047,14 @@ static const struct tm16xx_controller tm1628_controller = {
 	.keys = tm1628_keys,
 };
 
+static const struct tm16xx_controller tm1638_controller = {
+	.max_grids = 8,
+	.max_segments = 10,
+	.max_brightness = 8,
+	.init = tm1628_init,
+	.data = tm1628_data,
+};
+
 static const struct tm16xx_controller fd620_controller = {
 	.max_grids = 5,
 	.max_segments = 8,
@@ -1060,6 +1071,7 @@ static const struct of_device_id tm16xx_spi_of_match[] = {
 	{ .compatible = "titanmec,tm1618",  .data = &tm1618_controller },
 	{ .compatible = "titanmec,tm1620",  .data = &tm1620_controller },
 	{ .compatible = "titanmec,tm1628",  .data = &tm1628_controller },
+	{ .compatible = "titanmec,tm1638",  .data = &tm1638_controller },
 	{ .compatible = "fdhisi,fd620",     .data = &fd620_controller },
 	{ .compatible = "fdhisi,fd628",     .data = &tm1628_controller },
 	{ .compatible = "icore,aip1618",    .data = &tm1618_controller },
@@ -1074,6 +1086,7 @@ static const struct spi_device_id tm16xx_spi_id[] = {
 	{ "tm1618",  (kernel_ulong_t)&tm1618_controller },
 	{ "tm1620",  (kernel_ulong_t)&tm1620_controller },
 	{ "tm1628",  (kernel_ulong_t)&tm1628_controller },
+	{ "tm1638",  (kernel_ulong_t)&tm1638_controller },
 	{ "fd620",   (kernel_ulong_t)&fd620_controller },
 	{ "fd628",   (kernel_ulong_t)&tm1628_controller },
 	{ "aip1618", (kernel_ulong_t)&tm1618_controller },
