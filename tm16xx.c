@@ -32,14 +32,7 @@
 #define TM16XX_DRIVER_NAME "tm16xx"
 #define TM16XX_DEVICE_NAME "display"
 #define TM16XX_DIGIT_SEGMENTS 7
-#define TM16XX_LED_MAX_GRIDS  8
-#define TM16XX_LED_MAX_SEGS  16
-#define TM16XX_LED_BITS (TM16XX_LED_MAX_GRIDS * TM16XX_LED_MAX_SEGS)
-#define TM16XX_KEY_MAX_ROWS   5
-#define TM16XX_KEY_MAX_COLS  10
-#define TM16XX_KEY_BITS (TM16XX_KEY_MAX_ROWS * TM16XX_KEY_MAX_COLS)
 #define CH34XX_SPI_TWAIT_US   2
-static_assert(TM16XX_LED_MAX_SEGS % 16 == 0, "TM16XX_LED_MAX_SEG must be a multiple of 16 bits");
 
 /* Common bit field definitions */
 
@@ -223,18 +216,22 @@ struct tm16xx_display {
 	struct work_struct flush_display;
 	int flush_status;
 	struct mutex lock; /* prevents concurrent work operations */
-	DECLARE_BITMAP(state, TM16XX_LED_BITS);
+	unsigned long * state;
 };
 
 struct tm16xx_keypad {
 	struct tm16xx_display *display;
 	struct input_dev *input;
 	u8 row_shift;
-	DECLARE_BITMAP(state, TM16XX_KEY_BITS);
-	DECLARE_BITMAP(last_state, TM16XX_KEY_BITS);
+	unsigned long * state;
+	unsigned long * last_state;
+	unsigned long * changes;
 };
 
 /* state bitmap helpers */
+#define tm16xx_led_nbits(display) \
+	((display)->num_grids * (display)->num_segments)
+
 #define tm16xx_set_seg(display, grid, seg, on) \
 	(assign_bit((grid) * (display)->num_segments + (seg), \
 		    (display)->state, (on)))
@@ -261,6 +258,10 @@ static inline u16 tm16xx_get_grid(const struct tm16xx_display *display,
 }
 #endif
 
+#define tm16xx_key_nbits(keypad) \
+	((keypad)->display->controller->max_key_rows * \
+	 (keypad)->display->controller->max_key_cols)
+
 #define tm16xx_set_key(keypad, row, col, pressed) \
 	(__assign_bit( \
 		(row) * (keypad)->display->controller->max_key_cols + (col), \
@@ -281,12 +282,15 @@ static void tm16xx_keypad_poll(struct input_dev *input)
 {
 	struct tm16xx_keypad *keypad = input_get_drvdata(input);
 	const unsigned short *keycodes = keypad->input->keycode;
-	DECLARE_BITMAP(change, TM16XX_KEY_BITS);
+	unsigned int nbits = tm16xx_key_nbits(keypad);
+
 	unsigned int bit, row, col;
 	bool pressed;
 	int ret;
 
-	bitmap_zero(keypad->state, TM16XX_KEY_BITS);
+	bitmap_zero(keypad->state, nbits);
+	bitmap_zero(keypad->changes, nbits);
+
 	mutex_lock(&keypad->display->lock);
 	ret = keypad->display->controller->keys(keypad);
 	mutex_unlock(&keypad->display->lock);
@@ -296,9 +300,9 @@ static void tm16xx_keypad_poll(struct input_dev *input)
 		return;
 	}
 
-	bitmap_xor(change, keypad->state, keypad->last_state, TM16XX_KEY_BITS);
+	bitmap_xor(keypad->changes, keypad->state, keypad->last_state, nbits);
 
-	for_each_set_bit(bit, change, TM16XX_KEY_BITS) {
+	for_each_set_bit(bit, keypad->changes, nbits) {
 		row = tm16xx_get_key_row(keypad, bit);
 		col = tm16xx_get_key_col(keypad, bit);
 		pressed = _test_bit(bit, keypad->state);
@@ -311,7 +315,7 @@ static void tm16xx_keypad_poll(struct input_dev *input)
 	}
 	input_sync(keypad->input);
 
-	bitmap_copy(keypad->last_state, keypad->state, TM16XX_KEY_BITS);
+	bitmap_copy(keypad->last_state, keypad->state, nbits);
 }
 
 static int tm16xx_keypad_probe(struct tm16xx_display *display)
@@ -320,7 +324,7 @@ static int tm16xx_keypad_probe(struct tm16xx_display *display)
 	const u8 cols = display->controller->max_key_cols;
 	struct tm16xx_keypad *keypad;
 	struct input_dev *input;
-	unsigned int poll_interval;
+	unsigned int poll_interval, nbits;
 	int ret = 0;
 
 	dev_dbg(display->dev, "Configuring keypad\n");
@@ -348,6 +352,13 @@ static int tm16xx_keypad_probe(struct tm16xx_display *display)
 	if (!keypad)
 		return -ENOMEM;
 	keypad->display = display;
+
+	nbits = tm16xx_key_nbits(keypad);
+	keypad->state = devm_bitmap_zalloc(display->dev, nbits, GFP_KERNEL);
+	keypad->last_state = devm_bitmap_zalloc(display->dev, nbits, GFP_KERNEL);
+	keypad->changes = devm_bitmap_zalloc(display->dev, nbits, GFP_KERNEL);
+	if (!keypad->state || !keypad->last_state || !keypad->changes)
+		return -ENOMEM;
 
 	input = devm_input_allocate_device(display->dev);
 	if (!input) {
@@ -444,9 +455,11 @@ static void tm16xx_display_flush_data(struct work_struct *work)
  */
 static void tm16xx_display_remove(struct tm16xx_display *display)
 {
+	unsigned int nbits = tm16xx_led_nbits(display);
+
 	dev_dbg(display->dev, "Removing display\n");
 
-	bitmap_zero(display->state, TM16XX_LED_BITS);
+	bitmap_zero(display->state, nbits);
 	schedule_work(&display->flush_display);
 	flush_work(&display->flush_display);
 
@@ -627,6 +640,8 @@ ATTRIBUTE_GROUPS(tm16xx_main_led);
  */
 static int tm16xx_display_init(struct tm16xx_display *display)
 {
+	unsigned int nbits = tm16xx_led_nbits(display);
+
 	dev_dbg(display->dev, "Initializing display\n");
 	schedule_work(&display->flush_init);
 	flush_work(&display->flush_init);
@@ -637,10 +652,10 @@ static int tm16xx_display_init(struct tm16xx_display *display)
 		tm16xx_value_store(display->main_led.dev, NULL, default_value,
 				   strlen(default_value));
 	} else {
-		bitmap_fill(display->state, TM16XX_LED_BITS);
+		bitmap_fill(display->state, nbits);
 		schedule_work(&display->flush_display);
 		flush_work(&display->flush_display);
-		bitmap_zero(display->state, TM16XX_LED_BITS);
+		bitmap_zero(display->state, nbits);
 		if (display->flush_status < 0)
 			return display->flush_status;
 	}
@@ -790,6 +805,7 @@ static int tm16xx_probe(struct tm16xx_display *display)
 	const char *label = TM16XX_DEVICE_NAME;;
 	struct device *dev = display->dev;
 	struct fwnode_handle *leds_node, *child;
+	unsigned int nbits;
 	int ret, i;
 
 	dev_dbg(dev, "Probing device\n");
@@ -798,6 +814,11 @@ static int tm16xx_probe(struct tm16xx_display *display)
 		dev_err(dev, "Failed to parse device tree: %d\n", ret);
 		return ret;
 	}
+
+	nbits = tm16xx_led_nbits(display);
+	display->state = devm_bitmap_zalloc(display->dev, nbits, GFP_KERNEL);
+	if (!display->state)
+		return -ENOMEM;
 
 	mutex_init(&display->lock);
 	INIT_WORK(&display->flush_init, tm16xx_display_flush_init);
