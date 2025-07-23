@@ -27,16 +27,18 @@
 #include <linux/map_to_7segment.h>
 #include <linux/input.h>
 #include <linux/input/matrix_keypad.h>
+#include <linux/version.h>
 
 #define TM16XX_DRIVER_NAME "tm16xx"
 #define TM16XX_DEVICE_NAME "display"
 #define TM16XX_DIGIT_SEGMENTS 7
-#define TM16XX_LED_MAX_GRIDS  7
+#define TM16XX_LED_MAX_GRIDS  8
 #define TM16XX_LED_MAX_SEGS  16
 #define TM16XX_LED_BITS (TM16XX_LED_MAX_GRIDS * TM16XX_LED_MAX_SEGS)
 #define TM16XX_KEY_MAX_ROWS   5
 #define TM16XX_KEY_MAX_COLS  10
 #define TM16XX_KEY_BITS (TM16XX_KEY_MAX_ROWS * TM16XX_KEY_MAX_COLS)
+#define CH34XX_SPI_TWAIT_US   2
 static_assert(TM16XX_LED_MAX_SEGS % 16 == 0, "TM16XX_LED_MAX_SEG must be a multiple of 16 bits");
 
 /* Common bit field definitions */
@@ -47,7 +49,7 @@ static_assert(TM16XX_LED_MAX_SEGS % 16 == 0, "TM16XX_LED_MAX_SEG must be a multi
 #define TM16XX_CMD_DATA         BIT(6)
 #define TM16XX_CMD_CTRL         BIT(7)
 #define TM16XX_CMD_ADDR         (BIT(7) | BIT(6))
-#define TM16XX_CMD_READ         (TM16XX_CMD_DATA | TM16XX_DATA_WRITE)
+#define TM16XX_CMD_READ         (TM16XX_CMD_DATA | TM16XX_DATA_READ)
 
 /* Mode command grid settings (bits 1-0) */
 #define TM16XX_MODE_GRID_MASK   GENMASK(1, 0)
@@ -70,21 +72,23 @@ static_assert(TM16XX_LED_MAX_SEGS % 16 == 0, "TM16XX_LED_MAX_SEG must be a multi
 
 /* TM1618 specific constants */
 #define TM1618_BYTE1_MASK       GENMASK(4, 0)
-#define TM1618_BYTE1_RSHIFT     0
 #define TM1618_BYTE2_MASK       GENMASK(7, 5)
-#define TM1618_BYTE2_RSHIFT     2
+#define TM1618_BYTE2_SHIFT      3
+#define TM1618_KEY_MASK         (BIT(4) | BIT(1))
 
 /* TM1628 specific constants */
 #define TM1628_BYTE1_MASK       GENMASK(7, 0)
-#define TM1628_BYTE1_RSHIFT     0
 #define TM1628_BYTE2_MASK       GENMASK(13, 8)
-#define TM1628_BYTE2_RSHIFT     2
+#define TM1628_KEY_MASK         (GENMASK(4, 3) | GENMASK(1, 0))
+
+/* TM1638 specific constants */
+#define TM1638_KEY_MASK         (GENMASK(6, 4) | GENMASK(2, 0))
 
 /* FD620 specific constants */
 #define FD620_BYTE1_MASK        GENMASK(6, 0)
-#define FD620_BYTE1_RSHIFT      0
 #define FD620_BYTE2_MASK        GENMASK(7, 7)
-#define FD620_BYTE2_RSHIFT      2
+#define FD620_BYTE2_SHIFT       5
+#define FD620_KEY_MASK          (BIT(3) | BIT(0))
 
 /* I2C controller addresses and control settings */
 #define TM1650_CMD_CTRL         0x48
@@ -117,16 +121,6 @@ static_assert(TM16XX_LED_MAX_SEGS % 16 == 0, "TM16XX_LED_MAX_SEG must be a multi
 		(FIELD_PREP(prefix##_CTRL_BR_MASK, (value)) | prefix##_CTRL_ON) : \
 		0)
 
-#define TM16XX_SET_LED(display, grid, segment, val) \
-	(assign_bit( \
-		((grid) * TM16XX_LED_MAX_SEGS + (segment)), \
-		((display)->data), (val)))
-
-#define TM16XX_SET_KEY(bitmap, row, col, val) \
-	(assign_bit( \
-		((row) * TM16XX_KEY_MAX_COLS + (col)), \
-		(bitmap), (val)))
-
 static char *default_value;
 module_param(default_value, charp, 0644);
 MODULE_PARM_DESC(default_value, "Default display value to initialize");
@@ -135,6 +129,7 @@ static SEG7_CONVERSION_MAP(map_seg7, MAP_ASCII7SEG_ALPHANUM);
 
 /* Forward declarations */
 struct tm16xx_display;
+struct tm16xx_keypad;
 
 /**
  * DOC: struct tm16xx_controller - Controller-specific operations
@@ -157,7 +152,7 @@ struct tm16xx_controller {
 	const u8 max_key_cols;
 	int (* const init)(struct tm16xx_display *display);
 	int (* const data)(struct tm16xx_display *display, u8 index, u16 data);
-	int (* const keys)(struct tm16xx_display *display, unsigned long *bitmap);
+	int (* const keys)(struct tm16xx_keypad *keypad);
 };
 
 /**
@@ -208,7 +203,7 @@ struct tm16xx_digit {
  * @flush_display: Work structure for display update
  * @flush_status: Result of the last flush work
  * @lock: Mutex for concurrent access protection
- * @data: Display data bitmap
+ * @state: Display data state bitmap
  */
 struct tm16xx_display {
 	struct device *dev;
@@ -228,29 +223,72 @@ struct tm16xx_display {
 	struct work_struct flush_display;
 	int flush_status;
 	struct mutex lock; /* prevents concurrent work operations */
-	DECLARE_BITMAP(data, TM16XX_KEY_BITS);
+	DECLARE_BITMAP(state, TM16XX_LED_BITS);
 };
 
 struct tm16xx_keypad {
 	struct tm16xx_display *display;
 	struct input_dev *input;
 	u8 row_shift;
+	DECLARE_BITMAP(state, TM16XX_KEY_BITS);
 	DECLARE_BITMAP(last_state, TM16XX_KEY_BITS);
 };
 
+/* state bitmap helpers */
+#define tm16xx_set_seg(display, grid, seg, on) \
+	(assign_bit((grid) * (display)->num_segments + (seg), \
+		    (display)->state, (on)))
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,10,0)
+#define tm16xx_get_grid(display, grid) \
+	((u16)bitmap_read((display)->state, \
+			  (grid) * (display)->num_segments, \
+			  (display)->num_segments))
+#else
+static inline u16 tm16xx_get_grid(const struct tm16xx_display *display,
+				  const unsigned int grid)
+{
+	unsigned int start = grid * display->num_segments;
+	u16 value = 0;
+	int i;
+
+	for (i = 0; i < display->num_segments; i++) {
+		if (test_bit(start + i, display->state))
+			value |= BIT(i);
+	}
+
+	return value;
+}
+#endif
+
+#define tm16xx_set_key(keypad, row, col, pressed) \
+	(__assign_bit( \
+		(row) * (keypad)->display->controller->max_key_cols + (col), \
+		(keypad)->state, (pressed)))
+
+#define tm16xx_get_key_row(keypad, bit) \
+	((bit) / (keypad)->display->controller->max_key_cols)
+
+#define tm16xx_get_key_col(keypad, bit) \
+	((bit) % (keypad)->display->controller->max_key_cols)
+
+#define for_each_key(keypad, _r, _c) \
+	for (unsigned int (_r) = 0; (_r) < (keypad)->display->controller->max_key_rows; (_r)++) \
+		for (unsigned int (_c) = 0; (_c) < (keypad)->display->controller->max_key_cols; (_c)++)
+
+/* key scanning */
 static void tm16xx_keypad_poll(struct input_dev *input)
 {
 	struct tm16xx_keypad *keypad = input_get_drvdata(input);
 	const unsigned short *keycodes = keypad->input->keycode;
-	DECLARE_BITMAP(new_state, TM16XX_KEY_BITS) = {0};
 	DECLARE_BITMAP(change, TM16XX_KEY_BITS);
-	unsigned int bit_pos;
-	u8 row, col;
+	unsigned int bit, row, col;
 	bool pressed;
 	int ret;
 
+	bitmap_zero(keypad->state, TM16XX_KEY_BITS);
 	mutex_lock(&keypad->display->lock);
-	ret = keypad->display->controller->keys(keypad->display, new_state);
+	ret = keypad->display->controller->keys(keypad);
 	mutex_unlock(&keypad->display->lock);
 
 	if (ret < 0) {
@@ -258,22 +296,22 @@ static void tm16xx_keypad_poll(struct input_dev *input)
 		return;
 	}
 
-	bitmap_xor(change, new_state, keypad->last_state, TM16XX_KEY_BITS);
+	bitmap_xor(change, keypad->state, keypad->last_state, TM16XX_KEY_BITS);
 
-	for_each_set_bit(bit_pos, change, TM16XX_KEY_BITS) {
-		row = bit_pos / TM16XX_KEY_MAX_COLS;
-		col = bit_pos % TM16XX_KEY_MAX_COLS;
-		pressed = test_bit(bit_pos, new_state);
+	for_each_set_bit(bit, change, TM16XX_KEY_BITS) {
+		row = tm16xx_get_key_row(keypad, bit);
+		col = tm16xx_get_key_col(keypad, bit);
+		pressed = _test_bit(bit, keypad->state);
 		u16 scancode = MATRIX_SCAN_CODE(row, col, keypad->row_shift);
 
-		dev_dbg(keypad->display->dev, "key changed: %u, row=%u col=%u down=%d\n", bit_pos, row, col, pressed);
+		dev_dbg(keypad->display->dev, "key changed: %u, row=%u col=%u down=%d\n", bit, row, col, pressed);
 
 		input_event(keypad->input, EV_MSC, MSC_SCAN, scancode);
 		input_report_key(keypad->input, keycodes[scancode], pressed);
-		input_sync(keypad->input);
 	}
+	input_sync(keypad->input);
 
-	bitmap_copy(keypad->last_state, new_state, TM16XX_KEY_BITS);
+	bitmap_copy(keypad->last_state, keypad->state, TM16XX_KEY_BITS);
 }
 
 static int tm16xx_keypad_probe(struct tm16xx_display *display)
@@ -378,14 +416,15 @@ static void tm16xx_display_flush_data(struct work_struct *work)
 	struct tm16xx_display *display = container_of(work,
 			struct tm16xx_display, flush_display);
 	int i, ret = 0;
-	u16 *data = (u16 *)display->data;
+	u16 data;
 
 	mutex_lock(&display->lock);
 	dev_dbg(display->dev, "Sending data to controller\n");
 
 	if (display->controller->data) {
 		for (i = 0; i < display->num_grids; i++) {
-			ret = display->controller->data(display, i, data[i]);
+			data = tm16xx_get_grid(display, i);
+			ret = display->controller->data(display, i, data);
 			if (ret < 0) {
 				dev_err(display->dev,
 					"Failed to write display data: %d\n",
@@ -407,7 +446,7 @@ static void tm16xx_display_remove(struct tm16xx_display *display)
 {
 	dev_dbg(display->dev, "Removing display\n");
 
-	memset(display->data, 0x00, sizeof(display->data));
+	bitmap_zero(display->state, TM16XX_LED_BITS);
 	schedule_work(&display->flush_display);
 	flush_work(&display->flush_display);
 
@@ -446,7 +485,7 @@ static void tm16xx_led_set(struct led_classdev *led_cdev,
 
 	dev_dbg(display->dev, "Setting led %u,%u to %d\n", led->grid, led->segment, value);
 
-	TM16XX_SET_LED(display, led->grid, led->segment, value);
+	tm16xx_set_seg(display, led->grid, led->segment, value);
 	schedule_work(&display->flush_display);
 }
 
@@ -503,7 +542,7 @@ static ssize_t tm16xx_value_store(struct device *dev,
 		for (j = 0; j < TM16XX_DIGIT_SEGMENTS; j++) {
 			ds = &digit->segments[j];
 			val = seg_pattern & BIT(j);
-			TM16XX_SET_LED(display, ds->grid, ds->segment, val);
+			tm16xx_set_seg(display, ds->grid, ds->segment, val);
 		}
 	}
 
@@ -598,10 +637,10 @@ static int tm16xx_display_init(struct tm16xx_display *display)
 		tm16xx_value_store(display->main_led.dev, NULL, default_value,
 				   strlen(default_value));
 	} else {
-		memset(display->data, 0xFF, sizeof(display->data));
+		bitmap_fill(display->state, TM16XX_LED_BITS);
 		schedule_work(&display->flush_display);
 		flush_work(&display->flush_display);
-		memset(display->data, 0x00, sizeof(display->data));
+		bitmap_zero(display->state, TM16XX_LED_BITS);
 		if (display->flush_status < 0)
 			return display->flush_status;
 	}
@@ -859,11 +898,36 @@ static void tm16xx_spi_remove(struct spi_device *spi)
 
 static int tm16xx_spi_read(struct tm16xx_display *display, u8 cmd, u8 *data, size_t len)
 {
-	dev_dbg(display->dev, "spi_write %*ph", (char)len, data);
-
 	struct spi_device *spi = display->client.spi;
+	struct spi_message msg;
+	int ret;
 
-	return spi_write_then_read(spi, &cmd, 1, data, len);
+	dev_dbg(display->dev, "spi_write %x", cmd);
+
+	/* If STB is high during transmission, command is invalid.
+	 * Reading requires a minimum 2 microseconds wait (Twait)
+	 * after the 8th CLK rising edge before reading on falling edge.
+	 */
+	struct spi_transfer xfers[2] = {
+		{
+			.tx_buf = &cmd,
+			.len = 1,
+			.cs_change = 0, /* NO CS toggle */
+			.delay.value = CH34XX_SPI_TWAIT_US,
+			.delay.unit = SPI_DELAY_UNIT_USECS,
+		}, {
+			.rx_buf = data,
+			.len = len,
+		}
+	};
+
+	spi_message_init_with_transfers(&msg, xfers, ARRAY_SIZE(xfers));
+
+	ret = spi_sync(spi, &msg);
+
+	dev_dbg(display->dev, "spi_read %*ph", (char)len, data);
+
+	return ret;
 }
 
 /**
@@ -927,8 +991,8 @@ static int tm1618_data(struct tm16xx_display *display, u8 index, u16 data)
 	u8 cmds[3];
 
 	cmds[0] = TM16XX_CMD_ADDR + index * 2;
-	cmds[1] = (data & TM1618_BYTE1_MASK) >> TM1618_BYTE1_RSHIFT;
-	cmds[2] = (data & TM1618_BYTE2_MASK) >> TM1618_BYTE2_RSHIFT;
+	cmds[1] = FIELD_GET(TM1618_BYTE1_MASK, data);
+	cmds[2] = FIELD_GET(TM1618_BYTE2_MASK, data) << TM1618_BYTE2_SHIFT;
 
 	return tm16xx_spi_write(display, cmds, ARRAY_SIZE(cmds));
 }
@@ -938,45 +1002,84 @@ static int tm1628_data(struct tm16xx_display *display, u8 index, u16 data)
 	u8 cmds[3];
 
 	cmds[0] = TM16XX_CMD_ADDR + index * 2;
-	cmds[1] = (data & TM1628_BYTE1_MASK) >> TM1628_BYTE1_RSHIFT;
-	cmds[2] = (data & TM1628_BYTE2_MASK) >> TM1628_BYTE2_RSHIFT;
+	cmds[1] = FIELD_GET(TM1628_BYTE1_MASK, data);
+	cmds[2] = FIELD_GET(TM1628_BYTE2_MASK, data);
 
 	return tm16xx_spi_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static int tm1628_keys(struct tm16xx_display *display, unsigned long *bitmap)
+static int tm1628_keys(struct tm16xx_keypad *keypad)
 {
-	u8 keycodes[5];
+	u8 codes[5];
 	int ret, i;
 
-	ret = tm16xx_spi_read(display, TM16XX_CMD_READ, keycodes, sizeof(keycodes));
+	ret = tm16xx_spi_read(keypad->display, TM16XX_CMD_READ, codes, sizeof(codes));
 	if (ret)
 		return ret;
 
-	for (i = 0; i < sizeof(keycodes); i++) {
-		TM16XX_SET_KEY(bitmap, 0, i * 2, keycodes[i] & BIT(0));
-		TM16XX_SET_KEY(bitmap, 1, i * 2, keycodes[i] & BIT(1));
-		TM16XX_SET_KEY(bitmap, 0, i * 2 + 1, keycodes[i] & BIT(3));
-		TM16XX_SET_KEY(bitmap, 1, i * 2 + 1, keycodes[i] & BIT(4));
+	/* prevent false readings */
+	for (i = 0; i < sizeof(codes); i++) {
+		if (codes[i] & ~TM1628_KEY_MASK)
+			return -EINVAL;
+	}
+
+	for_each_key(keypad, row, col) {
+		int byte = col >> 1;
+		int bit = row + ((col & 1) * 3);
+		bool value = !!(codes[byte] & BIT(bit));
+
+		tm16xx_set_key(keypad, row, col, value);
 	}
 
 	return 0;
 }
 
-static int tm1618_keys(struct tm16xx_display *display, unsigned long *bitmap)
+static int tm1638_keys(struct tm16xx_keypad *keypad)
 {
-	u8 keycodes[3];
-	int ret;
+	u8 codes[4];
+	int ret, i;
 
-	ret = tm16xx_spi_read(display, TM16XX_CMD_READ, keycodes, sizeof(keycodes));
+	ret = tm16xx_spi_read(keypad->display, TM16XX_CMD_READ, codes, sizeof(codes));
 	if (ret)
 		return ret;
 
-	TM16XX_SET_KEY(bitmap, 0, 0, keycodes[0] & BIT(1));
-	TM16XX_SET_KEY(bitmap, 0, 1, keycodes[0] & BIT(4));
-	TM16XX_SET_KEY(bitmap, 0, 2, keycodes[1] & BIT(1));
-	TM16XX_SET_KEY(bitmap, 0, 3, keycodes[1] & BIT(4));
-	TM16XX_SET_KEY(bitmap, 0, 4, keycodes[2] & BIT(1));
+	/* prevent false readings */
+	for (i = 0; i < sizeof(codes); i++) {
+		if (codes[i] & ~TM1638_KEY_MASK)
+			return -EINVAL;
+	}
+
+	for_each_key(keypad, row, col) {
+		int byte = col >> 1;
+		int bit = (2 - row) + ((col & 1) << 2);
+		bool value = !!(codes[byte] & BIT(bit));
+
+		tm16xx_set_key(keypad, row, col, value);
+	}
+
+	return 0;
+}
+
+static int tm1618_keys(struct tm16xx_keypad *keypad)
+{
+	u8 codes[3];
+	int ret, i;
+
+	ret = tm16xx_spi_read(keypad->display, TM16XX_CMD_READ, codes, sizeof(codes));
+	if (ret)
+		return ret;
+
+	/* prevent false readings */
+	for (i = 0; i < sizeof(codes); i++) {
+		if (codes[i] & ~TM1618_KEY_MASK)
+			return -EINVAL;
+	}
+
+	tm16xx_set_key(keypad, 0, 0, !!(codes[0] & BIT(1)));
+	tm16xx_set_key(keypad, 0, 1, !!(codes[0] & BIT(4)));
+	tm16xx_set_key(keypad, 0, 2, !!(codes[1] & BIT(1)));
+	tm16xx_set_key(keypad, 0, 3, !!(codes[1] & BIT(4)));
+	tm16xx_set_key(keypad, 0, 4, !!(codes[2] & BIT(1)));
 
 	return 0;
 }
@@ -986,28 +1089,34 @@ static int fd620_data(struct tm16xx_display *display, u8 index, u16 data)
 	u8 cmds[3];
 
 	cmds[0] = TM16XX_CMD_ADDR + index * 2;
-	cmds[1] = (data & FD620_BYTE1_MASK) >> FD620_BYTE1_RSHIFT;
-	cmds[2] = (data & FD620_BYTE2_MASK) >> FD620_BYTE2_RSHIFT;
+	cmds[1] = FIELD_GET(FD620_BYTE1_MASK, data);
+	cmds[2] = FIELD_GET(FD620_BYTE2_MASK, data) << FD620_BYTE2_SHIFT;
 
 	return tm16xx_spi_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static int fd620_keys(struct tm16xx_display *display, unsigned long *bitmap)
+static int fd620_keys(struct tm16xx_keypad *keypad)
 {
-	u8 keycodes[4];
-	int ret;
+	u8 codes[4];
+	int ret, i;
 
-	ret = tm16xx_spi_read(display, TM16XX_CMD_READ, keycodes, sizeof(keycodes));
+	ret = tm16xx_spi_read(keypad->display, TM16XX_CMD_READ, codes, sizeof(codes));
 	if (ret)
 		return ret;
 
-	TM16XX_SET_KEY(bitmap, 0, 0, keycodes[0] & BIT(0));
-	TM16XX_SET_KEY(bitmap, 0, 1, keycodes[0] & BIT(3));
-	TM16XX_SET_KEY(bitmap, 0, 2, keycodes[1] & BIT(0));
-	TM16XX_SET_KEY(bitmap, 0, 3, keycodes[1] & BIT(3));
-	TM16XX_SET_KEY(bitmap, 0, 4, keycodes[2] & BIT(0));
-	TM16XX_SET_KEY(bitmap, 0, 5, keycodes[2] & BIT(3));
-	TM16XX_SET_KEY(bitmap, 0, 6, keycodes[3] & BIT(0));
+	/* prevent false readings */
+	for (i = 0; i < sizeof(codes); i++) {
+		if (codes[i] & ~FD620_KEY_MASK)
+			return -EINVAL;
+	}
+
+	tm16xx_set_key(keypad, 0, 0, codes[0] & BIT(0));
+	tm16xx_set_key(keypad, 0, 1, codes[0] & BIT(3));
+	tm16xx_set_key(keypad, 0, 2, codes[1] & BIT(0));
+	tm16xx_set_key(keypad, 0, 3, codes[1] & BIT(3));
+	tm16xx_set_key(keypad, 0, 4, codes[2] & BIT(0));
+	tm16xx_set_key(keypad, 0, 5, codes[2] & BIT(3));
+	tm16xx_set_key(keypad, 0, 6, codes[3] & BIT(0));
 
 	return 0;
 }
@@ -1051,8 +1160,11 @@ static const struct tm16xx_controller tm1638_controller = {
 	.max_grids = 8,
 	.max_segments = 10,
 	.max_brightness = 8,
+	.max_key_rows = 3,
+	.max_key_cols = 8,
 	.init = tm1628_init,
 	.data = tm1628_data,
+	.keys = tm1638_keys,
 };
 
 static const struct tm16xx_controller fd620_controller = {
@@ -1258,13 +1370,13 @@ static int tm1650_data(struct tm16xx_display *display, u8 index, u16 data)
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static int tm1650_keys(struct tm16xx_display *display, unsigned long *bitmap)
+static int tm1650_keys(struct tm16xx_keypad *keypad)
 {
 	u8 keycode, row, col;
 	bool pressed;
 	int ret;
 
-	ret = tm16xx_i2c_read(display, TM1650_CMD_READ, &keycode, 1);
+	ret = tm16xx_i2c_read(keypad->display, TM1650_CMD_READ, &keycode, 1);
 	if (ret)
 		return ret;
 
@@ -1275,11 +1387,11 @@ static int tm1650_keys(struct tm16xx_display *display, unsigned long *bitmap)
 	row = FIELD_GET(TM1650_KEY_ROW_MASK, keycode);
 	pressed = FIELD_GET(TM1650_KEY_DOWN_MASK, keycode) != 0;
 	if ((keycode & TM1650_KEY_COMBINED) == TM1650_KEY_COMBINED) {
-		TM16XX_SET_KEY(bitmap, row, 0, pressed);
-		TM16XX_SET_KEY(bitmap, row, 1, pressed);
+		tm16xx_set_key(keypad, row, 0, pressed);
+		tm16xx_set_key(keypad, row, 1, pressed);
 	} else {
 		col = FIELD_GET(TM1650_KEY_COL_MASK, keycode);
-		TM16XX_SET_KEY(bitmap, row, col, pressed);
+		tm16xx_set_key(keypad, row, col, pressed);
 	}
 
 	return 0;
@@ -1358,14 +1470,14 @@ static int hbs658_data(struct tm16xx_display *display, u8 index, u16 data)
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static int hbs658_keys(struct tm16xx_display *display, unsigned long *bitmap)
+static int hbs658_keys(struct tm16xx_keypad *keypad)
 {
 	u8 cmd, keycode, col;
 	int ret;
 
 	cmd = TM16XX_CMD_READ;
 	hbs658_swap_nibbles(&cmd, 1);
-	ret = tm16xx_i2c_read(display, cmd, &keycode, 1);
+	ret = tm16xx_i2c_read(keypad->display, cmd, &keycode, 1);
 	if (ret)
 		return ret;
 
@@ -1373,7 +1485,7 @@ static int hbs658_keys(struct tm16xx_display *display, unsigned long *bitmap)
 
 	if (keycode != 0xFF) {
 		col = FIELD_GET(HBS658_KEY_COL_MASK, keycode);
-		TM16XX_SET_KEY(bitmap, 0, col, true);
+		tm16xx_set_key(keypad, 0, col, true);
 	}
 
 	return 0;
