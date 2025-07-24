@@ -1,12 +1,14 @@
 #!/bin/sh
 
 DISPLAY_PATH="/sys/class/leds/display"
+BRIGHTNESS=$(cat $DISPLAY_PATH/max_brightness)
+NUM_DIGITS=$(cat $DISPLAY_PATH/num_digits)
 
 set -e
 
 display_init() {
     systemctl stop display
-    cat $DISPLAY_PATH/max_brightness > $DISPLAY_PATH/brightness
+    echo $BRIGHTNESS > $DISPLAY_PATH/brightness
 }
 
 display_cleanup() {
@@ -49,7 +51,7 @@ display_check() {
         echo 0 > "$led/brightness"
     done
 
-    echo "digit order: 1234"
+    echo "digit order: 12345678"
     echo 12345678 > $DISPLAY_PATH/value
     sleep 1
 
@@ -65,23 +67,32 @@ display_check() {
 
 trap display_cleanup HUP TERM QUIT INT
 
-NUM_DIGITS=$(cat $DISPLAY_PATH/num_digits)
 
 usage() {
     echo "Usage:"
-    echo "  $0 -t  <text_to_display>"
-    echo "  $0 -c  Check display config"
+    echo "  $0 -t  <text_to_display> [display]"
+    echo "  $0 -c  [display] Check display config"
     exit 1
 }
 
 case "$1" in
     -t)
         [ $# -ne 2 ] && usage
+        if [ $# -eq 3 ]; then
+		DISPLAY_PATH="/sys/class/leds/$3"
+		BRIGHTNESS=$(cat $DISPLAY_PATH/max_brightness)
+		NUM_DIGITS=$(cat $DISPLAY_PATH/num_digits)
+	fi
         display_init
         display_text "$2" " " 0.5
         display_cleanup
         ;;
     -c)
+        if [ $# -eq 2 ]; then
+		DISPLAY_PATH="/sys/class/leds/$2"
+		BRIGHTNESS=$(cat $DISPLAY_PATH/max_brightness)
+		NUM_DIGITS=$(cat $DISPLAY_PATH/num_digits)
+	fi
         display_init
         display_check
         display_cleanup

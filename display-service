@@ -1,12 +1,6 @@
 #!/bin/sh
 
 DISPLAY_PATH="/sys/class/leds/display"
-LED_USB="$DISPLAY_PATH::usb"
-LED_LAN="$DISPLAY_PATH::lan"
-LED_WIFI="$DISPLAY_PATH::wlan"
-LED_BLUETOOTH="$DISPLAY_PATH::bluetooth"
-LED_SDCARD="$DISPLAY_PATH::sd"
-LED_COLON="$DISPLAY_PATH::colon"
 
 log_info() {
 	echo "[INFO] $1"
@@ -104,7 +98,7 @@ display_clear() {
 display_init() {
 	display_clear
 
-	cat "$DISPLAY_PATH/max_brightness" > "$DISPLAY_PATH/brightness" 2>/dev/null || log_warn "Failed to set display brightness"
+	echo $BRIGHTNESS > "$DISPLAY_PATH/brightness" 2>/dev/null || log_warn "Failed to set display brightness"
 
 	if configure_trigger "USB" "$LED_USB" "usbport" "ledtrig-usbport"; then
 		# Enable all USB ports
@@ -141,11 +135,10 @@ display_cleanup() {
 }
 
 display_time_start() {
-	if configure_trigger "Time Colon" "$LED_COLON" "timer" "ledtrig_timer"; then
-		display_time_update &
-		TIME_PID=$!
-		log_info "Time display started with PID: $TIME_PID"
-	fi
+	configure_trigger "Time Colon" "$LED_COLON" "timer" "ledtrig_timer"
+	display_time_update &
+	TIME_PID=$!
+	log_info "Time display started with PID: $TIME_PID"
 }
 
 display_time_stop() {
@@ -180,9 +173,53 @@ trap display_cleanup HUP TERM QUIT KILL INT
 
 log_info "Starting TM16xx display service"
 
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+		-d|--display)
+			if [ -n "$2" ]; then
+				DISPLAY_PATH="/sys/class/leds/$2"
+				log_info "Display set to $DISPLAY_PATH."
+				shift 2
+			else
+				log_error "Error: Option '$1' requires an argument"
+				exit 1
+			fi
+			;;
+		-b|--brightness)
+			if [ -n "$2" ]; then
+				BRIGHTNESS=$2
+				log_info "Brightness set to $BRIGHTNESS."
+				shift 2
+			else
+				log_error "Error: Option '$1' requires an argument"
+				exit 1;
+			fi
+			;;
+		--)
+			shift
+			break # Stop processing options
+			;;
+		*)
+			log_error "Unknown option: $1"
+			exit 1
+			;;
+	esac
+done
+
 if [ ! -d "$DISPLAY_PATH" ]; then
 	log_warn "Display device not found at $DISPLAY_PATH, attempting to load module tm16xx"
 	load_module "tm16xx" || exit 1
+fi
+
+LED_USB="$DISPLAY_PATH::usb"
+LED_LAN="$DISPLAY_PATH::lan"
+LED_WIFI="$DISPLAY_PATH::wlan"
+LED_BLUETOOTH="$DISPLAY_PATH::bluetooth"
+LED_SDCARD="$DISPLAY_PATH::sd"
+LED_COLON="$DISPLAY_PATH::colon"
+
+if [ -z "$BRIGHTNESS" ]; then
+	BRIGHTNESS=$(cat $DISPLAY_PATH/max_brightness)
 fi
 
 display_init
