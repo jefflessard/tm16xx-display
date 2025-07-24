@@ -565,6 +565,15 @@ static ssize_t tm16xx_value_store(struct device *dev,
 		}
 	}
 
+	for (; i < display->num_digits; i++) {
+		digit = &display->digits[i];
+		digit->value = 0;
+		for (j = 0; j < TM16XX_DIGIT_SEGMENTS; j++) {
+			ds = &digit->segments[j];
+			tm16xx_set_seg(display, ds->grid, ds->segment, 0);
+		}
+	}
+
 	schedule_work(&display->flush_display);
 	return count;
 }
