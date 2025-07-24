@@ -328,6 +328,17 @@ static int tm16xx_keypad_probe(struct tm16xx_display *display)
 	unsigned int poll_interval, nbits;
 	int ret = 0;
 
+	if (!display->controller->keys || !rows || !cols) {
+		dev_dbg(display->dev, "keypad not supported\n");
+		return 0;
+	}
+
+	if (!device_property_present(display->dev, "poll-interval") ||
+	    !device_property_present(display->dev, "linux,keymap")) {
+		dev_dbg(display->dev, "keypad disabled\n");
+		return 0;
+	}
+
 	dev_dbg(display->dev, "Configuring keypad\n");
 
 	ret = device_property_read_u32(display->dev, "poll-interval", &poll_interval);
@@ -335,7 +346,6 @@ static int tm16xx_keypad_probe(struct tm16xx_display *display)
 		dev_err(display->dev, "Failed to read poll-interval: %d\n", ret);
 		return ret;
 	}
-	dev_dbg(display->dev, "Polling interval: %u ms\n", poll_interval);
 
 	keypad = devm_kzalloc(display->dev, sizeof(*keypad), GFP_KERNEL);
 	if (!keypad)
@@ -346,14 +356,16 @@ static int tm16xx_keypad_probe(struct tm16xx_display *display)
 	keypad->state = devm_bitmap_zalloc(display->dev, nbits, GFP_KERNEL);
 	keypad->last_state = devm_bitmap_zalloc(display->dev, nbits, GFP_KERNEL);
 	keypad->changes = devm_bitmap_zalloc(display->dev, nbits, GFP_KERNEL);
-	if (!keypad->state || !keypad->last_state || !keypad->changes)
-		return -ENOMEM;
+	if (!keypad->state || !keypad->last_state || !keypad->changes) {
+		ret = -ENOMEM;
+		goto free_keypad;
+	}
 
 	input = devm_input_allocate_device(display->dev);
 	if (!input) {
 		dev_err(display->dev, "Failed to allocate input device\n");
 		ret = -ENOMEM;
-		goto free_keypad;
+		goto free_bitmaps;
 	}
 	input->name = TM16XX_DRIVER_NAME"-keypad";
 	input_setup_polling(input, tm16xx_keypad_poll);
@@ -362,9 +374,8 @@ static int tm16xx_keypad_probe(struct tm16xx_display *display)
 	input_set_drvdata(input, keypad);
 
 	keypad->row_shift = get_count_order(cols);
-	dev_dbg(display->dev, "Number of keypad rows=%u, cols=%u\n", rows, cols);
 
-	ret = matrix_keypad_build_keymap(NULL, NULL, rows, cols, NULL, input);
+	ret = matrix_keypad_build_keymap(NULL, "linux,keymap", rows, cols, NULL, input);
 	if (ret < 0) {
 		dev_err(display->dev, "Failed to build keymap: %d\n", ret);
 		goto free_input;
@@ -376,10 +387,16 @@ static int tm16xx_keypad_probe(struct tm16xx_display *display)
 		goto free_input;
 	}
 
+	dev_dbg(display->dev, "keypad rows=%u, cols=%u, poll=%u\n", rows, cols, poll_interval);
+
 	return 0;
 
 free_input:
 	input_free_device(input);
+free_bitmaps:
+	devm_kfree(display->dev, keypad->state);
+	devm_kfree(display->dev, keypad->last_state);
+	devm_kfree(display->dev, keypad->changes);
 free_keypad:
 	devm_kfree(display->dev, keypad);
 	return ret;
@@ -859,13 +876,10 @@ static int tm16xx_probe(struct tm16xx_display *display)
 		return ret;
 	}
 
-	if (display->controller->keys && display->controller->max_key_rows &&
-	    display->controller->max_key_cols) {
-		ret = tm16xx_keypad_probe(display);
-		if (ret < 0)
-			dev_warn(display->dev,
-				 "Failed to initialize keypad: %d\n", ret);
-	}
+	ret = tm16xx_keypad_probe(display);
+	if (ret < 0)
+		dev_warn(display->dev,
+			 "Failed to initialize keypad: %d\n", ret);
 
 	return 0;
 }
