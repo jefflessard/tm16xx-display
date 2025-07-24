@@ -3,7 +3,6 @@
 # Kernel module parameters
 MODULE_NAME = tm16xx
 obj-m += tm16xx.o
-INSTALL_MOD_PATH ?= /
 
 # Path to the kernel source tree
 KDIR ?= /lib/modules/$(shell uname -r)/build
@@ -33,7 +32,6 @@ clean:
 
 module-install:
 	$(MAKE) -C $(KDIR) M=$(PWD) modules_install INSTALL_MOD_PATH=$(INSTALL_MOD_PATH)
-	depmod -a
 
 service-install:
 	modprobe tm16xx

@@ -37,12 +37,13 @@
 /* Common bit field definitions */
 
 /* Command type bits (bits 7-6) */
-#define TM16XX_CMD_TYPE_MASK    GENMASK(7, 6)
+#define TM16XX_CMD_MASK         GENMASK(7, 6)
 #define TM16XX_CMD_MODE         0
 #define TM16XX_CMD_DATA         BIT(6)
 #define TM16XX_CMD_CTRL         BIT(7)
 #define TM16XX_CMD_ADDR         (BIT(7) | BIT(6))
-#define TM16XX_CMD_READ         (TM16XX_CMD_DATA | TM16XX_DATA_READ)
+#define TM16XX_CMD_WRITE        (TM16XX_CMD_DATA | TM16XX_DATA_MODE_WRITE)
+#define TM16XX_CMD_READ         (TM16XX_CMD_DATA | TM16XX_DATA_MODE_READ)
 
 /* Mode command grid settings (bits 1-0) */
 #define TM16XX_MODE_GRID_MASK   GENMASK(1, 0)
@@ -52,12 +53,12 @@
 #define TM16XX_MODE_7GRIDS      (BIT(1) | BIT(0))
 
 /* Data command settings */
-#define TM16XX_DATA_ADDR_MASK   GENMASK(2, 2)
+#define TM16XX_DATA_ADDR_MASK   BIT(2)
 #define TM16XX_DATA_ADDR_AUTO   0
 #define TM16XX_DATA_ADDR_FIXED  BIT(2)
 #define TM16XX_DATA_MODE_MASK   GENMASK(1, 0)
-#define TM16XX_DATA_WRITE       0
-#define TM16XX_DATA_READ        BIT(1)
+#define TM16XX_DATA_MODE_WRITE  0
+#define TM16XX_DATA_MODE_READ   BIT(1)
 
 /* Control command settings */
 #define TM16XX_CTRL_ON          BIT(3)
@@ -79,7 +80,7 @@
 
 /* FD620 specific constants */
 #define FD620_BYTE1_MASK        GENMASK(6, 0)
-#define FD620_BYTE2_MASK        GENMASK(7, 7)
+#define FD620_BYTE2_MASK        BIT(7)
 #define FD620_BYTE2_SHIFT       5
 #define FD620_KEY_MASK          (BIT(3) | BIT(0))
 
@@ -90,12 +91,12 @@
 #define TM1650_CTRL_BR_MASK     GENMASK(6, 4)
 #define TM1650_CTRL_ON          BIT(0)
 #define TM1650_CTRL_SLEEP       BIT(2)
-#define TM1650_CTRL_SEG_MASK    GENMASK(3, 3)
+#define TM1650_CTRL_SEG_MASK    BIT(3)
 #define TM1650_CTRL_SEG8_MODE   0
 #define TM1650_CTRL_SEG7_MODE   BIT(3)
 #define TM1650_KEY_ROW_MASK     GENMASK(1, 0)
 #define TM1650_KEY_COL_MASK     GENMASK(5, 3)
-#define TM1650_KEY_DOWN_MASK    GENMASK(6, 6)
+#define TM1650_KEY_DOWN_MASK    BIT(6)
 #define TM1650_KEY_COMBINED     GENMASK(5, 3)
 
 #define FD655_CMD_CTRL          0x48
@@ -216,16 +217,16 @@ struct tm16xx_display {
 	struct work_struct flush_display;
 	int flush_status;
 	struct mutex lock; /* prevents concurrent work operations */
-	unsigned long * state;
+	unsigned long *state;
 };
 
 struct tm16xx_keypad {
 	struct tm16xx_display *display;
 	struct input_dev *input;
+	unsigned long *state;
+	unsigned long *last_state;
+	unsigned long *changes;
 	u8 row_shift;
-	unsigned long * state;
-	unsigned long * last_state;
-	unsigned long * changes;
 };
 
 /* state bitmap helpers */
@@ -992,7 +993,7 @@ static int tm1628_init(struct tm16xx_display *display)
 		return ret;
 
 	/* Set data command */
-	cmd = TM16XX_CMD_DATA | TM16XX_DATA_ADDR_AUTO | TM16XX_DATA_WRITE;
+	cmd = TM16XX_CMD_WRITE | TM16XX_DATA_ADDR_AUTO;
 	ret = tm16xx_spi_write(display, &cmd, 1);
 	if (ret < 0)
 		return ret;
@@ -1463,7 +1464,7 @@ static int hbs658_init(struct tm16xx_display *display)
 	int ret;
 
 	/* Set data command */
-	cmd = TM16XX_CMD_DATA | TM16XX_DATA_ADDR_AUTO | TM16XX_DATA_WRITE;
+	cmd = TM16XX_CMD_WRITE | TM16XX_DATA_ADDR_AUTO;
 	hbs658_swap_nibbles(&cmd, 1);
 	ret = tm16xx_i2c_write(display, &cmd, 1);
 	if (ret < 0)
