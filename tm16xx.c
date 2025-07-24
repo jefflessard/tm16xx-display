@@ -116,7 +116,7 @@
 		0)
 
 static char *default_value;
-module_param(default_value, charp, 0644);
+module_param(default_value, charp, 0444);
 MODULE_PARM_DESC(default_value, "Default display value to initialize");
 
 static SEG7_CONVERSION_MAP(map_seg7, MAP_ASCII7SEG_ALPHANUM);
@@ -654,7 +654,7 @@ static int tm16xx_display_init(struct tm16xx_display *display)
 	if (display->flush_status < 0)
 		return display->flush_status;
 
-	if (default_value && strlen(default_value) > 0) {
+	if (default_value) {
 		tm16xx_value_store(display->main_led.dev, NULL, default_value,
 				   strlen(default_value));
 	} else {
@@ -808,8 +808,8 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
  */
 static int tm16xx_probe(struct tm16xx_display *display)
 {
-	const char *label = TM16XX_DEVICE_NAME;;
 	struct device *dev = display->dev;
+	struct led_classdev *main = &display->main_led;
 	struct fwnode_handle *leds_node, *child;
 	unsigned int nbits;
 	int ret, i;
@@ -830,13 +830,19 @@ static int tm16xx_probe(struct tm16xx_display *display)
 	INIT_WORK(&display->flush_init, tm16xx_display_flush_init);
 	INIT_WORK(&display->flush_display, tm16xx_display_flush_data);
 
-	device_property_read_string(dev, "label", &label);
-	display->main_led.name = label;
-	display->main_led.brightness = display->controller->max_brightness;
-	display->main_led.max_brightness = display->controller->max_brightness;
-	display->main_led.brightness_set = tm16xx_brightness_set;
-	display->main_led.groups = tm16xx_main_led_groups;
-	display->main_led.flags = LED_RETAIN_AT_SHUTDOWN | LED_CORE_SUSPENDRESUME;
+	main->name = TM16XX_DEVICE_NAME;
+	main->brightness = display->controller->max_brightness;
+	main->max_brightness = display->controller->max_brightness;
+	device_property_read_string(dev, "label", &main->name);
+	device_property_read_u32(dev, "max-brightness", &main->max_brightness);
+	if (main->max_brightness > display->controller->max_brightness)
+		main->max_brightness = display->controller->max_brightness;
+	device_property_read_u32(dev, "default-brightness", &main->brightness);
+	if (main->brightness > main->max_brightness)
+		main->brightness = main->max_brightness;
+	main->brightness_set = tm16xx_brightness_set;
+	main->groups = tm16xx_main_led_groups;
+	main->flags = LED_RETAIN_AT_SHUTDOWN | LED_CORE_SUSPENDRESUME;
 
 	ret = devm_led_classdev_register(dev, &display->main_led);
 	if (ret < 0) {
