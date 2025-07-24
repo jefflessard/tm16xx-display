@@ -330,18 +330,6 @@ static int tm16xx_keypad_probe(struct tm16xx_display *display)
 
 	dev_dbg(display->dev, "Configuring keypad\n");
 
-#ifdef TM16XX_I2C_NOSTART
-	if (!i2c_check_functionality(display->client.i2c->adapter, I2C_FUNC_PROTOCOL_MANGLING)) {
-		dev_err(display->dev, "No I2C_FUNC_NOPROTOCOL_MANGLING support, consider using i2c-gpio\n");
-		return -EINVAL;
-	}
-
-	if (!i2c_check_functionality(display->client.i2c->adapter, I2C_FUNC_NOSTART)) {
-		dev_err(display->dev, "No I2C_FUNC_NOSTART support, consider using i2c-gpio\n");
-		return -EINVAL;
-	}
-#endif
-
 	ret = device_property_read_u32(display->dev, "poll-interval", &poll_interval);
 	if (ret < 0) {
 		dev_err(display->dev, "Failed to read poll-interval: %d\n", ret);
@@ -1310,20 +1298,12 @@ static int tm16xx_i2c_write(struct tm16xx_display *display, u8 *data, size_t len
 	dev_dbg(display->dev, "i2c_write %*ph", (char)len, data);
 
 	/* expected sequence: S Command [A] Data [A] P */
-#ifdef TM16XX_I2C_NOSTART
-	struct i2c_msg msg = {
-		.flags = I2C_M_NOSTART,
-		.len = len,
-		.buf = data,
-	};
-#else
 	struct i2c_msg msg = {
 		.addr = data[0] >> 1,
 		.flags = 0,
 		.len = len - 1,
 		.buf = &data[1],
 	};
-#endif
 	int ret;
 
 	ret = i2c_transfer(display->client.i2c->adapter, &msg, 1);
@@ -1336,19 +1316,6 @@ static int tm16xx_i2c_write(struct tm16xx_display *display, u8 *data, size_t len
 static int tm16xx_i2c_read(struct tm16xx_display *display, u8 cmd, u8 *data, size_t len)
 {
 	/* expected sequence: S Command [A] [Data] [A] P */
-#ifdef TM16XX_I2C_NOSTART
-	struct i2c_msg msgs[2] = {
-		{
-			.flags = I2C_M_NOSTART,
-			.len = 1,
-			.buf = &cmd,
-		}, {
-			.flags = I2C_M_NOSTART | I2C_M_RD | I2C_M_NO_RD_ACK,
-			.len = len,
-			.buf = data,
-		}
-	};
-#else
 	struct i2c_msg msgs[1] = {
 		{
 			.addr = cmd >> 1,
@@ -1357,7 +1324,6 @@ static int tm16xx_i2c_read(struct tm16xx_display *display, u8 cmd, u8 *data, siz
 			.buf = data,
 		}
 	};
-#endif
 	int ret;
 
 	ret = i2c_transfer(display->client.i2c->adapter, msgs, ARRAY_SIZE(msgs));
