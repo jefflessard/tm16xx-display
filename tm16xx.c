@@ -32,6 +32,7 @@
 #define TM16XX_DRIVER_NAME "tm16xx"
 #define TM16XX_DEVICE_NAME "display"
 #define TM16XX_DIGIT_SEGMENTS 7
+#define TM16XX_DMA_BUFFER_SIZE 8
 #define CH34XX_SPI_TWAIT_US   2
 
 /* Common bit field definitions */
@@ -68,20 +69,24 @@
 #define TM1618_BYTE1_MASK       GENMASK(4, 0)
 #define TM1618_BYTE2_MASK       GENMASK(7, 5)
 #define TM1618_BYTE2_SHIFT      3
+#define TM1618_KEY_READ_LEN	3
 #define TM1618_KEY_MASK         (BIT(4) | BIT(1))
 
 /* TM1628 specific constants */
 #define TM1628_BYTE1_MASK       GENMASK(7, 0)
 #define TM1628_BYTE2_MASK       GENMASK(13, 8)
+#define TM1628_KEY_READ_LEN	5
 #define TM1628_KEY_MASK         (GENMASK(4, 3) | GENMASK(1, 0))
 
 /* TM1638 specific constants */
+#define TM1638_KEY_READ_LEN	4
 #define TM1638_KEY_MASK         (GENMASK(6, 4) | GENMASK(2, 0))
 
 /* FD620 specific constants */
 #define FD620_BYTE1_MASK        GENMASK(6, 0)
 #define FD620_BYTE2_MASK        BIT(7)
 #define FD620_BYTE2_SHIFT       5
+#define FD620_KEY_READ_LEN	4
 #define FD620_KEY_MASK          (BIT(3) | BIT(0))
 
 /* I2C controller addresses and control settings */
@@ -186,6 +191,7 @@ struct tm16xx_digit {
  * @dev: Pointer to device structure
  * @controller: Pointer to controller-specific operations
  * @client: Union of I2C and SPI client structures
+ * @dma_buffer: DMA-safe buffer for SPI transactions
  * @num_grids: Number of controller grids used
  * @num_segments: Number of controller segments used
  * @main_led: LED class device for the entire display
@@ -206,6 +212,7 @@ struct tm16xx_display {
 		struct i2c_client *i2c;
 		struct spi_device *spi;
 	} client;
+	u8 *dma_buffer;
 	u8 num_grids;
 	u8 num_segments;
 	struct led_classdev main_led;
@@ -915,6 +922,12 @@ static int tm16xx_spi_probe(struct spi_device *spi)
 	if (!display)
 		return -ENOMEM;
 
+	/* Allocate DMA-safe buffer */
+	display->dma_buffer = devm_kzalloc(&spi->dev, TM16XX_DMA_BUFFER_SIZE,
+					   GFP_KERNEL | GFP_DMA);
+	if (!display->dma_buffer)
+		return -ENOMEM;
+
 	display->client.spi = spi;
 	display->dev = &spi->dev;
 	display->controller = controller;
@@ -935,13 +948,13 @@ static void tm16xx_spi_remove(struct spi_device *spi)
 	tm16xx_display_remove(display);
 }
 
-static int tm16xx_spi_read(struct tm16xx_display *display, u8 cmd, u8 *data, size_t len)
+static int tm16xx_spi_read(struct tm16xx_display *display, u8 *cmd, size_t cmd_len, u8 *data, size_t data_len)
 {
 	struct spi_device *spi = display->client.spi;
 	struct spi_message msg;
 	int ret;
 
-	dev_dbg(display->dev, "spi_write %x", cmd);
+	dev_dbg(display->dev, "spi_write %*ph", (char)cmd_len, cmd);
 
 	/* If STB is high during transmission, command is invalid.
 	 * Reading requires a minimum 2 microseconds wait (Twait)
@@ -949,14 +962,14 @@ static int tm16xx_spi_read(struct tm16xx_display *display, u8 cmd, u8 *data, siz
 	 */
 	struct spi_transfer xfers[2] = {
 		{
-			.tx_buf = &cmd,
-			.len = 1,
+			.tx_buf = cmd,
+			.len = cmd_len,
 			.cs_change = 0, /* NO CS toggle */
 			.delay.value = CH34XX_SPI_TWAIT_US,
 			.delay.unit = SPI_DELAY_UNIT_USECS,
 		}, {
 			.rx_buf = data,
-			.len = len,
+			.len = data_len,
 		}
 	};
 
@@ -964,7 +977,7 @@ static int tm16xx_spi_read(struct tm16xx_display *display, u8 cmd, u8 *data, siz
 
 	ret = spi_sync(spi, &msg);
 
-	dev_dbg(display->dev, "spi_read %*ph", (char)len, data);
+	dev_dbg(display->dev, "spi_read %*ph", (char)data_len, data);
 
 	return ret;
 }
@@ -991,34 +1004,34 @@ static int tm1628_init(struct tm16xx_display *display)
 {
 	const enum led_brightness brightness = display->main_led.brightness;
 	const u8 num_grids = display->num_grids;
-	u8 cmd;
+	u8 *cmd = display->dma_buffer;
 	int ret;
 
 	/* Set mode command based on grid count */
-	cmd = TM16XX_CMD_MODE;
+	cmd[0] = TM16XX_CMD_MODE;
 	if (num_grids <= 4)
-		cmd |= TM16XX_MODE_4GRIDS;
+		cmd[0] |= TM16XX_MODE_4GRIDS;
 	else if (num_grids == 5)
-		cmd |= TM16XX_MODE_5GRIDS;
+		cmd[0] |= TM16XX_MODE_5GRIDS;
 	else if (num_grids == 6)
-		cmd |= TM16XX_MODE_6GRIDS;
+		cmd[0] |= TM16XX_MODE_6GRIDS;
 	else
-		cmd |= TM16XX_MODE_7GRIDS;
+		cmd[0] |= TM16XX_MODE_7GRIDS;
 
-	ret = tm16xx_spi_write(display, &cmd, 1);
+	ret = tm16xx_spi_write(display, cmd, 1);
 	if (ret < 0)
 		return ret;
 
 	/* Set data command */
-	cmd = TM16XX_CMD_WRITE | TM16XX_DATA_ADDR_AUTO;
-	ret = tm16xx_spi_write(display, &cmd, 1);
+	cmd[0] = TM16XX_CMD_WRITE | TM16XX_DATA_ADDR_AUTO;
+	ret = tm16xx_spi_write(display, cmd, 1);
 	if (ret < 0)
 		return ret;
 
 	/* Set control command with brightness */
-	cmd = TM16XX_CMD_CTRL |
-	      TM16XX_CTRL_BRIGHTNESS(brightness, brightness - 1, TM16XX);
-	ret = tm16xx_spi_write(display, &cmd, 1);
+	cmd[0] = TM16XX_CMD_CTRL |
+		 TM16XX_CTRL_BRIGHTNESS(brightness, brightness - 1, TM16XX);
+	ret = tm16xx_spi_write(display, cmd, 1);
 	if (ret < 0)
 		return ret;
 
@@ -1027,37 +1040,39 @@ static int tm1628_init(struct tm16xx_display *display)
 
 static int tm1618_data(struct tm16xx_display *display, u8 index, u16 data)
 {
-	u8 cmds[3];
+	u8 *cmd = display->dma_buffer;
 
-	cmds[0] = TM16XX_CMD_ADDR + index * 2;
-	cmds[1] = FIELD_GET(TM1618_BYTE1_MASK, data);
-	cmds[2] = FIELD_GET(TM1618_BYTE2_MASK, data) << TM1618_BYTE2_SHIFT;
+	cmd[0] = TM16XX_CMD_ADDR + index * 2;
+	cmd[1] = FIELD_GET(TM1618_BYTE1_MASK, data);
+	cmd[2] = FIELD_GET(TM1618_BYTE2_MASK, data) << TM1618_BYTE2_SHIFT;
 
-	return tm16xx_spi_write(display, cmds, ARRAY_SIZE(cmds));
+	return tm16xx_spi_write(display, cmd, 3);
 }
 
 static int tm1628_data(struct tm16xx_display *display, u8 index, u16 data)
 {
-	u8 cmds[3];
+	u8 *cmd = display->dma_buffer;
 
-	cmds[0] = TM16XX_CMD_ADDR + index * 2;
-	cmds[1] = FIELD_GET(TM1628_BYTE1_MASK, data);
-	cmds[2] = FIELD_GET(TM1628_BYTE2_MASK, data);
+	cmd[0] = TM16XX_CMD_ADDR + index * 2;
+	cmd[1] = FIELD_GET(TM1628_BYTE1_MASK, data);
+	cmd[2] = FIELD_GET(TM1628_BYTE2_MASK, data);
 
-	return tm16xx_spi_write(display, cmds, ARRAY_SIZE(cmds));
+	return tm16xx_spi_write(display, cmd, 3);
 }
 
 static int tm1628_keys(struct tm16xx_keypad *keypad)
 {
-	u8 codes[5];
+	u8 *cmd = keypad->display->dma_buffer;
+	u8 *codes = keypad->display->dma_buffer;
 	int ret, i;
 
-	ret = tm16xx_spi_read(keypad->display, TM16XX_CMD_READ, codes, sizeof(codes));
+	cmd[0] = TM16XX_CMD_READ;
+	ret = tm16xx_spi_read(keypad->display, cmd, 1, codes, TM1628_KEY_READ_LEN);
 	if (ret)
 		return ret;
 
 	/* prevent false readings */
-	for (i = 0; i < sizeof(codes); i++) {
+	for (i = 0; i < TM1628_KEY_READ_LEN; i++) {
 		if (codes[i] & ~TM1628_KEY_MASK)
 			return -EINVAL;
 	}
@@ -1075,15 +1090,17 @@ static int tm1628_keys(struct tm16xx_keypad *keypad)
 
 static int tm1638_keys(struct tm16xx_keypad *keypad)
 {
-	u8 codes[4];
+	u8 *cmd = keypad->display->dma_buffer;
+	u8 *codes = keypad->display->dma_buffer;
 	int ret, i;
 
-	ret = tm16xx_spi_read(keypad->display, TM16XX_CMD_READ, codes, sizeof(codes));
+	cmd[0] = TM16XX_CMD_READ;
+	ret = tm16xx_spi_read(keypad->display, cmd, 1, codes, TM1638_KEY_READ_LEN);
 	if (ret)
 		return ret;
 
 	/* prevent false readings */
-	for (i = 0; i < sizeof(codes); i++) {
+	for (i = 0; i < TM1638_KEY_READ_LEN; i++) {
 		if (codes[i] & ~TM1638_KEY_MASK)
 			return -EINVAL;
 	}
@@ -1101,15 +1118,17 @@ static int tm1638_keys(struct tm16xx_keypad *keypad)
 
 static int tm1618_keys(struct tm16xx_keypad *keypad)
 {
-	u8 codes[3];
+	u8 *cmd = keypad->display->dma_buffer;
+	u8 *codes = keypad->display->dma_buffer;
 	int ret, i;
 
-	ret = tm16xx_spi_read(keypad->display, TM16XX_CMD_READ, codes, sizeof(codes));
+	cmd[0] = TM16XX_CMD_READ;
+	ret = tm16xx_spi_read(keypad->display, cmd, 1, codes, TM1618_KEY_READ_LEN);
 	if (ret)
 		return ret;
 
 	/* prevent false readings */
-	for (i = 0; i < sizeof(codes); i++) {
+	for (i = 0; i < TM1618_KEY_READ_LEN; i++) {
 		if (codes[i] & ~TM1618_KEY_MASK)
 			return -EINVAL;
 	}
@@ -1125,26 +1144,28 @@ static int tm1618_keys(struct tm16xx_keypad *keypad)
 
 static int fd620_data(struct tm16xx_display *display, u8 index, u16 data)
 {
-	u8 cmds[3];
+	u8 *cmd = display->dma_buffer;
 
-	cmds[0] = TM16XX_CMD_ADDR + index * 2;
-	cmds[1] = FIELD_GET(FD620_BYTE1_MASK, data);
-	cmds[2] = FIELD_GET(FD620_BYTE2_MASK, data) << FD620_BYTE2_SHIFT;
+	cmd[0] = TM16XX_CMD_ADDR + index * 2;
+	cmd[1] = FIELD_GET(FD620_BYTE1_MASK, data);
+	cmd[2] = FIELD_GET(FD620_BYTE2_MASK, data) << FD620_BYTE2_SHIFT;
 
-	return tm16xx_spi_write(display, cmds, ARRAY_SIZE(cmds));
+	return tm16xx_spi_write(display, cmd, 3);
 }
 
 static int fd620_keys(struct tm16xx_keypad *keypad)
 {
-	u8 codes[4];
+	u8 *cmd = keypad->display->dma_buffer;
+	u8 *codes = keypad->display->dma_buffer;
 	int ret, i;
 
-	ret = tm16xx_spi_read(keypad->display, TM16XX_CMD_READ, codes, sizeof(codes));
+	cmd[0] = TM16XX_CMD_READ;
+	ret = tm16xx_spi_read(keypad->display, cmd, 1, codes, FD620_KEY_READ_LEN);
 	if (ret)
 		return ret;
 
 	/* prevent false readings */
-	for (i = 0; i < sizeof(codes); i++) {
+	for (i = 0; i < FD620_KEY_READ_LEN; i++) {
 		if (codes[i] & ~FD620_KEY_MASK)
 			return -EINVAL;
 	}
