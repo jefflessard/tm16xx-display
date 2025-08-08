@@ -16,11 +16,10 @@
 		num-chipselects = <1>;
 
 		display-controller@0 {
-			compatible = "fdhisi,fd628";
-			reg = <0x0>;
+			compatible = "fdhisi,fd628", "titanmec,tm1628";
+			reg = <0>;
 			spi-3wire;
 			spi-lsb-first;
-			spi-rx-delay-us = <1>;
 			spi-max-frequency = <500000>;
 
 			digits {

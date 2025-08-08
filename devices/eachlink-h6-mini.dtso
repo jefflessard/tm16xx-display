@@ -15,7 +15,7 @@
 		#size-cells = <0>;
 
 		display-controller@24 {
-			compatible = "fdhisi,fd650";
+			compatible = "fdhisi,fd650", "titanmec,tm1650";
 			reg = <0x24>;
 
 			digits {

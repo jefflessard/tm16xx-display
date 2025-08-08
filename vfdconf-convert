@@ -2,10 +2,10 @@
 
 declare -A CONTROLLER_MAP
 CONTROLLER_MAP=( \
-	0x00 "fdhisi,fd628" \
+	0x00 "fdhisi,fd628\", \"titanmec,tm1628" \
 	0x01 "fdhisi,fd620" \
 	0x02 "titanmec,tm1618" \
-	0x03 "fdhisi,fd650" \
+	0x03 "fdhisi,fd650\", \"titanmec,tm1650" \
 	0x04 "winrise,hbs658" \
 	0x05 "fdhisi,fd655" \
 	0x06 "fdhisi,fd6551" \
@@ -91,7 +91,7 @@ template() {
 	digit_items=${digit_items:0:-1}
 	digit_items=${digit_items//$'\n'/\\n\\t\\t\\t\\t}
 
-	if [ "$CONTROLLER" == "fdhisi,fd650" ]; then
+	if [[ "$CONTROLLER" == "fdhisi,fd650"* ]]; then
 		led_items="$(cat "template-display-type-fd650.inc")"
 		if [ "$TRANSPOSED" == "0x00" ]; then
 			grid="${DIGITS[-1]}"
@@ -155,7 +155,6 @@ convert_file() {
 	if [[ -n $controller ]]
 	then
 		client=$([ "${vfd_gpio_stb[2]}" = "0xFF" ] && echo i2c || echo spi)
-		echo "$device | $client | $controller | no"
 		template "template-${client}.dtso" "$dst_file"
 	else
 		echo "$device: controller not supported" >&2
