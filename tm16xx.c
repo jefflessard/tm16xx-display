@@ -1245,10 +1245,6 @@ static const struct of_device_id tm16xx_spi_of_match[] = {
 	{ .compatible = "titanmec,tm1628",  .data = &tm1628_controller },
 	{ .compatible = "titanmec,tm1638",  .data = &tm1638_controller },
 	{ .compatible = "fdhisi,fd620",     .data = &fd620_controller },
-	{ .compatible = "fdhisi,fd628",     .data = &tm1628_controller },
-	{ .compatible = "icore,aip1618",    .data = &tm1618_controller },
-	{ .compatible = "icore,aip1628",    .data = &tm1628_controller },
-	{ .compatible = "princeton,pt6964", .data = &tm1628_controller },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, tm16xx_spi_of_match);
@@ -1260,10 +1256,6 @@ static const struct spi_device_id tm16xx_spi_id[] = {
 	{ "tm1628",  (kernel_ulong_t)&tm1628_controller },
 	{ "tm1638",  (kernel_ulong_t)&tm1638_controller },
 	{ "fd620",   (kernel_ulong_t)&fd620_controller },
-	{ "fd628",   (kernel_ulong_t)&tm1628_controller },
-	{ "aip1618", (kernel_ulong_t)&tm1618_controller },
-	{ "aip1628", (kernel_ulong_t)&tm1628_controller },
-	{ "pt6964",  (kernel_ulong_t)&tm1628_controller },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(spi, tm16xx_spi_id);
@@ -1577,8 +1569,6 @@ static const struct tm16xx_controller hbs658_controller = {
 #if IS_ENABLED(CONFIG_OF)
 static const struct of_device_id tm16xx_i2c_of_match[] = {
 	{ .compatible = "titanmec,tm1650", .data = &tm1650_controller },
-	{ .compatible = "icore,aip650",    .data = &tm1650_controller },
-	{ .compatible = "fdhisi,fd650",    .data = &tm1650_controller },
 	{ .compatible = "fdhisi,fd6551",   .data = &fd6551_controller },
 	{ .compatible = "fdhisi,fd655",    .data = &fd655_controller },
 	{ .compatible = "winrise,hbs658",   .data = &hbs658_controller },
@@ -1589,8 +1579,6 @@ MODULE_DEVICE_TABLE(of, tm16xx_i2c_of_match);
 
 static const struct i2c_device_id tm16xx_i2c_id[] = {
 	{ "tm1650", (kernel_ulong_t)&tm1650_controller },
-	{ "aip650", (kernel_ulong_t)&tm1650_controller },
-	{ "fd650",  (kernel_ulong_t)&tm1650_controller },
 	{ "fd6551", (kernel_ulong_t)&fd6551_controller },
 	{ "fd655",  (kernel_ulong_t)&fd655_controller },
 	{ "hbs658",  (kernel_ulong_t)&hbs658_controller },

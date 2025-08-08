@@ -10,56 +10,87 @@ maintainers:
   - Jean-François Lessard <jefflessard3@gmail.com>
 
 description: |
-  LED matrix controllers used in auxiliary display devices that drive
-  individual LED icons and 7-segment digit groups through a grid/segment
-  addressing scheme. The controller's physical capabilities (grid count,
-  segment count, brightness levels) are determined by the compatible string.
+  LED matrix controllers used in auxiliary display devices that drive individual
+  LED icons and 7-segment digit groups through a grid/segment addressing scheme.
+  Controllers manage a matrix of LEDs organized as grids (columns/banks in
+  vendor datasheets) and segments (rows/bit positions in vendor datasheets).
+  Maximum grid and segment indices are controller-specific.
 
-  Board-specific LED wiring is described through child nodes that specify
-  grid/segment coordinates for individual icons and segment mapping for
-  7-segment digits.
-  TM16xx controllers manage a matrix of LEDs organized in grids (rows) and segments (columns).
-  Each grid or segment can be wired to drive either a digit or individual icons, depending on the
-  board design.
+  The controller is agnostic of the display layout. Board-specific LED wiring is
+  described through child nodes that specify grid/segment coordinates for
+  individual icons and segment mapping for 7-segment digits.
 
-  Typical display example:
+  The bindings use separate 'leds' and 'digits' containers to accommodate
+  different addressing schemes:
+  - LEDs use 2-cell addressing (grid, segment) for matrix coordinates
+  - Digits use 1-cell addressing with explicit segment mapping
 
-           ---    ---       ---    ---
-    WIFI  |   |  |   |  -  |   |  |   |  USB  PLAY
-           ---    ---       ---    ---
-    LAN   |   |  |   |  -  |   |  |   |  BT   PAUSE
-           ---    ---       ---    ---
-
-  The controller itself is agnostic of the display layout. The specific arrangement
-  (which grids and segments drive which digits or icons) is determined by the board-level
-  wiring. Therefore, these bindings describe hardware configuration at the PCB level
-  to enable support of multiple display implementations using these LED controllers.
+  Optional keypad scanning is supported when both 'linux,keymap' and
+  'poll-interval' properties are specified.
 
 properties:
   compatible:
-    enum:
-      - titanmec,tm1618
-      - titanmec,tm1620
-      - titanmec,tm1628
-      - titanmec,tm1650
-      - fdhisi,fd620
-      - fdhisi,fd628
-      - fdhisi,fd650
-      - fdhisi,fd6551
-      - fdhisi,fd655
-      - icore,aip650
-      - icore,aip1618
-      - icore,aip1628
-      - princeton,pt6964
-      - winrise,hbs658
+    oneOf:
+      # Controllers with titanmec,tm1628 fallback
+      - items:
+          - enum:
+              - fdhisi,fd628
+              - icore,aip1628
+              - princeton,pt6964
+          - const: titanmec,tm1628
+      - const: titanmec,tm1628
+      # Controllers with titanmec,tm1618 fallback
+      - items:
+          - enum:
+              - icore,aip1618
+          - const: titanmec,tm1618
+      - const: titanmec,tm1618
+      # Controllers with titanmec,tm1650 fallback
+      - items:
+          - enum:
+              - fdhisi,fd650
+              - icore,aip650
+          - const: titanmec,tm1650
+      - const: titanmec,tm1650
+      # Canonical standalone controllers
+      - const: titanmec,tm1620
+      - const: titanmec,tm1638
+      - const: fdhisi,fd620
+      - const: fdhisi,fd6551
+      - const: fdhisi,fd655
+      - const: winrise,hbs658
 
   reg:
     maxItems: 1
 
+  label:
+    description: Name of the entire device
+    default: display
+
+  default-brightness:
+    description:
+      Brightness to be set if LED's default state is on. Used only during
+      initialization. If the option is not set then max brightness is used.
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  max-brightness:
+    description:
+      Normally the maximum brightness is determined by the hardware and this
+      property is not required. This property is used to put a software limit
+      on the brightness apart from what the driver says, as it could happen
+      that a LED can be made so bright that it gets damaged or causes damage
+      due to restrictions in a specific system, such as mounting conditions.
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  linux,keymap:
+    $ref: /schemas/input/matrix-keymap.yaml#/properties/linux,keymap
+
+  poll-interval:
+    $ref: /schemas/input/input.yaml#/properties/poll-interval
+
   digits:
     type: object
     description: Container for 7-segment digit group definitions
-
     properties:
       "#address-cells":
         const: 1
@@ -90,10 +121,8 @@ properties:
                  ddd
             items:
               items:
-               - description: Grid index (column/bank)
-               - description: Segment index (row/bit position)
-            # minItems: 2
-            # maxItems: 2
+                - description: Grid index
+                - description: Segment index
             minItems: 7
             maxItems: 7
         required:
@@ -113,12 +142,13 @@ properties:
         const: 0
 
     patternProperties:
-      "^led@[0-8],[0-9a-d]$":
+      "^led@[0-9]+,[0-9]+$":
         type: object
         $ref: /schemas/leds/common.yaml#
         properties:
           reg:
-            description: Grid and segment indices as <grid segment> of this individual LED icon
+            description:
+              Grid and segment indices as <grid segment> of this individual LED icon
         required:
           - reg
         unevaluatedProperties: false
@@ -133,6 +163,7 @@ if:
           - titanmec,tm1618
           - titanmec,tm1620
           - titanmec,tm1628
+          - titanmec,tm1638
           - fdhisi,fd620
           - fdhisi,fd628
           - icore,aip1618
@@ -146,8 +177,11 @@ then:
   required:
     - spi-3wire
 
-allOf:
-  - $ref: /schemas/input/input.yaml
+dependencies:
+  poll-interval:
+    - linux,keymap
+  linux,keymap:
+    - poll-interval
 
 required:
   - compatible
@@ -159,6 +193,7 @@ examples:
   - |
     #include <dt-bindings/leds/common.h>
 
+    // I2C example: Magicsee N5 TV box with fd655 controller
     i2c {
       #address-cells = <1>;
       #size-cells = <0>;
@@ -166,6 +201,31 @@ examples:
       display-controller@24 {
         reg = <0x24>;
         compatible = "fdhisi,fd655";
+
+        digits {
+          #address-cells = <1>;
+          #size-cells = <0>;
+
+          digit@0 {
+            reg = <0>;
+            segments = <4 3>, <4 4>, <4 5>, <4 0>, <4 1>, <4 2>, <4 6>;
+          };
+
+          digit@1 {
+            reg = <1>;
+            segments = <3 3>, <3 4>, <3 5>, <3 0>, <3 1>, <3 2>, <3 6>;
+          };
+
+          digit@2 {
+            reg = <2>;
+            segments = <2 3>, <2 4>, <2 5>, <2 0>, <2 1>, <2 2>, <2 6>;
+          };
+
+          digit@3 {
+            reg = <3>;
+            segments = <1 3>, <1 4>, <1 5>, <1 0>, <1 1>, <1 2>, <1 6>;
+          };
+        };
 
         leds {
           #address-cells = <2>;
@@ -210,40 +270,177 @@ examples:
     };
 
   - |
-    #include <dt-bindings/leds/common.h>
+    #include <dt-bindings/input/input.h>
 
+    // SPI example: TM1638 module with keypad support
     spi {
       #address-cells = <1>;
       #size-cells = <0>;
 
       display-controller@0 {
-        reg = <0x0>;
-        compatible = "fdhisi,fd628";
+        reg = <0>;
+        compatible = "titanmec,tm1638";
         spi-3wire;
         spi-lsb-first;
-        spi-rx-delay-us = <1>;
         spi-max-frequency = <500000>;
+
+        label = "tm1638";
+        default-brightness = <2>;
+        max-brightness = <4>;
+        poll-interval = <100>;
+        linux,keymap = <MATRIX_KEY(2, 0, KEY_F1)
+                        MATRIX_KEY(2, 2, KEY_F2)
+                        MATRIX_KEY(2, 4, KEY_F3)
+                        MATRIX_KEY(2, 6, KEY_F4)
+                        MATRIX_KEY(2, 1, KEY_F5)
+                        MATRIX_KEY(2, 3, KEY_F6)
+                        MATRIX_KEY(2, 5, KEY_F7)
+                        MATRIX_KEY(2, 7, KEY_F8)>;
+
+        digits {
+          #address-cells = <1>;
+          #size-cells = <0>;
+
+          digit@0 {
+            reg = <0>;
+            segments = <7 0>, <7 1>, <7 2>, <7 3>, <7 4>, <7 5>, <7 6>;
+          };
+
+          digit@1 {
+            reg = <1>;
+            segments = <6 0>, <6 1>, <6 2>, <6 3>, <6 4>, <6 5>, <6 6>;
+          };
+
+          digit@2 {
+            reg = <2>;
+            segments = <5 0>, <5 1>, <5 2>, <5 3>, <5 4>, <5 5>, <5 6>;
+          };
+
+          digit@3 {
+            reg = <3>;
+            segments = <4 0>, <4 1>, <4 2>, <4 3>, <4 4>, <4 5>, <4 6>;
+          };
+
+          digit@4 {
+            reg = <4>;
+            segments = <3 0>, <3 1>, <3 2>, <3 3>, <3 4>, <3 5>, <3 6>;
+          };
+
+          digit@5 {
+            reg = <5>;
+            segments = <2 0>, <2 1>, <2 2>, <2 3>, <2 4>, <2 5>, <2 6>;
+          };
+
+          digit@6 {
+            reg = <6>;
+            segments = <1 0>, <1 1>, <1 2>, <1 3>, <1 4>, <1 5>, <1 6>;
+          };
+
+          digit@7 {
+            reg = <7>;
+            segments = <0 0>, <0 1>, <0 2>, <0 3>, <0 4>, <0 5>, <0 6>;
+          };
+        };
 
         leds {
           #address-cells = <2>;
           #size-cells = <0>;
 
-          led@4,0 {
+          led@0,7 {
+            reg = <0 7>;
+          };
+
+          led@1,7 {
+            reg = <1 7>;
+          };
+
+          led@2,7 {
+            reg = <2 7>;
+          };
+
+          led@3,7 {
+            reg = <3 7>;
+          };
+
+          led@4,7 {
+            reg = <4 7>;
+          };
+
+          led@5,7 {
+            reg = <5 7>;
+          };
+
+          led@6,7 {
+            reg = <6 7>;
+          };
+
+          led@7,7 {
+            reg = <7 7>;
+          };
+        };
+      };
+    };
+
+  - |
+    #include <dt-bindings/leds/common.h>
+
+    // SPI example: X96 Max with transposed layout (fd628 with tm1628 fallback)
+    spi {
+      #address-cells = <1>;
+      #size-cells = <0>;
+
+      display-controller@0 {
+        reg = <0>;
+        compatible = "fdhisi,fd628", "titanmec,tm1628";
+        spi-3wire;
+        spi-lsb-first;
+        spi-max-frequency = <500000>;
+
+        digits {
+          #address-cells = <1>;
+          #size-cells = <0>;
+
+          digit@0 {
+            reg = <0>;
+            segments = <0 3>, <1 3>, <2 3>, <3 3>, <4 3>, <5 3>, <6 3>;
+          };
+
+          digit@1 {
+            reg = <1>;
+            segments = <0 2>, <1 2>, <2 2>, <3 2>, <4 2>, <5 2>, <6 2>;
+          };
+
+          digit@2 {
+            reg = <2>;
+            segments = <0 1>, <1 1>, <2 1>, <3 1>, <4 1>, <5 1>, <6 1>;
+          };
+
+          digit@3 {
+            reg = <3>;
+            segments = <0 0>, <1 0>, <2 0>, <3 0>, <4 0>, <5 0>, <6 0>;
+          };
+        };
+
+        leds {
+          #address-cells = <2>;
+          #size-cells = <0>;
+
+          led@0,4 {
             reg = <0 4>;
             function = "apps";
           };
 
-          led@4,1 {
+          led@1,4 {
             reg = <1 4>;
             function = "setup";
           };
 
-          led@4,2 {
+          led@2,4 {
             reg = <2 4>;
             function = LED_FUNCTION_USB;
           };
 
-          led@4,3 {
+          led@3,4 {
             reg = <3 4>;
             function = LED_FUNCTION_SD;
           };
@@ -253,12 +450,12 @@ examples:
             function = "colon";
           };
 
-          led@4,5 {
+          led@5,4 {
             reg = <5 4>;
             function = "hdmi";
           };
 
-          led@4,6 {
+          led@6,4 {
             reg = <6 4>;
             function = "video";
           };
