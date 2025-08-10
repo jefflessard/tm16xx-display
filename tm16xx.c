@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Auxiliary Display Driver for TM16XX and compatible LED controllers
+ * TM16xx and compatible LED display/keypad controller driver
+ * Supports TM16xx, FD6xx, PT6964, HBS658, AIP16xx and related chips.
  *
  * Copyright (C) 2024 Jean-François Lessard
- *
- * This driver supports various LED controller chips, including
- * TM16XX family, FD6XX family, PT6964, and HBS658.
- * It provides support for both I2C and SPI interfaces.
  */
 
 #include <linux/bitfield.h>
@@ -129,17 +126,17 @@ struct tm16xx_display;
 struct tm16xx_keypad;
 
 /**
- * DOC: struct tm16xx_controller - Controller-specific operations
- * @max_grids: Maximum number of grids supported by the controller
- * @max_segments: Maximum number of segments supported by the controller
- * @max_brightness: Maximum brightness level supported by the controller
- * @max_key_rows: Maximum number of key input rows supported by the controller
- * @max_key_cols: Maximum number of key input columns supported by the controller
- * @init: Configures the controller mode and brightness
- * @data: Writes display data to the controller
- * @keys: Reads controller key state into bitmap
+ * DOC: struct tm16xx_controller - Controller-specific operations and limits
+ * @max_grids: Maximum number of grids supported by the controller.
+ * @max_segments: Maximum number of segments supported by the controller.
+ * @max_brightness: Maximum brightness level supported by the controller.
+ * @max_key_rows: Maximum number of key input rows supported by the controller.
+ * @max_key_cols: Maximum number of key input columns supported by the controller.
+ * @init: Pointer to controller mode/brightness configuration function.
+ * @data: Pointer to function writing display data to the controller.
+ * @keys: Pointer to function reading controller key state into bitmap.
  *
- * This structure holds function pointers for controller-specific operations.
+ * Holds function pointers and limits for controller-specific operations.
  */
 struct tm16xx_controller {
 	const u8 max_grids;
@@ -153,10 +150,10 @@ struct tm16xx_controller {
 };
 
 /**
- * struct tm16xx_led - LED information
- * @cdev: LED class device
- * @grid: Controller grid index of the LED
- * @segment: Controller segment index of the LED
+ * struct tm16xx_led - Individual LED icon mapping
+ * @cdev: LED class device for sysfs interface.
+ * @grid: Controller grid index of the LED.
+ * @segment: Controller segment index of the LED.
  */
 struct tm16xx_led {
 	struct led_classdev cdev;
@@ -165,9 +162,9 @@ struct tm16xx_led {
 };
 
 /**
- * struct tm16xx_digit_segment - digit 7-segment to controller addressing
- * @grid: Controller grid index of the digit segment
- * @segment: Controller segment index of the digit segment
+ * struct tm16xx_digit_segment - Digit segment mapping to display coordinates
+ * @grid: Controller grid index for this segment.
+ * @segment: Controller segment index for this segment.
  */
 struct tm16xx_digit_segment {
 	u8 grid;
@@ -175,9 +172,9 @@ struct tm16xx_digit_segment {
 };
 
 /**
- * struct tm16xx_digit - Digit information
- * @segments: Array of digit 7-segments to controller mapping
- * @value: Current char value of the digit
+ * struct tm16xx_digit - 7-segment digit mapping and value
+ * @segments: Array mapping each 7-segment position to a grid/segment on the controller.
+ * @value: Current character value displayed on this digit.
  */
 struct tm16xx_digit {
 	struct tm16xx_digit_segment segments[TM16XX_DIGIT_SEGMENTS];
@@ -185,23 +182,23 @@ struct tm16xx_digit {
 };
 
 /**
- * struct tm16xx_display - Main driver structure
- * @dev: Pointer to device structure
- * @controller: Pointer to controller-specific operations
- * @client: Union of I2C and SPI client structures
- * @spi_buffer: DMA-safe buffer for SPI transactions
- * @num_grids: Number of controller grids used
- * @num_segments: Number of controller segments used
- * @main_led: LED class device for the entire display
- * @leds: Array of individual LED icons
- * @num_leds: Number of individual LED icons
- * @digits: Array of 7-segments digits
- * @num_digits: Number of 7-segment digits
- * @flush_init: Work structure for brightness update
- * @flush_display: Work structure for display update
- * @flush_status: Result of the last flush work
- * @lock: Mutex for concurrent access protection
- * @state: Display data state bitmap
+ * struct tm16xx_display - Main driver structure for the display
+ * @dev: Pointer to device struct.
+ * @controller: Controller-specific function table and limits.
+ * @client: Union of I2C and SPI client pointers.
+ * @spi_buffer: DMA-safe buffer for SPI transactions, or NULL for I2C.
+ * @num_grids: Number of controller grids in use.
+ * @num_segments: Number of controller segments in use.
+ * @main_led: LED class device for the entire display.
+ * @leds: Array of individual LED icon structures.
+ * @num_leds: Number of individual LED icons.
+ * @digits: Array of 7-segment digit structures.
+ * @num_digits: Number of 7-segment digits.
+ * @flush_init: Work struct for configuration update.
+ * @flush_display: Work struct for display update.
+ * @flush_status: Status/result of last flush work.
+ * @lock: Mutex protecting concurrent access to work operations.
+ * @state: Bitmap holding current raw display state.
  */
 struct tm16xx_display {
 	struct device *dev;
@@ -225,6 +222,15 @@ struct tm16xx_display {
 	unsigned long *state;
 };
 
+/**
+ * struct tm16xx_keypad - Keypad matrix state and input device
+ * @display: Backpointer to owning display structure.
+ * @input: Input device for reporting key events.
+ * @state: Current bitmap of key states.
+ * @last_state: Previous bitmap of key states for change detection.
+ * @changes: Bitmap of key state changes since last poll.
+ * @row_shift: Row shift for keymap encoding.
+ */
 struct tm16xx_keypad {
 	struct tm16xx_display *display;
 	struct input_dev *input;
@@ -235,11 +241,24 @@ struct tm16xx_keypad {
 };
 
 /* state bitmap helpers */
+/**
+ * tm16xx_led_nbits() - Number of bits used for the display state bitmap
+ * @display: pointer to tm16xx_display
+ *
+ * Return: total bits in the display state bitmap (grids * segments)
+ */
 static inline unsigned int tm16xx_led_nbits(const struct tm16xx_display *display)
 {
 	return display->num_grids * display->num_segments;
 }
 
+/**
+ * tm16xx_set_seg() - Set the display state for a specific grid/segment
+ * @display: pointer to tm16xx_display
+ * @grid: grid index
+ * @seg: segment index
+ * @on: true to turn on, false to turn off
+ */
 static inline void tm16xx_set_seg(const struct tm16xx_display *display,
 				  const u8 grid, const u8 seg, const bool on)
 {
@@ -247,6 +266,13 @@ static inline void tm16xx_set_seg(const struct tm16xx_display *display,
 }
 
 #if KERNEL_VERSION(6, 10, 0) <= LINUX_VERSION_CODE
+/**
+ * tm16xx_get_grid() - Get the current segment pattern for a grid
+ * @display: pointer to tm16xx_display
+ * @grid: grid index
+ *
+ * Return: bit pattern of all segments for the given grid
+ */
 static inline u16 tm16xx_get_grid(const struct tm16xx_display *display,
 				  const unsigned int grid)
 {
@@ -270,12 +296,25 @@ static inline u16 tm16xx_get_grid(const struct tm16xx_display *display,
 }
 #endif
 
+/**
+ * tm16xx_key_nbits() - Number of bits for the keypad state bitmap
+ * @keypad: pointer to tm16xx_keypad
+ *
+ * Return: total bits in keypad state bitmap (max_key_rows * max_key_cols)
+ */
 static inline unsigned int tm16xx_key_nbits(const struct tm16xx_keypad *keypad)
 {
 	return keypad->display->controller->max_key_rows *
 	       keypad->display->controller->max_key_cols;
 }
 
+/**
+ * tm16xx_set_key() - Set the keypad state for a key
+ * @keypad: pointer to tm16xx_keypad
+ * @row: row index
+ * @col: column index
+ * @pressed: true if pressed, false otherwise
+ */
 static inline void tm16xx_set_key(const struct tm16xx_keypad *keypad,
 				  const u8 row, const u8 col, const bool pressed)
 {
@@ -283,12 +322,26 @@ static inline void tm16xx_set_key(const struct tm16xx_keypad *keypad,
 		     keypad->state, pressed);
 }
 
+/**
+ * tm16xx_get_key_row() - Get row index from keypad bit index
+ * @keypad: pointer to tm16xx_keypad
+ * @bit: bit index in state bitmap
+ *
+ * Return: row index
+ */
 static inline u8 tm16xx_get_key_row(const struct tm16xx_keypad *keypad,
 				    const unsigned int bit)
 {
 	return bit / keypad->display->controller->max_key_cols;
 }
 
+/**
+ * tm16xx_get_key_col() - Get column index from keypad bit index
+ * @keypad: pointer to tm16xx_keypad
+ * @bit: bit index in state bitmap
+ *
+ * Return: column index
+ */
 static inline u8 tm16xx_get_key_col(const struct tm16xx_keypad *keypad,
 				    const unsigned int bit)
 {
@@ -302,6 +355,13 @@ static inline u8 tm16xx_get_key_col(const struct tm16xx_keypad *keypad,
 		     (_c) < (keypad)->display->controller->max_key_cols; (_c)++)
 
 /* key scanning */
+/**
+ * tm16xx_keypad_poll() - Polls the keypad, reports events
+ * @input: pointer to input_dev
+ *
+ * Reads the matrix keypad state, compares with previous state, and
+ * reports key events to the input subsystem.
+ */
 static void tm16xx_keypad_poll(struct input_dev *input)
 {
 	struct tm16xx_keypad *keypad = input_get_drvdata(input);
@@ -345,6 +405,12 @@ static void tm16xx_keypad_poll(struct input_dev *input)
 	bitmap_copy(keypad->last_state, keypad->state, nbits);
 }
 
+/**
+ * tm16xx_keypad_probe() - Initialize keypad/input device
+ * @display: pointer to tm16xx_display
+ *
+ * Return: 0 on success, negative error code on failure
+ */
 static int tm16xx_keypad_probe(struct tm16xx_display *display)
 {
 	const u8 rows = display->controller->max_key_rows;
@@ -434,9 +500,10 @@ free_keypad:
 	return ret;
 }
 
+/* main display */
 /**
- * tm16xx_display_flush_init() - Controller configuration Work function
- * @work: Pointer to work_struct
+ * tm16xx_display_flush_init() - Workqueue to configure controller and set brightness
+ * @work: pointer to work_struct
  */
 static void tm16xx_display_flush_init(struct work_struct *work)
 {
@@ -458,8 +525,8 @@ static void tm16xx_display_flush_init(struct work_struct *work)
 }
 
 /**
- * tm16xx_display_flush_data() - Work function to update display data
- * @work: Pointer to work_struct
+ * tm16xx_display_flush_data() - Workqueue to update display data to controller
+ * @work: pointer to work_struct
  */
 static void tm16xx_display_flush_data(struct work_struct *work)
 {
@@ -490,8 +557,8 @@ static void tm16xx_display_flush_data(struct work_struct *work)
 }
 
 /**
- * tm16xx_display_remove() - Remove the display
- * @display: Pointer to tm16xx_display structure
+ * tm16xx_display_remove() - Remove display, unregister LEDs, blank output
+ * @display: pointer to tm16xx_display
  */
 static void tm16xx_display_remove(struct tm16xx_display *display)
 {
@@ -518,9 +585,9 @@ static void tm16xx_display_remove(struct tm16xx_display *display)
 }
 
 /**
- * tm16xx_brightness_set() - Set brightness of the display
- * @led_cdev: Pointer to led_classdev
- * @brightness: Brightness value to set
+ * tm16xx_brightness_set() - Set display main LED brightness
+ * @led_cdev: pointer to led_classdev
+ * @brightness: new brightness value
  */
 static void tm16xx_brightness_set(struct led_classdev *led_cdev,
 				  enum led_brightness brightness)
@@ -533,9 +600,9 @@ static void tm16xx_brightness_set(struct led_classdev *led_cdev,
 }
 
 /**
- * tm16xx_led_set() - Set state of an individual LED
- * @led_cdev: Pointer to led_classdev
- * @value: Value to set (on/off)
+ * tm16xx_led_set() - Set state of an individual LED icon
+ * @led_cdev: pointer to led_classdev
+ * @value: new brightness (0/1)
  */
 static void tm16xx_led_set(struct led_classdev *led_cdev,
 			   enum led_brightness value)
@@ -551,12 +618,12 @@ static void tm16xx_led_set(struct led_classdev *led_cdev,
 }
 
 /**
- * tm16xx_value_show() - Show current display value
- * @dev: Pointer to device structure
- * @attr: Pointer to device attribute structure
- * @buf: Buffer to write the display value
+ * tm16xx_value_show() - Sysfs: show current display digit values
+ * @dev: pointer to device
+ * @attr: device attribute (unused)
+ * @buf: output buffer
  *
- * Return: Number of bytes written to buffer
+ * Return: number of bytes written to output buffer
  */
 static ssize_t tm16xx_value_show(struct device *dev,
 				 struct device_attribute *attr, char *buf)
@@ -573,13 +640,13 @@ static ssize_t tm16xx_value_show(struct device *dev,
 }
 
 /**
- * tm16xx_value_store() - Store new display value
- * @dev: Pointer to device structure
- * @attr: Pointer to device attribute structure
- * @buf: Buffer containing the new display value
- * @count: Number of bytes in buffer
+ * tm16xx_value_store() - Sysfs: set display digit values
+ * @dev: pointer to device
+ * @attr: device attribute (unused)
+ * @buf: new digit values (ASCII chars)
+ * @count: buffer length
  *
- * Return: Number of bytes written or negative error code
+ * Return: number of bytes written or negative error code
  */
 static ssize_t tm16xx_value_store(struct device *dev,
 				  struct device_attribute *attr,
@@ -621,14 +688,12 @@ static ssize_t tm16xx_value_store(struct device *dev,
 }
 
 /**
- * tm16xx_num_digits_show() - Show the number of digits in the display
- * @dev: The device struct
- * @attr: The device_attribute struct
- * @buf: The output buffer
+ * tm16xx_num_digits_show() - Sysfs: show number of digits on display
+ * @dev: pointer to device
+ * @attr: device attribute (unused)
+ * @buf: output buffer
  *
- * This function returns the number of digits in the display.
- *
- * Return: Number of bytes written to buf
+ * Return: number of bytes written
  */
 static ssize_t tm16xx_num_digits_show(struct device *dev,
 				      struct device_attribute *attr, char *buf)
@@ -640,14 +705,12 @@ static ssize_t tm16xx_num_digits_show(struct device *dev,
 }
 
 /**
- * tm16xx_map_seg7_show() - Show the current 7-segment character map
- * @dev: The device struct
- * @attr: The device_attribute struct
- * @buf: The output buffer
+ * tm16xx_map_seg7_show() - Sysfs: show current 7-segment character map (binary blob)
+ * @dev: pointer to device
+ * @attr: device attribute (unused)
+ * @buf: output buffer
  *
- * This function returns the current 7-segment character map.
- *
- * Return: Number of bytes written to buf
+ * Return: size of map_seg7
  */
 static ssize_t tm16xx_map_seg7_show(struct device *dev,
 				    struct device_attribute *attr, char *buf)
@@ -657,13 +720,11 @@ static ssize_t tm16xx_map_seg7_show(struct device *dev,
 }
 
 /**
- * tm16xx_map_seg7_store() - Set a new 7-segment character map
- * @dev: The device struct
- * @attr: The device_attribute struct
- * @buf: The input buffer
- * @cnt: Number of bytes in buf
- *
- * This function sets a new 7-segment character map.
+ * tm16xx_map_seg7_store() - Sysfs: set 7-segment character map (binary blob)
+ * @dev: pointer to device
+ * @attr: device attribute (unused)
+ * @buf: new mapping (must match size of map_seg7)
+ * @cnt: buffer length
  *
  * Return: cnt on success, negative errno on failure
  */
@@ -690,8 +751,8 @@ static struct attribute *tm16xx_main_led_attrs[] = {
 ATTRIBUTE_GROUPS(tm16xx_main_led);
 
 /**
- * tm16xx_display_init() - Initialize the display
- * @display: Pointer to tm16xx_display structure
+ * tm16xx_display_init() - Initialize display hardware and state
+ * @display: pointer to tm16xx_display
  *
  * Return: 0 on success, negative error code on failure
  */
@@ -723,9 +784,9 @@ static int tm16xx_display_init(struct tm16xx_display *display)
 }
 
 /**
- * tm16xx_parse_dt() - Parse device tree data
- * @dev: Pointer to device structure
- * @display: Pointer to tm16xx_display structure
+ * tm16xx_parse_dt() - Parse device tree for digit and LED mapping
+ * @dev: pointer to struct device
+ * @display: pointer to tm16xx_display
  *
  * Return: 0 on success, negative error code on failure
  */
@@ -858,8 +919,8 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 }
 
 /**
- * tm16xx_probe() - Probe function for tm16xx devices
- * @display: Pointer to tm16xx_display structure
+ * tm16xx_probe() - Probe and initialize display device, register LEDs
+ * @display: pointer to tm16xx_display
  *
  * Return: 0 on success, negative error code on failure
  */
@@ -948,6 +1009,12 @@ static int tm16xx_probe(struct tm16xx_display *display)
 
 /* SPI specific code */
 #if IS_ENABLED(CONFIG_SPI_MASTER)
+/**
+ * tm16xx_spi_probe() - Probe callback for SPI-attached controllers
+ * @spi: pointer to spi_device
+ *
+ * Return: 0 on success, negative error code on failure
+ */
 static int tm16xx_spi_probe(struct spi_device *spi)
 {
 	const struct tm16xx_controller *controller;
@@ -981,6 +1048,10 @@ static int tm16xx_spi_probe(struct spi_device *spi)
 	return 0;
 }
 
+/**
+ * tm16xx_spi_remove() - Remove callback for SPI-attached controllers
+ * @spi: pointer to spi_device
+ */
 static void tm16xx_spi_remove(struct spi_device *spi)
 {
 	struct tm16xx_display *display = spi_get_drvdata(spi);
@@ -988,6 +1059,16 @@ static void tm16xx_spi_remove(struct spi_device *spi)
 	tm16xx_display_remove(display);
 }
 
+/**
+ * tm16xx_spi_read() - SPI read helper for controller
+ * @display: pointer to tm16xx_display
+ * @cmd: command to send
+ * @cmd_len: length of command
+ * @data: buffer for received data
+ * @data_len: length of data to read
+ *
+ * Return: 0 on success, negative error code on failure
+ */
 static int tm16xx_spi_read(struct tm16xx_display *display, u8 *cmd,
 			   size_t cmd_len, u8 *data, size_t data_len)
 {
@@ -1024,12 +1105,12 @@ static int tm16xx_spi_read(struct tm16xx_display *display, u8 *cmd,
 }
 
 /**
- * tm16xx_spi_write() - Write data to SPI client
- * @display: Pointer to tm16xx_display structure
- * @data: Data to write
- * @len: Length of data
+ * tm16xx_spi_write() - SPI write helper for controller
+ * @display: pointer to tm16xx_display
+ * @data: data to write
+ * @len: number of bytes to write
  *
- * Return: Number of bytes written or negative error code
+ * Return: 0 on success, negative error code on failure
  */
 static int tm16xx_spi_write(struct tm16xx_display *display, u8 *data, size_t len)
 {
@@ -1337,6 +1418,12 @@ static void tm16xx_spi_unregister(void)
 
 /* I2C specific code */
 #if IS_ENABLED(CONFIG_I2C)
+/**
+ * tm16xx_i2c_probe() - Probe callback for I2C-attached controllers
+ * @client: pointer to i2c_client
+ *
+ * Return: 0 on success, negative error code on failure
+ */
 static int tm16xx_i2c_probe(struct i2c_client *client)
 {
 	const struct tm16xx_controller *controller;
@@ -1364,6 +1451,10 @@ static int tm16xx_i2c_probe(struct i2c_client *client)
 	return 0;
 }
 
+/**
+ * tm16xx_i2c_remove() - Remove callback for I2C-attached controllers
+ * @client: pointer to i2c_client
+ */
 static void tm16xx_i2c_remove(struct i2c_client *client)
 {
 	struct tm16xx_display *display = i2c_get_clientdata(client);
@@ -1372,12 +1463,12 @@ static void tm16xx_i2c_remove(struct i2c_client *client)
 }
 
 /**
- * tm16xx_i2c_write() - Write data to I2C client
- * @display: Pointer to tm16xx_display structure
- * @data: Data to write
- * @len: Length of data
+ * tm16xx_i2c_write() - I2C write helper for controller
+ * @display: pointer to tm16xx_display structure
+ * @data: command and data bytes to send
+ * @len: number of bytes in @data
  *
- * Return: Number of bytes written or negative error code
+ * Return: 0 on success, negative error code on failure
  */
 static int tm16xx_i2c_write(struct tm16xx_display *display, u8 *data, size_t len)
 {
@@ -1396,9 +1487,18 @@ static int tm16xx_i2c_write(struct tm16xx_display *display, u8 *data, size_t len
 	if (ret < 0)
 		return ret;
 
-	return (ret == 1) ? len : -EIO;
+	return (ret == 1) ? 0 : -EIO;
 }
 
+/**
+ * tm16xx_i2c_read() - I2C read helper for controller
+ * @display: pointer to tm16xx_display structure
+ * @cmd: command/address byte to send before reading
+ * @data: buffer to receive data
+ * @len: number of bytes to read into @data
+ *
+ * Return: 0 on success, negative error code on failure
+ */
 static int tm16xx_i2c_read(struct tm16xx_display *display, u8 cmd, u8 *data,
 			   size_t len)
 {
@@ -1417,7 +1517,7 @@ static int tm16xx_i2c_read(struct tm16xx_display *display, u8 cmd, u8 *data,
 
 	dev_dbg(display->dev, "i2c_read %ph: %*ph\n", &cmd, (char)len, data);
 
-	return (ret == ARRAY_SIZE(msgs)) ? len : -EIO;
+	return (ret == ARRAY_SIZE(msgs)) ? 0 : -EIO;
 }
 
 /* I2C controller-specific functions */
@@ -1659,6 +1759,11 @@ static void tm16xx_i2c_unregister(void)
 }
 #endif /* CONFIG_I2C */
 
+/**
+ * tm16xx_init() - Module initialization entrypoint
+ *
+ * Return: 0 on success, negative error code on failure
+ */
 static int __init tm16xx_init(void)
 {
 	int ret;
@@ -1676,6 +1781,9 @@ static int __init tm16xx_init(void)
 	return 0;
 }
 
+/**
+ * tm16xx_exit() - Module exit/cleanup
+ */
 static void __exit tm16xx_exit(void)
 {
 	tm16xx_i2c_unregister();
