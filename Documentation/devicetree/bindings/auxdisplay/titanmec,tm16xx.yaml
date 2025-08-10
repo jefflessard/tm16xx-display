@@ -88,6 +88,9 @@ properties:
   poll-interval:
     $ref: /schemas/input/input.yaml#/properties/poll-interval
 
+  autorepeat:
+    $ref: /schemas/input/input.yaml#/properties/autorepeat
+
   digits:
     type: object
     description: Container for 7-segment digit group definitions
@@ -181,6 +184,9 @@ dependencies:
   poll-interval:
     - linux,keymap
   linux,keymap:
+    - poll-interval
+  autorepeat:
+    - linux,keymap
     - poll-interval
 
 required:

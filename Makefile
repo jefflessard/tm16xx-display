@@ -27,7 +27,7 @@ module:
 	make EXTRA_CFLAGS="$(CCFLAGS)" -C $(KDIR) M=$(PWD) modules
 
 clean:
-	rm -f tm16xx.mod* tm16xx.ko Module.symvers modules.order tm16xx.o .tm* .module* .Module*
+	$(MAKE) -C $(KDIR) M=$(PWD) clean
 	rm -Rf $(RELEASE_DIR)
 
 module-install:

@@ -12,26 +12,26 @@
 #include <linux/bitfield.h>
 #include <linux/bitmap.h>
 #include <linux/bitops.h>
-#include <linux/module.h>
-#include <linux/init.h>
-#include <linux/slab.h>
+#include <linux/delay.h>
 #include <linux/i2c.h>
-#include <linux/spi/spi.h>
+#include <linux/init.h>
+#include <linux/input.h>
+#include <linux/input/matrix_keypad.h>
+#include <linux/leds.h>
+#include <linux/map_to_7segment.h>
+#include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/property.h>
-#include <linux/leds.h>
-#include <linux/delay.h>
-#include <linux/workqueue.h>
-#include <linux/map_to_7segment.h>
-#include <linux/input.h>
-#include <linux/input/matrix_keypad.h>
+#include <linux/slab.h>
+#include <linux/spi/spi.h>
 #include <linux/version.h>
+#include <linux/workqueue.h>
 
 #define TM16XX_DRIVER_NAME "tm16xx"
 #define TM16XX_DEVICE_NAME "display"
 #define TM16XX_DIGIT_SEGMENTS	7
-#define TM16XX_DMA_BUFFER_SIZE	8
+#define TM16XX_SPI_BUFFER_SIZE	8
 #define CH34XX_SPI_TWAIT_US	2
 
 /* Common bit field definitions */
@@ -189,7 +189,7 @@ struct tm16xx_digit {
  * @dev: Pointer to device structure
  * @controller: Pointer to controller-specific operations
  * @client: Union of I2C and SPI client structures
- * @dma_buffer: DMA-safe buffer for SPI transactions
+ * @spi_buffer: DMA-safe buffer for SPI transactions
  * @num_grids: Number of controller grids used
  * @num_segments: Number of controller segments used
  * @main_led: LED class device for the entire display
@@ -210,7 +210,7 @@ struct tm16xx_display {
 		struct i2c_client *i2c;
 		struct spi_device *spi;
 	} client;
-	u8 *dma_buffer;
+	u8 *spi_buffer;
 	u8 num_grids;
 	u8 num_segments;
 	struct led_classdev main_led;
@@ -295,12 +295,11 @@ static inline u8 tm16xx_get_key_col(const struct tm16xx_keypad *keypad,
 	return bit % keypad->display->controller->max_key_cols;
 }
 
-#define for_each_key(kp, r, c) \
-	for (unsigned int __i = 0, (r), (c), \
-			  __max = (kp)->display->controller->max_key_rows * \
-				  (kp)->display->controller->max_key_cols, \
-			  __cols = (kp)->display->controller->max_key_cols; \
-	     __i < __max; __i++, (r) = __i / __cols, (c) = __i % __cols)
+#define for_each_key(keypad, _r, _c) \
+	for (unsigned int (_r) = 0; \
+	     (_r) < (keypad)->display->controller->max_key_rows; (_r)++) \
+		for (unsigned int (_c) = 0; \
+		     (_c) < (keypad)->display->controller->max_key_cols; (_c)++)
 
 /* key scanning */
 static void tm16xx_keypad_poll(struct input_dev *input)
@@ -396,13 +395,10 @@ static int tm16xx_keypad_probe(struct tm16xx_display *display)
 		goto free_bitmaps;
 	}
 	input->name = TM16XX_DRIVER_NAME "-keypad";
-	input_setup_polling(input, tm16xx_keypad_poll);
-	input_set_poll_interval(input, poll_interval);
 	keypad->input = input;
 	input_set_drvdata(input, keypad);
 
 	keypad->row_shift = get_count_order(cols);
-
 	ret = matrix_keypad_build_keymap(NULL, "linux,keymap", rows, cols, NULL,
 					 input);
 	if (ret < 0) {
@@ -410,6 +406,11 @@ static int tm16xx_keypad_probe(struct tm16xx_display *display)
 		goto free_input;
 	}
 
+	if (device_property_read_bool(display->dev, "autorepeat"))
+		__set_bit(EV_REP, input->evbit);
+
+	input_setup_polling(input, tm16xx_keypad_poll);
+	input_set_poll_interval(input, poll_interval);
 	ret = input_register_device(input);
 	if (ret < 0) {
 		dev_err(display->dev, "Failed to register input device: %d\n",
@@ -495,8 +496,15 @@ static void tm16xx_display_flush_data(struct work_struct *work)
 static void tm16xx_display_remove(struct tm16xx_display *display)
 {
 	unsigned int nbits = tm16xx_led_nbits(display);
+	struct tm16xx_led *led;
 
 	dev_dbg(display->dev, "Removing display\n");
+
+	for (int i = 0; i < display->num_leds; i++) {
+		led = &display->leds[i];
+		devm_led_classdev_unregister(display->dev, &led->cdev);
+	}
+	devm_led_classdev_unregister(display->dev, &display->main_led);
 
 	bitmap_zero(display->state, nbits);
 	schedule_work(&display->flush_display);
@@ -955,9 +963,9 @@ static int tm16xx_spi_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	/* Allocate DMA-safe buffer */
-	display->dma_buffer = devm_kzalloc(&spi->dev, TM16XX_DMA_BUFFER_SIZE,
-					   GFP_KERNEL | GFP_DMA);
-	if (!display->dma_buffer)
+	display->spi_buffer = devm_kzalloc(&spi->dev, TM16XX_SPI_BUFFER_SIZE,
+					   GFP_KERNEL);
+	if (!display->spi_buffer)
 		return -ENOMEM;
 
 	display->client.spi = spi;
@@ -1037,7 +1045,7 @@ static int tm1628_init(struct tm16xx_display *display)
 {
 	const enum led_brightness brightness = display->main_led.brightness;
 	const u8 num_grids = display->num_grids;
-	u8 *cmd = display->dma_buffer;
+	u8 *cmd = display->spi_buffer;
 	int ret;
 
 	/* Set mode command based on grid count */
@@ -1073,7 +1081,7 @@ static int tm1628_init(struct tm16xx_display *display)
 
 static int tm1618_data(struct tm16xx_display *display, u8 index, u16 data)
 {
-	u8 *cmd = display->dma_buffer;
+	u8 *cmd = display->spi_buffer;
 
 	cmd[0] = TM16XX_CMD_ADDR + index * 2;
 	cmd[1] = FIELD_GET(TM1618_BYTE1_MASK, data);
@@ -1084,7 +1092,7 @@ static int tm1618_data(struct tm16xx_display *display, u8 index, u16 data)
 
 static int tm1628_data(struct tm16xx_display *display, u8 index, u16 data)
 {
-	u8 *cmd = display->dma_buffer;
+	u8 *cmd = display->spi_buffer;
 
 	cmd[0] = TM16XX_CMD_ADDR + index * 2;
 	cmd[1] = FIELD_GET(TM1628_BYTE1_MASK, data);
@@ -1095,8 +1103,8 @@ static int tm1628_data(struct tm16xx_display *display, u8 index, u16 data)
 
 static int tm1628_keys(struct tm16xx_keypad *keypad)
 {
-	u8 *cmd = keypad->display->dma_buffer;
-	u8 *codes = keypad->display->dma_buffer;
+	u8 *cmd = keypad->display->spi_buffer;
+	u8 *codes = keypad->display->spi_buffer;
 	int ret, i;
 
 	cmd[0] = TM16XX_CMD_READ;
@@ -1124,8 +1132,8 @@ static int tm1628_keys(struct tm16xx_keypad *keypad)
 
 static int tm1638_keys(struct tm16xx_keypad *keypad)
 {
-	u8 *cmd = keypad->display->dma_buffer;
-	u8 *codes = keypad->display->dma_buffer;
+	u8 *cmd = keypad->display->spi_buffer;
+	u8 *codes = keypad->display->spi_buffer;
 	int ret, i;
 
 	cmd[0] = TM16XX_CMD_READ;
@@ -1153,8 +1161,8 @@ static int tm1638_keys(struct tm16xx_keypad *keypad)
 
 static int tm1618_keys(struct tm16xx_keypad *keypad)
 {
-	u8 *cmd = keypad->display->dma_buffer;
-	u8 *codes = keypad->display->dma_buffer;
+	u8 *cmd = keypad->display->spi_buffer;
+	u8 *codes = keypad->display->spi_buffer;
 	int ret, i;
 
 	cmd[0] = TM16XX_CMD_READ;
@@ -1180,7 +1188,7 @@ static int tm1618_keys(struct tm16xx_keypad *keypad)
 
 static int fd620_data(struct tm16xx_display *display, u8 index, u16 data)
 {
-	u8 *cmd = display->dma_buffer;
+	u8 *cmd = display->spi_buffer;
 
 	cmd[0] = TM16XX_CMD_ADDR + index * 2;
 	cmd[1] = FIELD_GET(FD620_BYTE1_MASK, data);
@@ -1191,8 +1199,8 @@ static int fd620_data(struct tm16xx_display *display, u8 index, u16 data)
 
 static int fd620_keys(struct tm16xx_keypad *keypad)
 {
-	u8 *cmd = keypad->display->dma_buffer;
-	u8 *codes = keypad->display->dma_buffer;
+	u8 *cmd = keypad->display->spi_buffer;
+	u8 *codes = keypad->display->spi_buffer;
 	int ret, i;
 
 	cmd[0] = TM16XX_CMD_READ;
