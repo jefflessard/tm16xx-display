@@ -35,29 +35,29 @@ properties:
       - items:
           - enum:
               - fdhisi,fd628
-              - icore,aip1628
               - princeton,pt6964
+              - wxicore,aip1628
           - const: titanmec,tm1628
       - const: titanmec,tm1628
       # Controllers with titanmec,tm1618 fallback
       - items:
           - enum:
-              - icore,aip1618
+              - wxicore,aip1618
           - const: titanmec,tm1618
       - const: titanmec,tm1618
       # Controllers with titanmec,tm1650 fallback
       - items:
           - enum:
               - fdhisi,fd650
-              - icore,aip650
+              - wxicore,aip650
           - const: titanmec,tm1650
       - const: titanmec,tm1650
       # Canonical standalone controllers
+      - const: fdhisi,fd620
+      - const: fdhisi,fd655
+      - const: fdhisi,fd6551
       - const: titanmec,tm1620
       - const: titanmec,tm1638
-      - const: fdhisi,fd620
-      - const: fdhisi,fd6551
-      - const: fdhisi,fd655
       - const: winrise,hbs658
 
   reg:
@@ -158,20 +158,21 @@ properties:
 
     additionalProperties: false
 
+# SPI controllers require 3-wire (combined MISO/MOSI line)
 if:
   properties:
     compatible:
       contains:
         enum:
+          - fdhisi,fd620
+          - fdhisi,fd628
+          - princeton,pt6964
           - titanmec,tm1618
           - titanmec,tm1620
           - titanmec,tm1628
           - titanmec,tm1638
-          - fdhisi,fd620
-          - fdhisi,fd628
-          - icore,aip1618
-          - icore,aip1628
-          - princeton,pt6964
+          - wxicore,aip1618
+          - wxicore,aip1628
 then:
   allOf:
     - $ref: /schemas/spi/spi-peripheral-props.yaml#
