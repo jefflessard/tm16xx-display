@@ -12,6 +12,7 @@ See [Device Table](DEVICES.md)
   * titanmec,tm1618 ([datasheet](datasheets/TM1618_V2.1_EN.pdf))
   * titanmec,tm1620 ([datasheet](datasheets/TM1620_V2.1_EN.pdf))
   * titanmec,tm1628 ([datasheet](datasheets/TM1628_V1.1_EN.pdf))
+  * titanmec,tm1638 ([datasheet](datasheets/TM1638_V2.2_EN.pdf))
   * titanmec,tm1650 ([datasheet](datasheets/TM1650_V2.2_EN.pdf))
 * Fuzhou Fuda Hisi Microelectronics Co., Ltd.
   * fdhisi,fd620 ([datasheet](datasheets/FD620.pdf))
@@ -20,9 +21,9 @@ See [Device Table](DEVICES.md)
   * fdhisi,fd655 ([datasheet](datasheets/FD655.pdf))
   * fdhisi,fd6551 ([datasheet](datasheets/FD6551.pdf))
 * Wuxi i-Core Electronics Co., Ltd.
-  * icore,aip650 ([datasheet](datasheets/AiP650E.pdf))
-  * icore,aip1618 ([datasheet](datasheets/AiP1618.pdf))
-  * icore,aip1628 ([datasheet](datasheets/AiP1628.pdf))
+  * wxicore,aip650 ([datasheet](datasheets/AiP650E.pdf))
+  * wxicore,aip1618 ([datasheet](datasheets/AiP1618.pdf))
+  * wxicore,aip1628 ([datasheet](datasheets/AiP1628.pdf))
 * Princeton Technology Corporation
   * princeton,pt6964 ([datasheet](datasheets/PT6964.pdf))
 * Shenzhen Winrise Technology Co., Ltd.
@@ -76,13 +77,7 @@ armbian-config
 Then go to Software -> Headers
 
 ### tm16xx module
-Kernel configuration must enable built-in leds support:
-
-```ini
-CONFIG_NEW_LEDS=y
-CONFIG_LEDS_CLASS=y
-CONFIG_LEDS_TRIGGERS=y
-```
+See [Kconfig](drivers/auxdisplay/Kconfig) for kernel configuration.
 
 ### Display service
 Depending on the icons configured for the auxiliary display, additional led triggers modules are required by `display-service`:
@@ -170,81 +165,6 @@ display-utils -c
 2. Check the order of digits and segment mapping (you should see "1234")
 3. Check each led name (ex: LAN icon is ON while "LAN" text is shown on the digits)
 
-In case you want to experiment with alternative digits ordering or segment mapping, you can update them from user space without editing the dtb or rebooting. This may be useful to test your configuration changes before editing the dtb.
-
-### Assisted segments and digits disovery
-```sh
-display-utils -a
-```
-Interactive prompt to quickly and easily identify segments mapping and digits ordering, plus will generate the related device tree configuration.
-
-Example session:
-```
-Segment Mapping:
-Original segments: [0 1 2 3 4 5 6]
-
-   --A--
-  |     |
-  F     B
-  |     |
-   --G--
-  |     |
-  E     C
-  |     |
-   --D--
-
-Enter blinking segment 0 (A-G or empty): d
-Enter blinking segment 1 (A-G or empty): e
-Enter blinking segment 2 (A-G or empty): f
-Enter blinking segment 3 (A-G or empty): a
-Enter blinking segment 4 (A-G or empty): b
-Enter blinking segment 5 (A-G or empty): c
-Enter blinking segment 6 (A-G or empty): g
-All 7 segments have been mapped.
-Segment mapping: [3 4 5 0 1 2 6]
-
-Validating digit order
-Original digits: [2 1 4 3]
-
-  1234
-
-Enter the position of digit 1 (1-4): 2
-Enter the position of digit 2 (1-4): 1
-Enter the position of digit 3 (1-4): 4
-Enter the position of digit 4 (1-4): 3
-Digit order: [1 2 3 4]
-
-Update your device tree configuration to:
-
-        titanmec,digits = [1 2 3 4];
-        titanmec,segment-mapping = [3 4 5 0 1 2 6];
-
-```
-
-### Manual alternative digits ordering
-```sh
-# show current digit ordering
-cat /sys/class/leds/display/digits
-
-# update digit ordering
-echo "1 2 3 4" > /sys/class/leds/display/digits
-
-# check configuration
-display-utils -c
-```
-
-### Manual alternative segment mapping
-```sh
-# show current segment mapping
-cat /sys/class/leds/display/segments
-
-# update segment mapping
-echo "0 1 2 3 4 5 6" > /sys/class/leds/display/segments
-
-# check configuration
-display-utils -c
-```
-
 # Advanced Device Configuration
 
 ## Convert existing [OpenVFD](https://github.com/arthur-liberman/linux_openvfd/tree/master) vfd.conf
@@ -261,28 +181,7 @@ Existing compatible [OpenVFD](https://github.com/arthur-liberman/linux_openvfd/t
 ```
 
 ## Create your own configuration
-Create a .dtso file in `devices` directory
-  * `display-client`
-    * Option 1 : 3-wire serial (SPI) controller
-      * `compatible = "spi-gpio"`
-      * `mosi-gpios`: data gpio pin
-      * `gpio-sck`: clock gpio pin
-      * `cs-gpios`: chip select gpio pin
-    * Option 2 : 2-wire serial (I2C) controller
-      * `compatible = "i2c-gpio"`
-      * `sda-gpios`: data gpio pin
-      * `scl-gpios`: clock gpio pin
-  * `display-controller`
-    * `compatible`: your display controller chip
-    * `titanmec,transposed` : optional flag indicating that the data matrix should be transposed when writing to the controller (grids and segments are inverted), required on some devices
-    * `titanmec,digits`: variable lengh byte array determining the number of text grid digits and their index position 
-    * `titanmec,segment-mapping`: array of 7 bytes specifying which bit of a grid digit should be used for each ascii map segment
-  * `led@X,Y`
-    * X: grid cell index
-    * Y: segment index
-    * `reg`: must match `<X Y>` above
-    * `function`: sets the sysfs name of the led
-
+See device tree bindings documentation: [titanmec,tm16xx.yaml](Documentation/devicetree/bindings/auxdisplay/titanmec,tm16xx.yaml).
 
 # Usage
 

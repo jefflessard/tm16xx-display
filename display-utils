@@ -77,7 +77,8 @@ usage() {
 
 case "$1" in
     -t)
-        [ $# -ne 2 ] && usage
+        [ $# -lt 2 ] && usage
+        [ $# -gt 3 ] && usage
         if [ $# -eq 3 ]; then
 		DISPLAY_PATH="/sys/class/leds/$3"
 		BRIGHTNESS=$(cat $DISPLAY_PATH/max_brightness)
