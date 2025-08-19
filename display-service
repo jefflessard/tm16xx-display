@@ -1,22 +1,142 @@
 #!/bin/sh
+#
+# display-service: display daemon and utility for TM16xx LED panel
 
-DISPLAY_PATH="/sys/class/leds/display"
+LOCK_FILE="/run/display.lock"
+SERVICE_NAME="display"
+RESTART_SERVICE=0
+DISPLAY="display"
+DISPLAY_PATH=""
+NUM_DIGITS=""
+BRIGHTNESS=""
+ACTION=""
+TEXT=""
 
-log_info() {
-	echo "[INFO] $1"
+# --- Logging ---
+log_info()   { echo "[INFO] $*"; }
+log_warn()   { echo "[WARN] $*" >&2; }
+log_error()  { echo "[ERROR] $*" >&2; }
+
+die() { log_error "$*"; unlock; exit 1; }
+
+# --- Exclusivity lock ---
+lock() {
+	# Try to create a symlink to our PID; if exists, check if stale
+	if ln -s "$$" "$LOCK_FILE" 2>/dev/null; then
+		# Lock acquired
+		return 0
+	elif [ -L "$LOCK_FILE" ]; then
+		LOCK_OWNER_PID=$(readlink "$LOCK_FILE")
+		# Check if process is still alive
+		if ! kill -0 "$LOCK_OWNER_PID" 2>/dev/null; then
+			# Stale lock, remove and retry
+			rm -f "$LOCK_FILE"
+			lock
+		else
+			die "Display already in use (active lock: $LOCK_FILE by PID $LOCK_OWNER_PID)"
+		fi
+	else
+		die "Display already in use (failed to acquire lock: $LOCK_FILE)"
+	fi
 }
 
-log_warn() {
-	echo "[WARN] $1" >&2
+unlock() {
+	if [ -L "$LOCK_FILE" ]; then
+		LOCK_OWNER_PID=$(readlink "$LOCK_FILE")
+		if [ "$LOCK_OWNER_PID" = "$$" ]; then
+			rm -f "$LOCK_FILE"
+		fi
+	fi
 }
 
-log_error() {
-	echo "[ERROR] $1" >&2
+# --- State helpers ---
+display_prepare() {
+	if systemctl is-active --quiet "$SERVICE_NAME"; then
+		log_info "Stopping display service..."
+		systemctl stop "$SERVICE_NAME" || die "Failed to stop service"
+		RESTART_SERVICE=1
+	fi
+
+	lock
 }
 
+display_release() {
+	unlock
+
+	if [ "$RESTART_SERVICE" -eq 1 ]; then
+		log_info "Restoring display service..."
+		systemctl start "$SERVICE_NAME" || die "Failed to restart service"
+	fi
+
+	exit
+}
+
+# --- Shared display functions ---
+display_clear() {
+	for led in "$DISPLAY_PATH"::*; do
+		if [ -d "$led" ]; then
+			echo none > "$led/trigger" 2>/dev/null
+			echo 0 > "$led/brightness" 2>/dev/null
+		fi
+	done
+
+	: > "$DISPLAY_PATH/value" 2>/dev/null
+	echo 0 > "$DISPLAY_PATH/brightness" 2>/dev/null
+}
+
+display_on() {
+	echo "$BRIGHTNESS" > "$DISPLAY_PATH/brightness" 2>/dev/null || log_warn "Failed to set display brightness"
+}
+
+display_text() {
+	_text="$1"
+	_padding="${2:- }"
+	_sleep="${3:-0.5}"
+	i=1
+
+	while [ $i -le "$NUM_DIGITS" ]; do
+		_text="$_padding$_text$_padding"
+		i=$((i + 1))
+	done
+
+	while [ "${#_text}" -ge "$NUM_DIGITS" ]; do
+		printf '%s\n' "$(printf '%s' "$_text" | cut -c1-"$NUM_DIGITS")" > "$DISPLAY_PATH/value"
+		_text="$(printf '%s' "$_text" | cut -c2-)"
+		sleep "$_sleep"
+	done
+}
+
+display_check() {
+	log_info "all digits and leds on"
+	echo 88888888 > "$DISPLAY_PATH/value"
+	for led in "$DISPLAY_PATH":*; do
+		echo 1 > "$led/brightness"
+	done
+	sleep 1
+
+	log_info "all digits and leds off"
+	: > "$DISPLAY_PATH/value"
+	for led in "$DISPLAY_PATH":*; do
+		echo 0 > "$led/brightness"
+	done
+
+	log_info "digit order: 12345678"
+	echo 12345678 > "$DISPLAY_PATH/value"
+	sleep 1
+
+	for led in "$DISPLAY_PATH":*; do
+		echo 1 > "$led/brightness"
+		led_name="${led##*:}"
+		led_name=$(printf '%s' "$led_name" | tr '[:lower:]' '[:upper:]')
+		log_info "led $led_name on"
+		display_text "$led_name" " " 0.25
+		echo 0 > "$led/brightness"
+	done
+}
+
+# --- Daemon mode ---
 load_module() {
 	module_name="$1"
-
 	if command -v modprobe >/dev/null 2>&1; then
 		if modprobe "$module_name" 2>/dev/null; then
 			log_info "Successfully loaded module: $module_name"
@@ -36,76 +156,52 @@ configure_trigger() {
 	led_path="$2"
 	trigger_name="$3"
 	module_name="$4"
-
 	trigger_path="$led_path/trigger"
 
-	# Check if LED path exists
 	if [ ! -d "$led_path" ]; then
 		log_info "$led_name LED not found"
 		return 1
 	fi
 
-	# Check if trigger file exists
 	if [ ! -f "$trigger_path" ]; then
 		log_error "LED trigger path not found: $trigger_path"
-		log_error "Check kernel has been built with CONFIG_LEDS_TRIGGERS=y"
 		return 1
 	fi
 
-	# Check if trigger is already set
-	if grep -q "\\[$trigger_name\\]" "$trigger_path" 2>/dev/null; then
+	if grep -q "\[$trigger_name\]" "$trigger_path" 2>/dev/null ; then
 		log_info "$led_name LED trigger already configured"
 		return 0
 	fi
 
-	# Check if trigger is available
 	if ! grep -q "$trigger_name" "$trigger_path" 2>/dev/null; then
-		log_warn "$led_name LED trigger '$trigger_name' not available, attempting to load module $module_name"
+		log_warn "$led_name LED trigger '$trigger_name' not available, attempting to load $module_name"
+		[ -n "$module_name" ] && load_module "$module_name" || return 1
 
-		# Try to load the required module
-		if [ -n "$module_name" ]; then
-			load_module "$module_name" || return 1
-		fi
-
-		# Check again if trigger is now available
 		if ! grep -q "$trigger_name" "$trigger_path" 2>/dev/null; then
-			log_error "$led_name LED trigger '$trigger_name' still not available after module load attempt"
+			log_error "$led_name LED trigger '$trigger_name' still not available"
 			return 1
 		fi
 	fi
 
-	# Set the trigger
 	if echo "$trigger_name" > "$trigger_path" 2>/dev/null; then
-		log_info "$led_name LED trigger configured to '$trigger_name'"
+		log_info "$led_name LED trigger set to '$trigger_name'"
 		return 0
 	else
+
 		log_error "Failed to set $led_name LED trigger: $trigger_name"
 		return 1
 	fi
 }
 
-display_clear() {
-	for led in $DISPLAY_PATH::*; do
-		if [ -d "$led" ]; then
-			echo none > "$led/trigger" 2>/dev/null || true
-			echo 0 > "$led/brightness" 2>/dev/null || true
-		fi
-	done
-	echo > "$DISPLAY_PATH/value" 2>/dev/null || true
-	echo 0 > "$DISPLAY_PATH/brightness" 2>/dev/null || true
-}
+daemon_init() {
+	lock
 
-display_init() {
 	display_clear
-
-	echo $BRIGHTNESS > "$DISPLAY_PATH/brightness" 2>/dev/null || log_warn "Failed to set display brightness"
+	display_on
 
 	if configure_trigger "USB" "$LED_USB" "usbport" "ledtrig-usbport"; then
-		# Enable all USB ports
-		for port in $LED_USB/ports/*; do
-			if [ -f "$port" ]; then
-				echo 1 > "$port" 2>/dev/null || log_warn "Failed to enable USB port: $port"
-			fi
+		for port in "$LED_USB"/ports/*; do
+			[ -f "$port" ] && echo 1 > "$port" 2>/dev/null || log_warn "Failed to enable USB port: $port"
 		done
 	fi
 
@@ -127,101 +223,158 @@ display_init() {
 	configure_trigger "SD Card" "$LED_SDCARD" "mmc0" "mmc_core"
 }
 
-display_cleanup() {
-	log_info "Received exit signal, initiating cleanup"
-	display_time_stop
-	display_clear
-	exit 0
-}
-
-display_time_start() {
+daemon_time_start() {
 	configure_trigger "Time Colon" "$LED_COLON" "timer" "ledtrig_timer"
-	display_time_update &
+	daemon_time_update &
 	TIME_PID=$!
-	log_info "Time display started with PID: $TIME_PID"
+	log_info "Time display started with PID $TIME_PID"
 }
 
-display_time_stop() {
+daemon_time_stop() {
 	if [ -n "$TIME_PID" ]; then
-		log_info "Stopping time display (PID: $TIME_PID)"
-		kill "$TIME_PID" 2>/dev/null || true
+		log_info "Stopping time display (PID $TIME_PID)"
+		kill "$TIME_PID" 2>/dev/null
 		unset TIME_PID
 	fi
 
 	if [ -d "$LED_COLON" ] && [ -f "$LED_COLON/trigger" ]; then
-		echo none > "$LED_COLON/trigger" 2>/dev/null || true
+		echo none > "$LED_COLON/trigger" 2>/dev/null
 	fi
 }
 
-display_time_update() {
+daemon_time_update() {
 	while true; do
 		current_seconds=$(date +%-S)
 		sleep_time=$((60 - current_seconds))
-		if [ "$sleep_time" -le 0 ]; then
-			sleep_time=60
-		fi
+
+		[ "$sleep_time" -le 0 ] && sleep_time=60
 		sleep "$sleep_time" &
 
-		if [ -f "$DISPLAY_PATH/value" ]; then
-			date +%H%M > "$DISPLAY_PATH/value" 2>/dev/null || log_warn "Failed to update display time"
-		fi
+		[ -f "$DISPLAY_PATH/value" ] && date +%H%M > "$DISPLAY_PATH/value" 2>/dev/null || log_warn "Failed to update time"
 		wait
 	done
 }
 
-trap display_cleanup HUP TERM QUIT KILL INT
+daemon_stop() {
+	log_info "Received exit signal, cleaning up"
+	daemon_time_stop
+	display_clear
+	unlock
+	exit 0
+}
 
-log_info "Starting TM16xx display service"
+# --- Argument parsing ---
+show_usage() {
+	cat <<EOF
+Usage:
+  $0 [options] [action]
 
-while [ "$#" -gt 0 ]; do
+Options:
+  -d <display>      Set display name (default: display)
+  -b <brightness>   Set brightness (optional)
+
+Actions (choose only one):
+  -t <text>         One-shot: display scrolling text
+  -c                One-shot: display panel check
+  (none)            Run as service
+EOF
+	exit 1
+}
+
+# Parse options first, then action
+while [ $# -gt 0 ]; do
 	case "$1" in
 		-d|--display)
-			if [ -n "$2" ]; then
-				DISPLAY_PATH="/sys/class/leds/$2"
-				log_info "Display set to $DISPLAY_PATH."
-				shift 2
-			else
-				log_error "Error: Option '$1' requires an argument"
-				exit 1
-			fi
+			[ -n "$2" ] || show_usage
+			DISPLAY="$2"
+			shift 2
 			;;
 		-b|--brightness)
-			if [ -n "$2" ]; then
-				BRIGHTNESS=$2
-				log_info "Brightness set to $BRIGHTNESS."
-				shift 2
-			else
-				log_error "Error: Option '$1' requires an argument"
-				exit 1;
-			fi
+			[ -n "$2" ] || show_usage
+			BRIGHTNESS="$2"
+			shift 2
 			;;
-		--)
+		-t)
+			[ -z "$ACTION" ] || show_usage
+			[ -n "$2" ] || show_usage
+			ACTION="text"
+			TEXT="$2"
+			shift 2
+			;;
+		-c)
+			[ -z "$ACTION" ] || show_usage
+			ACTION="check"
+			shift 1
+			;;
+		-h|--help)
+			show_usage
+			;;
+		--) # End of options
 			shift
-			break # Stop processing options
+			break
 			;;
 		*)
-			log_error "Unknown option: $1"
-			exit 1
+			show_usage
 			;;
 	esac
 done
 
+# --- Setup display path ---
+DISPLAY_PATH="/sys/class/leds/$DISPLAY"
 if [ ! -d "$DISPLAY_PATH" ]; then
-	log_warn "Display device not found at $DISPLAY_PATH, attempting to load module tm16xx"
-	load_module "tm16xx" || exit 1
+	log_warn "Display device directory missing at $DISPLAY_PATH; attempting module load"
+	load_module tm16xx || die "Cannot load tm16xx kernel module"
+	[ -d "$DISPLAY_PATH" ] || die "Display device not present after modprobe"
 fi
 
-LED_USB="$DISPLAY_PATH::usb"
-LED_LAN="$DISPLAY_PATH::lan"
-LED_WIFI="$DISPLAY_PATH::wlan"
-LED_BLUETOOTH="$DISPLAY_PATH::bluetooth"
-LED_SDCARD="$DISPLAY_PATH::sd"
-LED_COLON="$DISPLAY_PATH::colon"
-
+# --- Initialize display parameters ---
 if [ -z "$BRIGHTNESS" ]; then
-	BRIGHTNESS=$(cat $DISPLAY_PATH/max_brightness)
+	if [ -f "$DISPLAY_PATH/max_brightness" ]; then
+		BRIGHTNESS=$(cat "$DISPLAY_PATH/max_brightness")
+	else
+		BRIGHTNESS=7
+	fi
+fi
+if [ -f "$DISPLAY_PATH/num_digits" ]; then
+	NUM_DIGITS=$(cat "$DISPLAY_PATH/num_digits")
+else
+	NUM_DIGITS=8
 fi
 
-display_init
-display_time_start
-wait
+# --- Action mode ---
+if [ -n "$ACTION" ]; then
+	display_prepare
+	trap display_release HUP TERM QUIT INT EXIT
+
+	display_on
+
+	case "$ACTION" in
+		text)
+			display_text "$TEXT" " " 0.5
+			;;
+		check)
+			display_check
+			;;
+		*)
+			die "Invalid action"
+			;;
+	esac
+
+	exit 0
+
+# --- Daemon mode ---
+else
+	LED_USB="$DISPLAY_PATH::usb"
+	LED_LAN="$DISPLAY_PATH::lan"
+	LED_WIFI="$DISPLAY_PATH::wlan"
+	LED_BLUETOOTH="$DISPLAY_PATH::bluetooth"
+	LED_SDCARD="$DISPLAY_PATH::sd"
+	LED_COLON="$DISPLAY_PATH::colon"
+
+	daemon_init
+	trap daemon_stop HUP TERM QUIT INT
+
+	log_info "Starting TM16xx display-service in daemon mode"
+	daemon_time_start
+	wait
+fi

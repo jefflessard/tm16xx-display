@@ -35,7 +35,7 @@ module-install:
 
 service-install:
 	modprobe tm16xx
-	cp display-service display-utils /usr/sbin/
+	cp display-service /usr/sbin/
 	cp display.service /lib/systemd/system/
 	systemctl daemon-reload
 	systemctl enable display

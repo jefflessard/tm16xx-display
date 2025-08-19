@@ -158,7 +158,7 @@ make service-install
 
 ## Check your display configuration
 ```sh
-display-utils -c
+display-service -c
 ```
 3 phase display check
 1. Check that all leds are ON
@@ -203,11 +203,11 @@ systemctl restart display
 
 ## Show scrolling text on the display
 ```sh
-display-utils -t "{your_message}"
+display-service -t "{your_message}"
 ```
 
 ## Customize display service
-Just edit the bash script at `/sbin/display-service`
+Just edit the shell script at `/usr/sbin/display-service`
 
 ## Customize display from shell
 ```sh
