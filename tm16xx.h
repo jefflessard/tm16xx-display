@@ -24,31 +24,31 @@
 
 /* Command type bits (bits 7-6) */
 #define TM16XX_CMD_MASK		GENMASK(7, 6)
-#define TM16XX_CMD_MODE		0
-#define TM16XX_CMD_DATA		BIT(6)
-#define TM16XX_CMD_CTRL		BIT(7)
-#define TM16XX_CMD_ADDR		(BIT(7) | BIT(6))
+#define TM16XX_CMD_MODE		(0 << 6)
+#define TM16XX_CMD_DATA		(1 << 6)
+#define TM16XX_CMD_CTRL		(2 << 6)
+#define TM16XX_CMD_ADDR		(3 << 6)
 #define TM16XX_CMD_WRITE	(TM16XX_CMD_DATA | TM16XX_DATA_MODE_WRITE)
 #define TM16XX_CMD_READ		(TM16XX_CMD_DATA | TM16XX_DATA_MODE_READ)
 
 /* Mode command grid settings (bits 1-0) */
 #define TM16XX_MODE_GRID_MASK	GENMASK(1, 0)
-#define TM16XX_MODE_4GRIDS	0
-#define TM16XX_MODE_5GRIDS	BIT(0)
-#define TM16XX_MODE_6GRIDS	BIT(1)
-#define TM16XX_MODE_7GRIDS	(BIT(1) | BIT(0))
+#define TM16XX_MODE_4GRIDS	(0 << 0)
+#define TM16XX_MODE_5GRIDS	(1 << 0)
+#define TM16XX_MODE_6GRIDS	(2 << 0)
+#define TM16XX_MODE_7GRIDS	(3 << 0)
 
 /* Data command settings */
 #define TM16XX_DATA_ADDR_MASK	BIT(2)
-#define TM16XX_DATA_ADDR_AUTO	0
-#define TM16XX_DATA_ADDR_FIXED	BIT(2)
+#define TM16XX_DATA_ADDR_AUTO	(0 << 2)
+#define TM16XX_DATA_ADDR_FIXED	(1 << 2)
 #define TM16XX_DATA_MODE_MASK	GENMASK(1, 0)
-#define TM16XX_DATA_MODE_WRITE	0
-#define TM16XX_DATA_MODE_READ	BIT(1)
+#define TM16XX_DATA_MODE_WRITE	(0 << 0)
+#define TM16XX_DATA_MODE_READ	(2 << 0)
 
 /* Control command settings */
-#define TM16XX_CTRL_ON		BIT(3)
 #define TM16XX_CTRL_BR_MASK	GENMASK(2, 0)
+#define TM16XX_CTRL_ON		(1 << 3)
 
 /* TM1618 specific constants */
 #define TM1618_BYTE1_MASK	GENMASK(4, 0)
@@ -69,6 +69,7 @@
 
 /* FD620 specific constants */
 #define FD620_BYTE1_MASK	GENMASK(6, 0)
+
 #define FD620_BYTE2_MASK	BIT(7)
 #define FD620_BYTE2_SHIFT	5
 #define FD620_KEY_READ_LEN	4
@@ -79,11 +80,11 @@
 #define TM1650_CMD_READ		0x4F
 #define TM1650_CMD_ADDR		0x68
 #define TM1650_CTRL_BR_MASK	GENMASK(6, 4)
-#define TM1650_CTRL_ON		BIT(0)
-#define TM1650_CTRL_SLEEP	BIT(2)
+#define TM1650_CTRL_ON		(1 << 0)
+#define TM1650_CTRL_SLEEP	(1 << 2)
 #define TM1650_CTRL_SEG_MASK	BIT(3)
-#define TM1650_CTRL_SEG8_MODE	0
-#define TM1650_CTRL_SEG7_MODE	BIT(3)
+#define TM1650_CTRL_SEG8_MODE	(0 << 3)
+#define TM1650_CTRL_SEG7_MODE	(1 << 3)
 #define TM1650_KEY_ROW_MASK	GENMASK(1, 0)
 #define TM1650_KEY_COL_MASK	GENMASK(5, 3)
 #define TM1650_KEY_DOWN_MASK	BIT(6)
@@ -92,11 +93,11 @@
 #define FD655_CMD_CTRL		0x48
 #define FD655_CMD_ADDR		0x66
 #define FD655_CTRL_BR_MASK	GENMASK(6, 5)
-#define FD655_CTRL_ON		BIT(0)
+#define FD655_CTRL_ON		(1 << 0)
 
 #define FD6551_CMD_CTRL		0x48
 #define FD6551_CTRL_BR_MASK	GENMASK(3, 1)
-#define FD6551_CTRL_ON		BIT(0)
+#define FD6551_CTRL_ON		(1 << 0)
 
 #define HBS658_KEY_COL_MASK	GENMASK(7, 5)
 
