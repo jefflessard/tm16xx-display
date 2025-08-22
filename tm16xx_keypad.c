@@ -105,15 +105,13 @@ int tm16xx_keypad_probe(struct tm16xx_display *display)
 	keypad->last_state = devm_bitmap_zalloc(display->dev, nbits, GFP_KERNEL);
 	keypad->changes = devm_bitmap_zalloc(display->dev, nbits, GFP_KERNEL);
 	if (!keypad->state || !keypad->last_state || !keypad->changes) {
-		ret = -ENOMEM;
-		goto free_keypad;
+		return -ENOMEM;
 	}
 
 	input = devm_input_allocate_device(display->dev);
 	if (!input) {
 		dev_err(display->dev, "Failed to allocate input device\n");
-		ret = -ENOMEM;
-		goto free_bitmaps;
+		return -ENOMEM;
 	}
 	input->name = TM16XX_DRIVER_NAME "-keypad";
 	keypad->input = input;
@@ -124,7 +122,7 @@ int tm16xx_keypad_probe(struct tm16xx_display *display)
 					 input);
 	if (ret < 0) {
 		dev_err(display->dev, "Failed to build keymap: %d\n", ret);
-		goto free_input;
+		return ret;
 	}
 
 	if (device_property_read_bool(display->dev, "autorepeat"))
@@ -136,21 +134,11 @@ int tm16xx_keypad_probe(struct tm16xx_display *display)
 	if (ret < 0) {
 		dev_err(display->dev, "Failed to register input device: %d\n",
 			ret);
-		goto free_input;
+		return ret;
 	}
 
 	dev_dbg(display->dev, "keypad rows=%u, cols=%u, poll=%u\n", rows, cols,
 		poll_interval);
 
 	return 0;
-
-free_input:
-	input_free_device(input);
-free_bitmaps:
-	devm_kfree(display->dev, keypad->state);
-	devm_kfree(display->dev, keypad->last_state);
-	devm_kfree(display->dev, keypad->changes);
-free_keypad:
-	devm_kfree(display->dev, keypad);
-	return ret;
 }
