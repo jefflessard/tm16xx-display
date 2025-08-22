@@ -225,8 +225,7 @@ static ssize_t tm16xx_map_seg7_store(struct device *dev,
 				     struct device_attribute *attr,
 				     const char *buf, size_t cnt)
 {
-	if (cnt != sizeof(map_seg7))
-		return -EINVAL;
+	if (cnt != sizeof(map_seg7)) return -EINVAL;
 	memcpy(&map_seg7, buf, cnt);
 	return cnt;
 }
@@ -435,8 +434,7 @@ int tm16xx_probe(struct tm16xx_display *display)
 
 	nbits = tm16xx_led_nbits(display);
 	display->state = devm_bitmap_zalloc(display->dev, nbits, GFP_KERNEL);
-	if (!display->state)
-		return -ENOMEM;
+	if (!display->state) return -ENOMEM;
 
 	mutex_init(&display->lock);
 	INIT_WORK(&display->flush_init, tm16xx_display_flush_init);

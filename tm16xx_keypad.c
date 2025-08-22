@@ -96,8 +96,7 @@ int tm16xx_keypad_probe(struct tm16xx_display *display)
 	}
 
 	keypad = devm_kzalloc(display->dev, sizeof(*keypad), GFP_KERNEL);
-	if (!keypad)
-		return -ENOMEM;
+	if (!keypad) return -ENOMEM;
 	keypad->display = display;
 
 	nbits = tm16xx_key_nbits(keypad);
@@ -109,10 +108,7 @@ int tm16xx_keypad_probe(struct tm16xx_display *display)
 	}
 
 	input = devm_input_allocate_device(display->dev);
-	if (!input) {
-		dev_err(display->dev, "Failed to allocate input device\n");
-		return -ENOMEM;
-	}
+	if (!input) return -ENOMEM;
 	input->name = TM16XX_DRIVER_NAME "-keypad";
 	keypad->input = input;
 	input_set_drvdata(input, keypad);
