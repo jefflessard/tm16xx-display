@@ -393,7 +393,7 @@ MODULE_DEVICE_TABLE(spi, tm16xx_spi_id);
 
 static struct spi_driver tm16xx_spi_driver = {
 	.driver = {
-		.name = TM16XX_DRIVER_NAME,
+		.name = "tm16xx-spi",
 		.of_match_table = of_match_ptr(tm16xx_spi_of_match),
 	},
 	.probe = tm16xx_spi_probe,
@@ -401,13 +401,9 @@ static struct spi_driver tm16xx_spi_driver = {
 	.shutdown = tm16xx_spi_remove,
 	.id_table = tm16xx_spi_id,
 };
+module_spi_driver(tm16xx_spi_driver);
 
-int tm16xx_spi_register(void)
-{
-	return spi_register_driver(&tm16xx_spi_driver);
-}
-
-void tm16xx_spi_unregister(void)
-{
-	spi_unregister_driver(&tm16xx_spi_driver);
-}
+MODULE_AUTHOR("Jean-François Lessard");
+MODULE_DESCRIPTION("TM16xx-spi LED Display Controllers");
+MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS(TM16XX);

@@ -223,37 +223,9 @@ struct tm16xx_keypad {
 	u8 row_shift;
 };
 
-int tm16xx_probe(struct tm16xx_display *display);
-void tm16xx_remove(struct tm16xx_display *display);
+extern int tm16xx_probe(struct tm16xx_display *display);
+extern void tm16xx_remove(struct tm16xx_display *display);
 int tm16xx_keypad_probe(struct tm16xx_display *display);
-
-#if IS_ENABLED(CONFIG_I2C)
-int tm16xx_i2c_register(void);
-void tm16xx_i2c_unregister(void);
-#else
-static inline int tm16xx_i2c_register(void)
-{
-	return 0;
-}
-
-static inline void tm16xx_i2c_unregister(void)
-{
-}
-#endif
-
-#if IS_ENABLED(CONFIG_SPI_MASTER)
-int tm16xx_spi_register(void);
-void tm16xx_spi_unregister(void);
-#else
-static inline int tm16xx_spi_register(void)
-{
-	return 0;
-}
-
-static inline void tm16xx_spi_unregister(void)
-{
-}
-#endif
 
 /* state bitmap helpers */
 /**

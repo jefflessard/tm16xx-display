@@ -324,7 +324,7 @@ MODULE_DEVICE_TABLE(i2c, tm16xx_i2c_id);
 
 static struct i2c_driver tm16xx_i2c_driver = {
 	.driver = {
-		.name = TM16XX_DRIVER_NAME,
+		.name = "tm16xx-i2c",
 		.of_match_table = of_match_ptr(tm16xx_i2c_of_match),
 	},
 	.probe = tm16xx_i2c_probe,
@@ -332,13 +332,9 @@ static struct i2c_driver tm16xx_i2c_driver = {
 	.shutdown = tm16xx_i2c_remove,
 	.id_table = tm16xx_i2c_id,
 };
+module_i2c_driver(tm16xx_i2c_driver);
 
-int tm16xx_i2c_register(void)
-{
-	return i2c_add_driver(&tm16xx_i2c_driver);
-}
-
-void tm16xx_i2c_unregister(void)
-{
-	i2c_del_driver(&tm16xx_i2c_driver);
-}
+MODULE_AUTHOR("Jean-François Lessard");
+MODULE_DESCRIPTION("TM16xx-i2c LED Display Controllers");
+MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS(TM16XX);

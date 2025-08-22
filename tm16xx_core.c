@@ -496,6 +496,7 @@ int tm16xx_probe(struct tm16xx_display *display)
 
 	return 0;
 }
+EXPORT_SYMBOL_NS(tm16xx_probe, TM16XX);
 
 /**
  * tm16xx_remove() - Remove display, unregister LEDs, blank output
@@ -524,42 +525,8 @@ void tm16xx_remove(struct tm16xx_display *display)
 
 	dev_info(display->dev, "Display turned off\n");
 }
-
-
-/**
- * tm16xx_init() - Module initialization entrypoint
- *
- * Return: 0 on success, negative error code on failure
- */
-static int __init tm16xx_init(void)
-{
-	int ret;
-
-	ret = tm16xx_spi_register();
-	if (ret)
-		return ret;
-
-	ret = tm16xx_i2c_register();
-	if (ret) {
-		tm16xx_spi_unregister();
-		return ret;
-	}
-
-	return 0;
-}
-
-/**
- * tm16xx_exit() - Module exit/cleanup
- */
-static void __exit tm16xx_exit(void)
-{
-	tm16xx_i2c_unregister();
-	tm16xx_spi_unregister();
-}
-
-module_init(tm16xx_init);
-module_exit(tm16xx_exit);
+EXPORT_SYMBOL_NS(tm16xx_remove, TM16XX);
 
 MODULE_AUTHOR("Jean-François Lessard");
-MODULE_DESCRIPTION("TM16XX Compatible LED Display Controllers");
+MODULE_DESCRIPTION("TM16xx LED Display Controllers");
 MODULE_LICENSE("GPL");
