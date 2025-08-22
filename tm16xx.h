@@ -226,7 +226,15 @@ struct tm16xx_keypad {
 
 extern int tm16xx_probe(struct tm16xx_display *display);
 extern void tm16xx_remove(struct tm16xx_display *display);
+
+#if IS_ENABLED(CONFIG_TM16XX_KEYPAD)
 int tm16xx_keypad_probe(struct tm16xx_display *display);
+#else
+static inline int tm16xx_keypad_probe(struct tm16xx_display *display)
+{
+	return 0;
+}
+#endif
 
 /* state bitmap helpers */
 /**

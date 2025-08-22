@@ -6,6 +6,9 @@ config TM16XX
 	select LEDS_CLASS
 	select LEDS_TRIGGERS
 	select INPUT_MATRIXKMAP
+	select TM16XX_KEYPAD if (INPUT)
+	select TM16XX_I2C if (I2C)
+	select TM16XX_SPI if (SPI)
 	help
 	  This driver supports the following TM16XX compatible
 	  I2C and SPI 7-segment led display chips:
@@ -17,3 +20,15 @@ config TM16XX
 
 	  This driver can also be built as a module. If so, the module
 	  will be called tm16xx.
+
+config TM16XX_KEYPAD
+	bool
+	depends on TM16XX
+
+config TM16XX_I2C
+	tristate
+	depends on TM16XX
+
+config TM16XX_SPI
+	tristate
+	depends on TM16XX

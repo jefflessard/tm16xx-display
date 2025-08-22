@@ -1,11 +1,20 @@
 # Makefile for building the tm16xx kernel module and updating the device tree
 
-# Kernel module parameters
-# MODULE_NAME = tm16xx
+# tm16xx module
+CCFLAGS += -DCONFIG_TM16XX
 obj-m += tm16xx.o
 tm16xx-objs += tm16xx_core.o
+
+# keypad support
+CCFLAGS += -DCONFIG_TM16XX_KEYPAD
 tm16xx-objs += tm16xx_keypad.o
+
+# tm16xx-i2c module
+CCFLAGS += -DCONFIG_TM16XX_I2C
 obj-m += tm16xx_i2c.o
+
+# tm16xx-spi module
+CCFLAGS += -DCONFIG_TM16XX_SPI
 obj-m += tm16xx_spi.o
 
 # if custom initial display value is wanted:
