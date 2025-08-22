@@ -12,9 +12,12 @@
 
 #include "tm16xx.h"
 
-static char *default_value;
-module_param(default_value, charp, 0444);
-MODULE_PARM_DESC(default_value, "Default display value to initialize");
+
+#ifdef CONFIG_PANEL_BOOT_MESSAGE
+static const char *tm16xx_init_value = CONFIG_PANEL_BOOT_MESSAGE;
+#else
+static const char *tm16xx_init_value = NULL;
+#endif
 
 static SEG7_CONVERSION_MAP(map_seg7, MAP_ASCII7SEG_ALPHANUM);
 
@@ -256,9 +259,10 @@ static int tm16xx_display_init(struct tm16xx_display *display)
 	if (display->flush_status < 0)
 		return display->flush_status;
 
-	if (default_value) {
-		tm16xx_value_store(display->main_led.dev, NULL, default_value,
-				   strlen(default_value));
+	if (tm16xx_init_value) {
+		tm16xx_value_store(display->main_led.dev, NULL,
+				   tm16xx_init_value,
+				   strlen(tm16xx_init_value));
 	} else {
 		bitmap_fill(display->state, nbits);
 		schedule_work(&display->flush_display);

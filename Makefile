@@ -8,6 +8,10 @@ tm16xx-objs += tm16xx_keypad.o
 obj-m += tm16xx_i2c.o
 obj-m += tm16xx_spi.o
 
+# if custom initial display value is wanted:
+# CCFLAGS += -DCONFIG_PANEL_BOOT_MESSAGE=\\\"boot\\\"
+# CCFLAGS += -DCONFIG_PANEL_BOOT_MESSAGE=\\\"\\\"
+
 # Path to the kernel source tree
 KDIR ?= /lib/modules/$(shell uname -r)/build
 
