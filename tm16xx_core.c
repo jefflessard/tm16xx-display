@@ -442,6 +442,7 @@ int tm16xx_probe(struct tm16xx_display *display)
 	INIT_WORK(&display->flush_init, tm16xx_display_flush_init);
 	INIT_WORK(&display->flush_display, tm16xx_display_flush_data);
 
+	/* Initialize main LED properties */
 	main->name = TM16XX_DEVICE_NAME;
 	main->brightness = display->controller->max_brightness;
 	main->max_brightness = display->controller->max_brightness;
@@ -456,12 +457,19 @@ int tm16xx_probe(struct tm16xx_display *display)
 	main->groups = tm16xx_main_led_groups;
 	main->flags = LED_RETAIN_AT_SHUTDOWN | LED_CORE_SUSPENDRESUME;
 
-	ret = devm_led_classdev_register(dev, &display->main_led);
+	ret = led_classdev_register(dev, &display->main_led);
 	if (ret < 0) {
 		dev_err(dev, "Failed to register main LED: %d\n", ret);
 		return ret;
 	}
 
+	/* Register individual LEDs from device tree:
+	 * Use non-devm LED registration to allow explicit unregistration on
+	 * device removal, ensuring LED triggers are immediately stopped.
+	 * This prevents stale LED trigger activity from continuing after the
+	 * hardware is gone, avoiding the need for complex state tracking in
+	 * brightness callbacks.
+	 */
 	i = 0;
 	leds_node = device_get_named_child_node(dev, "leds");
 	fwnode_for_each_child_node(leds_node, child) {
@@ -477,12 +485,12 @@ int tm16xx_probe(struct tm16xx_display *display)
 		led->cdev.flags = LED_RETAIN_AT_SHUTDOWN |
 				  LED_CORE_SUSPENDRESUME;
 
-		ret = devm_led_classdev_register_ext(dev, &led->cdev, &led_init);
+		ret = led_classdev_register_ext(dev, &led->cdev, &led_init);
 		if (ret < 0) {
 			fwnode_handle_put(child);
 			dev_err(dev, "Failed to register LED %s: %d\n",
 				led->cdev.name, ret);
-			return ret;
+			goto unregister_leds;
 		}
 
 		i++;
@@ -491,7 +499,7 @@ int tm16xx_probe(struct tm16xx_display *display)
 	ret = tm16xx_display_init(display);
 	if (ret < 0) {
 		dev_err(display->dev, "Failed to initialize display: %d\n", ret);
-		return ret;
+		goto unregister_leds;
 	}
 
 	ret = tm16xx_keypad_probe(display);
@@ -499,6 +507,12 @@ int tm16xx_probe(struct tm16xx_display *display)
 		dev_warn(display->dev, "Failed to initialize keypad: %d\n", ret);
 
 	return 0;
+
+unregister_leds:
+	while (i--) led_classdev_unregister(&display->leds[i].cdev);
+
+	led_classdev_unregister(&display->main_led);
+	return ret;
 }
 EXPORT_SYMBOL_NS(tm16xx_probe, TM16XX);
 
@@ -513,16 +527,23 @@ void tm16xx_remove(struct tm16xx_display *display)
 
 	dev_dbg(display->dev, "Removing display\n");
 
+	/*
+	 * Unregister LEDs first to immediately stop trigger activity.
+	 * This prevents LED triggers from attempting to access hardware
+	 * after it's been disconnected or driver unloaded.
+	 */
 	for (int i = 0; i < display->num_leds; i++) {
 		led = &display->leds[i];
-		devm_led_classdev_unregister(display->dev, &led->cdev);
+		led_classdev_unregister(&led->cdev);
 	}
-	devm_led_classdev_unregister(display->dev, &display->main_led);
+	led_classdev_unregister(&display->main_led);
 
+	/* Clear display state */
 	bitmap_zero(display->state, nbits);
 	schedule_work(&display->flush_display);
 	flush_work(&display->flush_display);
 
+	/* Turn off display */
 	display->main_led.brightness = LED_OFF;
 	schedule_work(&display->flush_init);
 	flush_work(&display->flush_init);
