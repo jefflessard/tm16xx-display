@@ -73,7 +73,7 @@ int tm16xx_keypad_probe(struct tm16xx_display *display)
 	struct tm16xx_keypad *keypad;
 	struct input_dev *input;
 	unsigned int poll_interval, nbits;
-	int ret = 0;
+	int ret;
 
 	if (!display->controller->keys || !rows || !cols) {
 		dev_dbg(display->dev, "keypad not supported\n");
