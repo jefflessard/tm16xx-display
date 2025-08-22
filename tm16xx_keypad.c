@@ -23,8 +23,7 @@ static void tm16xx_keypad_poll(struct input_dev *input)
 	struct tm16xx_keypad *keypad = input_get_drvdata(input);
 	const unsigned short *keycodes = keypad->input->keycode;
 	unsigned int nbits = tm16xx_key_nbits(keypad);
-
-	unsigned int bit;
+	unsigned int bit, scancode;
 	u8 row, col;
 	bool pressed;
 	int ret;
@@ -47,7 +46,7 @@ static void tm16xx_keypad_poll(struct input_dev *input)
 		row = tm16xx_get_key_row(keypad, bit);
 		col = tm16xx_get_key_col(keypad, bit);
 		pressed = _test_bit(bit, keypad->state);
-		u16 scancode = MATRIX_SCAN_CODE(row, col, keypad->row_shift);
+		scancode = MATRIX_SCAN_CODE(row, col, keypad->row_shift);
 
 		dev_dbg(keypad->display->dev,
 			"key changed: %u, row=%u col=%u down=%d\n", bit, row,
