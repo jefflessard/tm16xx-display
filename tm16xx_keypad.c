@@ -90,10 +90,9 @@ int tm16xx_keypad_probe(struct tm16xx_display *display)
 
 	ret = device_property_read_u32(display->dev, "poll-interval",
 				       &poll_interval);
-	if (ret < 0) {
-		dev_err(display->dev, "Failed to read poll-interval: %d\n", ret);
-		return ret;
-	}
+	if (ret < 0)
+		return dev_err_probe(display->dev, ret,
+				     "Failed to read poll-interval\n");
 
 	keypad = devm_kzalloc(display->dev, sizeof(*keypad), GFP_KERNEL);
 	if (!keypad) return -ENOMEM;
@@ -116,10 +115,9 @@ int tm16xx_keypad_probe(struct tm16xx_display *display)
 	keypad->row_shift = get_count_order(cols);
 	ret = matrix_keypad_build_keymap(NULL, "linux,keymap", rows, cols, NULL,
 					 input);
-	if (ret < 0) {
-		dev_err(display->dev, "Failed to build keymap: %d\n", ret);
-		return ret;
-	}
+	if (ret < 0)
+		return dev_err_probe(display->dev, ret,
+				     "Failed to build keymap\n");
 
 	if (device_property_read_bool(display->dev, "autorepeat"))
 		__set_bit(EV_REP, input->evbit);
@@ -127,11 +125,9 @@ int tm16xx_keypad_probe(struct tm16xx_display *display)
 	input_setup_polling(input, tm16xx_keypad_poll);
 	input_set_poll_interval(input, poll_interval);
 	ret = input_register_device(input);
-	if (ret < 0) {
-		dev_err(display->dev, "Failed to register input device: %d\n",
-			ret);
-		return ret;
-	}
+	if (ret < 0)
+		return dev_err_probe(display->dev, ret,
+				     "Failed to register input device\n");
 
 	dev_dbg(display->dev, "keypad rows=%u, cols=%u, poll=%u\n", rows, cols,
 		poll_interval);

@@ -427,13 +427,11 @@ int tm16xx_probe(struct tm16xx_display *display)
 
 	dev_dbg(dev, "Probing device\n");
 	ret = tm16xx_parse_dt(dev, display);
-	if (ret < 0) {
-		dev_err(dev, "Failed to parse device tree: %d\n", ret);
-		return ret;
-	}
+	if (ret < 0)
+		return dev_err_probe(dev, ret, "Failed to parse device tree\n");
 
 	nbits = tm16xx_led_nbits(display);
-	display->state = devm_bitmap_zalloc(display->dev, nbits, GFP_KERNEL);
+	display->state = devm_bitmap_zalloc(dev, nbits, GFP_KERNEL);
 	if (!display->state) return -ENOMEM;
 
 	mutex_init(&display->lock);
@@ -455,11 +453,9 @@ int tm16xx_probe(struct tm16xx_display *display)
 	main->groups = tm16xx_main_led_groups;
 	main->flags = LED_RETAIN_AT_SHUTDOWN | LED_CORE_SUSPENDRESUME;
 
-	ret = led_classdev_register(dev, &display->main_led);
-	if (ret < 0) {
-		dev_err(dev, "Failed to register main LED: %d\n", ret);
-		return ret;
-	}
+	ret = led_classdev_register(dev, main);
+	if (ret < 0)
+		return dev_err_probe(dev, ret, "Failed to register main LED\n");
 
 	/* Register individual LEDs from device tree:
 	 * Use non-devm LED registration to allow explicit unregistration on
@@ -474,7 +470,7 @@ int tm16xx_probe(struct tm16xx_display *display)
 		struct tm16xx_led *led = &display->leds[i];
 		struct led_init_data led_init = {
 			.fwnode = child,
-			.devicename = dev_name(display->main_led.dev),
+			.devicename = dev_name(main->dev),
 			.devname_mandatory = true,
 			.default_label = "led",
 		};
@@ -486,8 +482,8 @@ int tm16xx_probe(struct tm16xx_display *display)
 		ret = led_classdev_register_ext(dev, &led->cdev, &led_init);
 		if (ret < 0) {
 			fwnode_handle_put(child);
-			dev_err(dev, "Failed to register LED %s: %d\n",
-				led->cdev.name, ret);
+			dev_err_probe(dev, ret, "Failed to register LED %s\n",
+				      led->cdev.name);
 			goto unregister_leds;
 		}
 
@@ -496,20 +492,20 @@ int tm16xx_probe(struct tm16xx_display *display)
 
 	ret = tm16xx_display_init(display);
 	if (ret < 0) {
-		dev_err(display->dev, "Failed to initialize display: %d\n", ret);
+		dev_err_probe(dev, ret, "Failed to initialize display\n");
 		goto unregister_leds;
 	}
 
 	ret = tm16xx_keypad_probe(display);
 	if (ret < 0)
-		dev_warn(display->dev, "Failed to initialize keypad: %d\n", ret);
+		dev_warn(dev, "Failed to initialize keypad: %d\n", ret);
 
 	return 0;
 
 unregister_leds:
 	while (i--) led_classdev_unregister(&display->leds[i].cdev);
 
-	led_classdev_unregister(&display->main_led);
+	led_classdev_unregister(main);
 	return ret;
 }
 EXPORT_SYMBOL_NS(tm16xx_probe, TM16XX);
