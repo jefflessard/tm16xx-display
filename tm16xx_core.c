@@ -34,11 +34,11 @@ static void tm16xx_display_flush_init(struct work_struct *work)
 	int ret;
 
 	if (display->controller->init) {
-		mutex_lock(&display->lock);
 		dev_dbg(display->dev, "Configuring controller\n");
-		ret = display->controller->init(display);
-		display->flush_status = ret;
-		mutex_unlock(&display->lock);
+		scoped_guard(mutex, &display->lock) {
+			ret = display->controller->init(display);
+			display->flush_status = ret;
+		}
 		if (ret < 0)
 			dev_err(display->dev,
 				"Failed to configure controller: %d\n", ret);
@@ -57,24 +57,24 @@ static void tm16xx_display_flush_data(struct work_struct *work)
 	int i, ret = 0;
 	unsigned int grid;
 
-	mutex_lock(&display->lock);
 	dev_dbg(display->dev, "Sending data to controller\n");
-
-	if (display->controller->data) {
-		for (i = 0; i < display->num_grids; i++) {
-			grid = tm16xx_get_grid(display, i);
-			ret = display->controller->data(display, i, grid);
-			if (ret < 0) {
-				dev_err(display->dev,
-					"Failed to write display data: %d\n",
-					ret);
-				break;
+	scoped_guard(mutex, &display->lock) {
+		if (display->controller->data) {
+			for (i = 0; i < display->num_grids; i++) {
+				grid = tm16xx_get_grid(display, i);
+				ret = display->controller->data(display, i,
+								grid);
+				if (ret < 0) {
+					dev_err(display->dev,
+						"Failed to write display data: %d\n",
+						ret);
+					break;
+				}
 			}
 		}
-	}
 
-	display->flush_status = ret;
-	mutex_unlock(&display->lock);
+		display->flush_status = ret;
+	}
 }
 
 /**

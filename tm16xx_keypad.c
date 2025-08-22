@@ -31,9 +31,9 @@ static void tm16xx_keypad_poll(struct input_dev *input)
 	bitmap_zero(keypad->state, nbits);
 	bitmap_zero(keypad->changes, nbits);
 
-	mutex_lock(&keypad->display->lock);
-	ret = keypad->display->controller->keys(keypad);
-	mutex_unlock(&keypad->display->lock);
+	scoped_guard(mutex, &keypad->display->lock) {
+		ret = keypad->display->controller->keys(keypad);
+	}
 
 	if (ret < 0) {
 		dev_err(keypad->display->dev, "Reading failed: %d\n", ret);
