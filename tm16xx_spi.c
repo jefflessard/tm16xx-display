@@ -206,7 +206,7 @@ static int tm1628_keys(struct tm16xx_keypad *keypad)
 			return -EINVAL;
 	}
 
-	for_each_key(keypad, row, col) {
+	tm16xx_for_each_key(keypad, row, col) {
 		int byte = col >> 1;
 		int bit = row + ((col & 1) * 3);
 		bool value = !!(codes[byte] & BIT(bit));
@@ -235,7 +235,7 @@ static int tm1638_keys(struct tm16xx_keypad *keypad)
 			return -EINVAL;
 	}
 
-	for_each_key(keypad, row, col) {
+	tm16xx_for_each_key(keypad, row, col) {
 		int byte = col >> 1;
 		int bit = (2 - row) + ((col & 1) << 2);
 		bool value = !!(codes[byte] & BIT(bit));

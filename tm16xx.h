@@ -335,10 +335,10 @@ static inline u8 tm16xx_get_key_col(const struct tm16xx_keypad *keypad,
 	return bit % keypad->display->controller->max_key_cols;
 }
 
-#define for_each_key(keypad, _r, _c) \
-	for (unsigned int (_r) = 0; \
-	     (_r) < (keypad)->display->controller->max_key_rows; (_r)++) \
-		for (unsigned int (_c) = 0; \
-		     (_c) < (keypad)->display->controller->max_key_cols; (_c)++)
+#define tm16xx_for_each_key(keypad, _r, _c) \
+	for (unsigned int _r = 0; \
+	     _r < (keypad)->display->controller->max_key_rows; _r++) \
+		for (unsigned int _c = 0; \
+		     _c < (keypad)->display->controller->max_key_cols; _c++)
 
 #endif /* _TM16XX_H */
