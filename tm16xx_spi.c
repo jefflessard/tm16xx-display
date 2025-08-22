@@ -166,24 +166,26 @@ static int tm1628_init(struct tm16xx_display *display)
 	return 0;
 }
 
-static int tm1618_data(struct tm16xx_display *display, u8 index, u16 data)
+static int tm1618_data(struct tm16xx_display *display, u8 index,
+		       unsigned int grid)
 {
 	u8 *cmd = display->spi_buffer;
 
 	cmd[0] = TM16XX_CMD_ADDR + index * 2;
-	cmd[1] = FIELD_GET(TM1618_BYTE1_MASK, data);
-	cmd[2] = FIELD_GET(TM1618_BYTE2_MASK, data) << TM1618_BYTE2_SHIFT;
+	cmd[1] = FIELD_GET(TM1618_BYTE1_MASK, grid);
+	cmd[2] = FIELD_GET(TM1618_BYTE2_MASK, grid) << TM1618_BYTE2_SHIFT;
 
 	return tm16xx_spi_write(display, cmd, 3);
 }
 
-static int tm1628_data(struct tm16xx_display *display, u8 index, u16 data)
+static int tm1628_data(struct tm16xx_display *display, u8 index,
+		       unsigned int grid)
 {
 	u8 *cmd = display->spi_buffer;
 
 	cmd[0] = TM16XX_CMD_ADDR + index * 2;
-	cmd[1] = FIELD_GET(TM1628_BYTE1_MASK, data);
-	cmd[2] = FIELD_GET(TM1628_BYTE2_MASK, data);
+	cmd[1] = FIELD_GET(TM1628_BYTE1_MASK, grid);
+	cmd[2] = FIELD_GET(TM1628_BYTE2_MASK, grid);
 
 	return tm16xx_spi_write(display, cmd, 3);
 }
@@ -273,13 +275,14 @@ static int tm1618_keys(struct tm16xx_keypad *keypad)
 	return 0;
 }
 
-static int fd620_data(struct tm16xx_display *display, u8 index, u16 data)
+static int fd620_data(struct tm16xx_display *display, u8 index,
+		      unsigned int grid)
 {
 	u8 *cmd = display->spi_buffer;
 
 	cmd[0] = TM16XX_CMD_ADDR + index * 2;
-	cmd[1] = FIELD_GET(FD620_BYTE1_MASK, data);
-	cmd[2] = FIELD_GET(FD620_BYTE2_MASK, data) << FD620_BYTE2_SHIFT;
+	cmd[1] = FIELD_GET(FD620_BYTE1_MASK, grid);
+	cmd[2] = FIELD_GET(FD620_BYTE2_MASK, grid) << FD620_BYTE2_SHIFT;
 
 	return tm16xx_spi_write(display, cmd, 3);
 }

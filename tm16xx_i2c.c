@@ -1,4 +1,3 @@
-
 // SPDX-License-Identifier: GPL-2.0
 /*
  * TM16xx and compatible LED display/keypad controller driver
@@ -127,12 +126,13 @@ static int tm1650_init(struct tm16xx_display *display)
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static int tm1650_data(struct tm16xx_display *display, u8 index, u16 data)
+static int tm1650_data(struct tm16xx_display *display, u8 index,
+		       unsigned int grid)
 {
 	u8 cmds[2];
 
 	cmds[0] = TM1650_CMD_ADDR + index * 2;
-	cmds[1] = data; // SEG 1 to 8
+	cmds[1] = grid; // SEG 1 to 8
 
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
@@ -174,12 +174,13 @@ static int fd655_init(struct tm16xx_display *display)
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static int fd655_data(struct tm16xx_display *display, u8 index, u16 data)
+static int fd655_data(struct tm16xx_display *display, u8 index,
+		      unsigned int grid)
 {
 	u8 cmds[2];
 
 	cmds[0] = FD655_CMD_ADDR + index * 2;
-	cmds[1] = data; // SEG 1 to 8
+	cmds[1] = grid; // SEG 1 to 8
 
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
@@ -225,12 +226,13 @@ static int hbs658_init(struct tm16xx_display *display)
 	return 0;
 }
 
-static int hbs658_data(struct tm16xx_display *display, u8 index, u16 data)
+static int hbs658_data(struct tm16xx_display *display, u8 index,
+		       unsigned int grid)
 {
 	u8 cmds[2];
 
 	cmds[0] = TM16XX_CMD_ADDR + index * 2;
-	cmds[1] = data;
+	cmds[1] = grid;
 
 	hbs658_swap_nibbles(cmds, ARRAY_SIZE(cmds));
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));

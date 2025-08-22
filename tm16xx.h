@@ -127,7 +127,8 @@ struct tm16xx_controller {
 	const u8 max_key_rows;
 	const u8 max_key_cols;
 	int (*const init)(struct tm16xx_display *display);
-	int (*const data)(struct tm16xx_display *display, u8 index, u16 data);
+	int (*const data)(struct tm16xx_display *display, u8 index,
+			  unsigned int grid);
 	int (*const keys)(struct tm16xx_keypad *keypad);
 };
 
@@ -255,22 +256,22 @@ static inline void tm16xx_set_seg(const struct tm16xx_display *display,
 /**
  * tm16xx_get_grid() - Get the current segment pattern for a grid
  * @display: pointer to tm16xx_display
- * @grid: grid index
+ * @index: grid index
  *
  * Return: bit pattern of all segments for the given grid
  */
-static inline u16 tm16xx_get_grid(const struct tm16xx_display *display,
-				  const unsigned int grid)
+static inline unsigned int tm16xx_get_grid(const struct tm16xx_display *display,
+					   const unsigned int index)
 {
-	return bitmap_read(display->state, grid * display->num_segments,
+	return bitmap_read(display->state, index * display->num_segments,
 			   display->num_segments);
 }
 #else
-static inline u16 tm16xx_get_grid(const struct tm16xx_display *display,
-				  const unsigned int grid)
+static inline unsigned int tm16xx_get_grid(const struct tm16xx_display *display,
+					   const unsigned int index)
 {
-	unsigned int start = grid * display->num_segments;
-	u16 value = 0;
+	unsigned int start = index * display->num_segments;
+	unsigned int value = 0;
 	int i;
 
 	for (i = 0; i < display->num_segments; i++) {

@@ -55,15 +55,15 @@ static void tm16xx_display_flush_data(struct work_struct *work)
 						      struct tm16xx_display,
 						      flush_display);
 	int i, ret = 0;
-	u16 data;
+	unsigned int grid;
 
 	mutex_lock(&display->lock);
 	dev_dbg(display->dev, "Sending data to controller\n");
 
 	if (display->controller->data) {
 		for (i = 0; i < display->num_grids; i++) {
-			data = tm16xx_get_grid(display, i);
-			ret = display->controller->data(display, i, data);
+			grid = tm16xx_get_grid(display, i);
+			ret = display->controller->data(display, i, grid);
 			if (ret < 0) {
 				dev_err(display->dev,
 					"Failed to write display data: %d\n",
