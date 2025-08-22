@@ -1,8 +1,12 @@
 # Makefile for building the tm16xx kernel module and updating the device tree
 
 # Kernel module parameters
-MODULE_NAME = tm16xx
-obj-m += tm16xx.o
+MODULE_NAME = tm16xx_driver
+obj-m += $(MODULE_NAME).o
+$(MODULE_NAME)-objs += tm16xx.o
+$(MODULE_NAME)-objs += tm16xx_keypad.o
+$(MODULE_NAME)-objs += tm16xx_i2c.o
+$(MODULE_NAME)-objs += tm16xx_spi.o
 
 # Path to the kernel source tree
 KDIR ?= /lib/modules/$(shell uname -r)/build
