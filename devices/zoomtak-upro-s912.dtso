@@ -15,7 +15,7 @@
 		cs-gpios = <&gpio 73 GPIO_ACTIVE_LOW>;
 		num-chipselects = <1>;
 
-		display-controller@0 {
+		display@0 {
 			compatible = "fdhisi,fd628", "titanmec,tm1628";
 			reg = <0>;
 			spi-3wire;

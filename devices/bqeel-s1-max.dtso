@@ -14,7 +14,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		display-controller@24 {
+		display@24 {
 			compatible = "fdhisi,fd6551";
 			reg = <0x24>;
 

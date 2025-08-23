@@ -22,7 +22,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		aux-display-controller@24 {
+		aux-display@24 {
 			compatible = "fdhisi,fd6551";
 			reg = <0x24>;
 

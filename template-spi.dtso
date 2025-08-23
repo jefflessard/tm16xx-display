@@ -15,7 +15,7 @@
 		cs-gpios = <{CS_GPIO} {CS_PIN} GPIO_ACTIVE_LOW>;
 		num-chipselects = <1>;
 
-		display-controller@0 {
+		display@0 {
 			compatible = "{CONTROLLER}";
 			reg = <0>;
 			spi-3wire;
