@@ -11,12 +11,6 @@
 
 #include "tm16xx.h"
 
-/**
- * tm16xx_i2c_probe() - Probe callback for I2C-attached controllers
- * @client: pointer to i2c_client
- *
- * Return: 0 on success, negative error code on failure
- */
 static int tm16xx_i2c_probe(struct i2c_client *client)
 {
 	const struct tm16xx_controller *controller;
@@ -41,10 +35,6 @@ static int tm16xx_i2c_probe(struct i2c_client *client)
 	return 0;
 }
 
-/**
- * tm16xx_i2c_remove() - Remove callback for I2C-attached controllers
- * @client: pointer to i2c_client
- */
 static void tm16xx_i2c_remove(struct i2c_client *client)
 {
 	struct tm16xx_display *display = i2c_get_clientdata(client);

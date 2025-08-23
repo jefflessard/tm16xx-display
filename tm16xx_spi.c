@@ -15,12 +15,6 @@
 #define TM16XX_SPI_BUFFER_SIZE	8
 #define TM16XX_SPI_TWAIT_US	2
 
-/**
- * tm16xx_spi_probe() - Probe callback for SPI-attached controllers
- * @spi: pointer to spi_device
- *
- * Return: 0 on success, negative error code on failure
- */
 static int tm16xx_spi_probe(struct spi_device *spi)
 {
 	const struct tm16xx_controller *controller;
@@ -50,10 +44,6 @@ static int tm16xx_spi_probe(struct spi_device *spi)
 	return 0;
 }
 
-/**
- * tm16xx_spi_remove() - Remove callback for SPI-attached controllers
- * @spi: pointer to spi_device
- */
 static void tm16xx_spi_remove(struct spi_device *spi)
 {
 	struct tm16xx_display *display = spi_get_drvdata(spi);
