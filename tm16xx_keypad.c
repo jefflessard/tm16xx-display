@@ -73,8 +73,8 @@ static inline u8 tm16xx_get_key_col(const struct tm16xx_display *display,
  * @col: column index
  * @pressed: true if pressed, false otherwise
  */
-inline void tm16xx_set_key(const struct tm16xx_display *display, const u8 row,
-			   const u8 col, const bool pressed)
+void tm16xx_set_key(const struct tm16xx_display *display, const u8 row,
+		    const u8 col, const bool pressed)
 {
 	__assign_bit(row * display->controller->max_key_cols + col,
 		     display->keypad->state, pressed);
