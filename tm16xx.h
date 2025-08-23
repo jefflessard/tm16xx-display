@@ -11,7 +11,6 @@
 
 #include <linux/bitfield.h>
 #include <linux/bitmap.h>
-#include <linux/input.h>
 #include <linux/leds.h>
 #include <linux/workqueue.h>
 

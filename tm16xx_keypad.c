@@ -6,6 +6,7 @@
  * Copyright (C) 2024 Jean-François Lessard
  */
 
+#include <linux/input.h>
 #include <linux/input/matrix_keypad.h>
 #include <linux/property.h>
 
