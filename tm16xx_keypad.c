@@ -13,7 +13,6 @@
 
 /**
  * struct tm16xx_keypad - Keypad matrix state and input device
- * @display: Backpointer to owning display structure.
  * @input: Input device for reporting key events.
  * @state: Current bitmap of key states.
  * @last_state: Previous bitmap of key states for change detection.
@@ -30,7 +29,7 @@ struct tm16xx_keypad {
 
 /**
  * tm16xx_key_nbits() - Number of bits for the keypad state bitmap
- * @keypad: pointer to tm16xx_keypad
+ * @display: pointer to tm16xx_display
  *
  * Return: total bits in keypad state bitmap (max_key_rows * max_key_cols)
  */
@@ -42,7 +41,7 @@ static inline unsigned int tm16xx_key_nbits(const struct tm16xx_display *display
 
 /**
  * tm16xx_get_key_row() - Get row index from keypad bit index
- * @keypad: pointer to tm16xx_keypad
+ * @display: pointer to tm16xx_display
  * @bit: bit index in state bitmap
  *
  * Return: row index
@@ -55,7 +54,7 @@ static inline u8 tm16xx_get_key_row(const struct tm16xx_display *display,
 
 /**
  * tm16xx_get_key_col() - Get column index from keypad bit index
- * @keypad: pointer to tm16xx_keypad
+ * @display: pointer to tm16xx_display
  * @bit: bit index in state bitmap
  *
  * Return: column index
@@ -68,7 +67,7 @@ static inline u8 tm16xx_get_key_col(const struct tm16xx_display *display,
 
 /**
  * tm16xx_set_key() - Set the keypad state for a key
- * @keypad: pointer to tm16xx_keypad
+ * @display: pointer to tm16xx_display
  * @row: row index
  * @col: column index
  * @pressed: true if pressed, false otherwise
