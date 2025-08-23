@@ -31,34 +31,31 @@ description: |
 properties:
   compatible:
     oneOf:
-      # Controllers with titanmec,tm1628 fallback
       - items:
           - enum:
               - fdhisi,fd628
               - princeton,pt6964
               - wxicore,aip1628
           - const: titanmec,tm1628
-      - const: titanmec,tm1628
-      # Controllers with titanmec,tm1618 fallback
       - items:
           - enum:
               - wxicore,aip1618
           - const: titanmec,tm1618
-      - const: titanmec,tm1618
-      # Controllers with titanmec,tm1650 fallback
       - items:
           - enum:
               - fdhisi,fd650
               - wxicore,aip650
           - const: titanmec,tm1650
-      - const: titanmec,tm1650
-      # Canonical standalone controllers
-      - const: fdhisi,fd620
-      - const: fdhisi,fd655
-      - const: fdhisi,fd6551
-      - const: titanmec,tm1620
-      - const: titanmec,tm1638
-      - const: winrise,hbs658
+      - enum:
+          - fdhisi,fd620
+          - fdhisi,fd655
+          - fdhisi,fd6551
+          - titanmec,tm1618
+          - titanmec,tm1620
+          - titanmec,tm1628
+          - titanmec,tm1638
+          - titanmec,tm1650
+          - winrise,hbs658
 
   reg:
     maxItems: 1
@@ -82,18 +79,11 @@ properties:
       due to restrictions in a specific system, such as mounting conditions.
     $ref: /schemas/types.yaml#/definitions/uint32
 
-  linux,keymap:
-    $ref: /schemas/input/matrix-keymap.yaml#/properties/linux,keymap
-
-  poll-interval:
-    $ref: /schemas/input/input.yaml#/properties/poll-interval
-
-  autorepeat:
-    $ref: /schemas/input/input.yaml#/properties/autorepeat
-
   digits:
     type: object
     description: Container for 7-segment digit group definitions
+    additionalProperties: false
+
     properties:
       "#address-cells":
         const: 1
@@ -103,10 +93,13 @@ properties:
     patternProperties:
       "^digit@[0-9]+$":
         type: object
+        unevaluatedProperties: false
+
         properties:
           reg:
             description: Digit position identifier
             maxItems: 1
+
           segments:
             $ref: /schemas/types.yaml#/definitions/uint32-matrix
             description: |
@@ -128,16 +121,16 @@ properties:
                 - description: Segment index
             minItems: 7
             maxItems: 7
+
         required:
           - reg
           - segments
-        unevaluatedProperties: false
-
-    additionalProperties: false
 
   leds:
     type: object
     description: Container for individual LED icon definitions
+    additionalProperties: false
+
     properties:
       "#address-cells":
         const: 2
@@ -148,15 +141,15 @@ properties:
       "^led@[0-9]+,[0-9]+$":
         type: object
         $ref: /schemas/leds/common.yaml#
+        unevaluatedProperties: false
+
         properties:
           reg:
             description:
               Grid and segment indices as <grid segment> of this individual LED icon
+
         required:
           - reg
-        unevaluatedProperties: false
-
-    additionalProperties: false
 
 # SPI controllers require 3-wire (combined MISO/MOSI line)
 if:
@@ -180,6 +173,10 @@ then:
     spi-3wire: true
   required:
     - spi-3wire
+
+allOf:
+  - $ref: /schemas/input/input.yaml#
+  - $ref: /schemas/input/matrix-keymap.yaml#
 
 dependencies:
   poll-interval:
