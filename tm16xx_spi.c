@@ -13,7 +13,7 @@
 #include "tm16xx.h"
 
 #define TM16XX_SPI_BUFFER_SIZE	8
-#define CH34XX_SPI_TWAIT_US	2
+#define TM16XX_SPI_TWAIT_US	2
 
 /**
  * tm16xx_spi_probe() - Probe callback for SPI-attached controllers
@@ -89,7 +89,7 @@ static int tm16xx_spi_read(struct tm16xx_display *display, u8 *cmd,
 			.tx_buf = cmd,
 			.len = cmd_len,
 			.cs_change = 0, /* NO CS toggle */
-			.delay.value = CH34XX_SPI_TWAIT_US,
+			.delay.value = TM16XX_SPI_TWAIT_US,
 			.delay.unit = SPI_DELAY_UNIT_USECS,
 		}, {
 			.rx_buf = data,
