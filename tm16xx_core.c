@@ -9,6 +9,7 @@
 #include <linux/map_to_7segment.h>
 #include <linux/module.h>
 #include <linux/property.h>
+#include <linux/version.h> // TODO remove
 
 #include "tm16xx.h"
 
@@ -20,6 +21,94 @@ static const char *tm16xx_init_value = NULL;
 #endif
 
 static SEG7_CONVERSION_MAP(map_seg7, MAP_ASCII7SEG_ALPHANUM);
+
+/**
+ * struct tm16xx_led - Individual LED icon mapping
+ * @cdev: LED class device for sysfs interface.
+ * @grid: Controller grid index of the LED.
+ * @segment: Controller segment index of the LED.
+ */
+struct tm16xx_led {
+	struct led_classdev cdev;
+	u8 grid;
+	u8 segment;
+};
+
+/**
+ * struct tm16xx_digit_segment - Digit segment mapping to display coordinates
+ * @grid: Controller grid index for this segment.
+ * @segment: Controller segment index for this segment.
+ */
+struct tm16xx_digit_segment {
+	u8 grid;
+	u8 segment;
+};
+
+/**
+ * struct tm16xx_digit - 7-segment digit mapping and value
+ * @segments: Array mapping each 7-segment position to a grid/segment on the controller.
+ * @value: Current character value displayed on this digit.
+ */
+struct tm16xx_digit {
+	struct tm16xx_digit_segment segments[TM16XX_DIGIT_SEGMENTS];
+	char value;
+};
+
+/* state bitmap helpers */
+/**
+ * tm16xx_led_nbits() - Number of bits used for the display state bitmap
+ * @display: pointer to tm16xx_display
+ *
+ * Return: total bits in the display state bitmap (grids * segments)
+ */
+static inline unsigned int tm16xx_led_nbits(const struct tm16xx_display *display)
+{
+	return display->num_grids * display->num_segments;
+}
+
+/**
+ * tm16xx_set_seg() - Set the display state for a specific grid/segment
+ * @display: pointer to tm16xx_display
+ * @grid: grid index
+ * @seg: segment index
+ * @on: true to turn on, false to turn off
+ */
+static inline void tm16xx_set_seg(const struct tm16xx_display *display,
+				  const u8 grid, const u8 seg, const bool on)
+{
+	assign_bit(grid * display->num_segments + seg, display->state, on);
+}
+
+#if KERNEL_VERSION(6, 10, 0) <= LINUX_VERSION_CODE // TODO remove
+/**
+ * tm16xx_get_grid() - Get the current segment pattern for a grid
+ * @display: pointer to tm16xx_display
+ * @index: grid index
+ *
+ * Return: bit pattern of all segments for the given grid
+ */
+static inline unsigned int tm16xx_get_grid(const struct tm16xx_display *display,
+					   const unsigned int index)
+{
+	return bitmap_read(display->state, index * display->num_segments,
+			   display->num_segments);
+}
+#else
+static inline unsigned int tm16xx_get_grid(const struct tm16xx_display *display,
+					   const unsigned int index)
+{
+	unsigned int start = index * display->num_segments;
+	unsigned int value = 0;
+	int i;
+
+	for (i = 0; i < display->num_segments; i++) {
+		if (test_bit(start + i, display->state))
+			value |= BIT(i);
+	}
+
+	return value;
+}
+#endif
 
 /* main display */
 /**
