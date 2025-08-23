@@ -179,7 +179,7 @@ int tm16xx_keypad_probe(struct tm16xx_display *display)
 
 	input = devm_input_allocate_device(display->dev);
 	if (!input) return -ENOMEM;
-	input->name = TM16XX_DRIVER_NAME "-keypad";
+	input->name = "tm16xx-keypad";
 	keypad->input = input;
 	input_set_drvdata(input, display);
 

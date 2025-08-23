@@ -14,7 +14,6 @@
 #include <linux/leds.h>
 #include <linux/workqueue.h>
 
-#define TM16XX_DRIVER_NAME "tm16xx"
 #define TM16XX_DIGIT_SEGMENTS	7
 
 /* Common bit field definitions */
