@@ -25,6 +25,12 @@ description: |
   - LEDs use 2-cell addressing (grid, segment) for matrix coordinates
   - Digits use 1-cell addressing with explicit segment mapping
 
+  The controller node exposes a logical LED-like control for the aggregate
+  display brightness. Child nodes describe individual icons and 7-seg digits.
+  The top-level control supports only label and brightness-related properties
+  and does not support other common LED properties such as color or function.
+  Child LED nodes use the standard LED binding.
+
   Optional keypad scanning is supported when both 'linux,keymap' and
   'poll-interval' properties are specified.
 
@@ -61,14 +67,11 @@ properties:
     maxItems: 1
 
   label:
-    description: Name of the entire device
-    default: display
-
-  default-brightness:
     description:
-      Brightness to be set if LED's default state is on. Used only during
-      initialization. If the option is not set then max brightness is used.
-    $ref: /schemas/types.yaml#/definitions/uint32
+      The label for the top-level LED. If omitted, the label is taken from the
+      node name (excluding the unit address). It has to uniquely identify a
+      device, i.e. no other LED class device can be assigned the same label.
+    $ref: /schemas/leds/common.yaml#/properties/label
 
   max-brightness:
     description:
@@ -77,6 +80,12 @@ properties:
       on the brightness apart from what the driver says, as it could happen
       that a LED can be made so bright that it gets damaged or causes damage
       due to restrictions in a specific system, such as mounting conditions.
+    $ref: /schemas/leds/common.yaml#/properties/max-brightness
+
+  default-brightness:
+    description:
+      Brightness to be set if LED's default state is on. Used only during
+      initialization. If the option is not set then max brightness is used.
     $ref: /schemas/types.yaml#/definitions/uint32
 
   digits:
@@ -151,6 +160,19 @@ properties:
         required:
           - reg
 
+allOf:
+  - $ref: /schemas/input/input.yaml#
+  - $ref: /schemas/input/matrix-keymap.yaml#
+
+dependencies:
+  poll-interval:
+    - linux,keymap
+  linux,keymap:
+    - poll-interval
+  autorepeat:
+    - linux,keymap
+    - poll-interval
+
 # SPI controllers require 3-wire (combined MISO/MOSI line)
 if:
   properties:
@@ -174,19 +196,6 @@ then:
   required:
     - spi-3wire
 
-allOf:
-  - $ref: /schemas/input/input.yaml#
-  - $ref: /schemas/input/matrix-keymap.yaml#
-
-dependencies:
-  poll-interval:
-    - linux,keymap
-  linux,keymap:
-    - poll-interval
-  autorepeat:
-    - linux,keymap
-    - poll-interval
-
 required:
   - compatible
   - reg
@@ -202,7 +211,7 @@ examples:
       #address-cells = <1>;
       #size-cells = <0>;
 
-      display-controller@24 {
+      display@24 {
         reg = <0x24>;
         compatible = "fdhisi,fd655";
 
@@ -281,7 +290,7 @@ examples:
       #address-cells = <1>;
       #size-cells = <0>;
 
-      display-controller@0 {
+      display@0 {
         reg = <0>;
         compatible = "titanmec,tm1638";
         spi-3wire;
@@ -393,7 +402,7 @@ examples:
       #address-cells = <1>;
       #size-cells = <0>;
 
-      display-controller@0 {
+      display@0 {
         reg = <0>;
         compatible = "fdhisi,fd628", "titanmec,tm1628";
         spi-3wire;

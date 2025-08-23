@@ -11,6 +11,10 @@
 #include <linux/property.h>
 #include <linux/version.h> // TODO remove
 
+/* Required for default main led device name excluding the unit address
+ * as implemented in drivers/leds/led-core.c which relies on of_node->name */
+#include <linux/of.h>
+
 #include "tm16xx.h"
 
 
@@ -528,16 +532,19 @@ int tm16xx_probe(struct tm16xx_display *display)
 	INIT_WORK(&display->flush_display, tm16xx_display_flush_data);
 
 	/* Initialize main LED properties */
-	main->name = TM16XX_DEVICE_NAME;
-	main->brightness = display->controller->max_brightness;
-	main->max_brightness = display->controller->max_brightness;
+	if (dev->of_node) main->name = dev->of_node->name;
+	if (!main->name) main->name = "display";
 	device_property_read_string(dev, "label", &main->name);
+
+	main->max_brightness = display->controller->max_brightness;
 	device_property_read_u32(dev, "max-brightness", &main->max_brightness);
-	if (main->max_brightness > display->controller->max_brightness)
-		main->max_brightness = display->controller->max_brightness;
+	main->max_brightness = umin(main->max_brightness,
+				    display->controller->max_brightness);
+
+	main->brightness = main->max_brightness;
 	device_property_read_u32(dev, "default-brightness", &main->brightness);
-	if (main->brightness > main->max_brightness)
-		main->brightness = main->max_brightness;
+	main->brightness = umin(main->brightness, main->max_brightness);
+
 	main->brightness_set = tm16xx_brightness_set;
 	main->groups = tm16xx_main_led_groups;
 	main->flags = LED_RETAIN_AT_SHUTDOWN | LED_CORE_SUSPENDRESUME;
