@@ -130,7 +130,7 @@ struct tm16xx_controller {
 	int (*const init)(struct tm16xx_display *display);
 	int (*const data)(struct tm16xx_display *display, u8 index,
 			  unsigned int grid);
-	int (*const keys)(struct tm16xx_keypad *keypad);
+	int (*const keys)(struct tm16xx_display *display);
 };
 
 /**
@@ -192,6 +192,7 @@ struct tm16xx_display {
 		struct spi_device *spi;
 	} client;
 	u8 *spi_buffer;
+	struct tm16xx_keypad *keypad;
 	u8 num_grids;
 	u8 num_segments;
 	struct led_classdev main_led;
@@ -206,33 +207,23 @@ struct tm16xx_display {
 	unsigned long *state;
 };
 
-/**
- * struct tm16xx_keypad - Keypad matrix state and input device
- * @display: Backpointer to owning display structure.
- * @input: Input device for reporting key events.
- * @state: Current bitmap of key states.
- * @last_state: Previous bitmap of key states for change detection.
- * @changes: Bitmap of key state changes since last poll.
- * @row_shift: Row shift for keymap encoding.
- */
-struct tm16xx_keypad {
-	struct tm16xx_display *display;
-	struct input_dev *input;
-	unsigned long *state;
-	unsigned long *last_state;
-	unsigned long *changes;
-	u8 row_shift;
-};
-
 extern int tm16xx_probe(struct tm16xx_display *display);
 extern void tm16xx_remove(struct tm16xx_display *display);
 
 #if IS_ENABLED(CONFIG_TM16XX_KEYPAD)
 int tm16xx_keypad_probe(struct tm16xx_display *display);
+void tm16xx_set_key(const struct tm16xx_display *display, const u8 row,
+		    const u8 col, const bool pressed);
 #else
 static inline int tm16xx_keypad_probe(struct tm16xx_display *display)
 {
 	return 0;
+}
+
+static inline void tm16xx_set_key(const struct tm16xx_display *display,
+				  const u8 row, const u8 col,
+				  const bool pressed)
+{
 }
 #endif
 
@@ -292,62 +283,10 @@ static inline unsigned int tm16xx_get_grid(const struct tm16xx_display *display,
 }
 #endif
 
-/**
- * tm16xx_key_nbits() - Number of bits for the keypad state bitmap
- * @keypad: pointer to tm16xx_keypad
- *
- * Return: total bits in keypad state bitmap (max_key_rows * max_key_cols)
- */
-static inline unsigned int tm16xx_key_nbits(const struct tm16xx_keypad *keypad)
-{
-	return keypad->display->controller->max_key_rows *
-	       keypad->display->controller->max_key_cols;
-}
-
-/**
- * tm16xx_set_key() - Set the keypad state for a key
- * @keypad: pointer to tm16xx_keypad
- * @row: row index
- * @col: column index
- * @pressed: true if pressed, false otherwise
- */
-static inline void tm16xx_set_key(const struct tm16xx_keypad *keypad,
-				  const u8 row, const u8 col, const bool pressed)
-{
-	__assign_bit(row * keypad->display->controller->max_key_cols + col,
-		     keypad->state, pressed);
-}
-
-/**
- * tm16xx_get_key_row() - Get row index from keypad bit index
- * @keypad: pointer to tm16xx_keypad
- * @bit: bit index in state bitmap
- *
- * Return: row index
- */
-static inline u8 tm16xx_get_key_row(const struct tm16xx_keypad *keypad,
-				    const unsigned int bit)
-{
-	return bit / keypad->display->controller->max_key_cols;
-}
-
-/**
- * tm16xx_get_key_col() - Get column index from keypad bit index
- * @keypad: pointer to tm16xx_keypad
- * @bit: bit index in state bitmap
- *
- * Return: column index
- */
-static inline u8 tm16xx_get_key_col(const struct tm16xx_keypad *keypad,
-				    const unsigned int bit)
-{
-	return bit % keypad->display->controller->max_key_cols;
-}
-
-#define tm16xx_for_each_key(keypad, _r, _c) \
+#define tm16xx_for_each_key(display, _r, _c) \
 	for (unsigned int _r = 0; \
-	     _r < (keypad)->display->controller->max_key_rows; _r++) \
+	     _r < (display)->controller->max_key_rows; _r++) \
 		for (unsigned int _c = 0; \
-		     _c < (keypad)->display->controller->max_key_cols; _c++)
+		     _c < (display)->controller->max_key_cols; _c++)
 
 #endif /* _TM16XX_H */

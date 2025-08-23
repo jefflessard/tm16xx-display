@@ -12,6 +12,76 @@
 #include "tm16xx.h"
 
 /**
+ * struct tm16xx_keypad - Keypad matrix state and input device
+ * @display: Backpointer to owning display structure.
+ * @input: Input device for reporting key events.
+ * @state: Current bitmap of key states.
+ * @last_state: Previous bitmap of key states for change detection.
+ * @changes: Bitmap of key state changes since last poll.
+ * @row_shift: Row shift for keymap encoding.
+ */
+struct tm16xx_keypad {
+	struct input_dev *input;
+	unsigned long *state;
+	unsigned long *last_state;
+	unsigned long *changes;
+	u8 row_shift;
+};
+
+/**
+ * tm16xx_key_nbits() - Number of bits for the keypad state bitmap
+ * @keypad: pointer to tm16xx_keypad
+ *
+ * Return: total bits in keypad state bitmap (max_key_rows * max_key_cols)
+ */
+static inline unsigned int tm16xx_key_nbits(const struct tm16xx_display *display)
+{
+	return display->controller->max_key_rows *
+	       display->controller->max_key_cols;
+}
+
+/**
+ * tm16xx_get_key_row() - Get row index from keypad bit index
+ * @keypad: pointer to tm16xx_keypad
+ * @bit: bit index in state bitmap
+ *
+ * Return: row index
+ */
+static inline u8 tm16xx_get_key_row(const struct tm16xx_display *display,
+				    const unsigned int bit)
+{
+	return bit / display->controller->max_key_cols;
+}
+
+/**
+ * tm16xx_get_key_col() - Get column index from keypad bit index
+ * @keypad: pointer to tm16xx_keypad
+ * @bit: bit index in state bitmap
+ *
+ * Return: column index
+ */
+static inline u8 tm16xx_get_key_col(const struct tm16xx_display *display,
+				    const unsigned int bit)
+{
+	return bit % display->controller->max_key_cols;
+}
+
+/**
+ * tm16xx_set_key() - Set the keypad state for a key
+ * @keypad: pointer to tm16xx_keypad
+ * @row: row index
+ * @col: column index
+ * @pressed: true if pressed, false otherwise
+ */
+inline void tm16xx_set_key(const struct tm16xx_display *display, const u8 row,
+			   const u8 col, const bool pressed)
+{
+	__assign_bit(row * display->controller->max_key_cols + col,
+		     display->keypad->state, pressed);
+}
+EXPORT_SYMBOL_NS(tm16xx_set_key, TM16XX);
+
+/**
  * tm16xx_keypad_poll() - Polls the keypad, reports events
  * @input: pointer to input_dev
  *
@@ -20,9 +90,10 @@
  */
 static void tm16xx_keypad_poll(struct input_dev *input)
 {
-	struct tm16xx_keypad *keypad = input_get_drvdata(input);
+	struct tm16xx_display *display = input_get_drvdata(input);
+	struct tm16xx_keypad *keypad = display->keypad;
 	const unsigned short *keycodes = keypad->input->keycode;
-	unsigned int nbits = tm16xx_key_nbits(keypad);
+	unsigned int nbits = tm16xx_key_nbits(display);
 	unsigned int bit, scancode;
 	u8 row, col;
 	bool pressed;
@@ -31,24 +102,24 @@ static void tm16xx_keypad_poll(struct input_dev *input)
 	bitmap_zero(keypad->state, nbits);
 	bitmap_zero(keypad->changes, nbits);
 
-	scoped_guard(mutex, &keypad->display->lock) {
-		ret = keypad->display->controller->keys(keypad);
+	scoped_guard(mutex, &display->lock) {
+		ret = display->controller->keys(display);
 	}
 
 	if (ret < 0) {
-		dev_err(keypad->display->dev, "Reading failed: %d\n", ret);
+		dev_err(display->dev, "Reading failed: %d\n", ret);
 		return;
 	}
 
 	bitmap_xor(keypad->changes, keypad->state, keypad->last_state, nbits);
 
 	for_each_set_bit(bit, keypad->changes, nbits) {
-		row = tm16xx_get_key_row(keypad, bit);
-		col = tm16xx_get_key_col(keypad, bit);
+		row = tm16xx_get_key_row(display, bit);
+		col = tm16xx_get_key_col(display, bit);
 		pressed = _test_bit(bit, keypad->state);
 		scancode = MATRIX_SCAN_CODE(row, col, keypad->row_shift);
 
-		dev_dbg(keypad->display->dev,
+		dev_dbg(display->dev,
 			"key changed: %u, row=%u col=%u down=%d\n", bit, row,
 			col, pressed);
 
@@ -96,9 +167,9 @@ int tm16xx_keypad_probe(struct tm16xx_display *display)
 
 	keypad = devm_kzalloc(display->dev, sizeof(*keypad), GFP_KERNEL);
 	if (!keypad) return -ENOMEM;
-	keypad->display = display;
+	display->keypad = keypad;
 
-	nbits = tm16xx_key_nbits(keypad);
+	nbits = tm16xx_key_nbits(display);
 	keypad->state = devm_bitmap_zalloc(display->dev, nbits, GFP_KERNEL);
 	keypad->last_state = devm_bitmap_zalloc(display->dev, nbits, GFP_KERNEL);
 	keypad->changes = devm_bitmap_zalloc(display->dev, nbits, GFP_KERNEL);
@@ -110,7 +181,7 @@ int tm16xx_keypad_probe(struct tm16xx_display *display)
 	if (!input) return -ENOMEM;
 	input->name = TM16XX_DRIVER_NAME "-keypad";
 	keypad->input = input;
-	input_set_drvdata(input, keypad);
+	input_set_drvdata(input, display);
 
 	keypad->row_shift = get_count_order(cols);
 	ret = matrix_keypad_build_keymap(NULL, "linux,keymap", rows, cols, NULL,

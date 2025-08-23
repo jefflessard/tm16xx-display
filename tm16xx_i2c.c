@@ -132,13 +132,13 @@ static int tm1650_data(struct tm16xx_display *display, u8 index,
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static int tm1650_keys(struct tm16xx_keypad *keypad)
+static int tm1650_keys(struct tm16xx_display *display)
 {
 	u8 keycode, row, col;
 	bool pressed;
 	int ret;
 
-	ret = tm16xx_i2c_read(keypad->display, TM1650_CMD_READ, &keycode, 1);
+	ret = tm16xx_i2c_read(display, TM1650_CMD_READ, &keycode, 1);
 	if (ret) return ret;
 
 	if (keycode == 0x00 || keycode == 0xFF) return -EINVAL;
@@ -146,11 +146,11 @@ static int tm1650_keys(struct tm16xx_keypad *keypad)
 	row = FIELD_GET(TM1650_KEY_ROW_MASK, keycode);
 	pressed = FIELD_GET(TM1650_KEY_DOWN_MASK, keycode) != 0;
 	if ((keycode & TM1650_KEY_COMBINED) == TM1650_KEY_COMBINED) {
-		tm16xx_set_key(keypad, row, 0, pressed);
-		tm16xx_set_key(keypad, row, 1, pressed);
+		tm16xx_set_key(display, row, 0, pressed);
+		tm16xx_set_key(display, row, 1, pressed);
 	} else {
 		col = FIELD_GET(TM1650_KEY_COL_MASK, keycode);
-		tm16xx_set_key(keypad, row, col, pressed);
+		tm16xx_set_key(display, row, col, pressed);
 	}
 
 	return 0;
@@ -229,21 +229,21 @@ static int hbs658_data(struct tm16xx_display *display, u8 index,
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
 
-static int hbs658_keys(struct tm16xx_keypad *keypad)
+static int hbs658_keys(struct tm16xx_display *display)
 {
 	u8 cmd, keycode, col;
 	int ret;
 
 	cmd = TM16XX_CMD_READ;
 	hbs658_swap_nibbles(&cmd, 1);
-	ret = tm16xx_i2c_read(keypad->display, cmd, &keycode, 1);
+	ret = tm16xx_i2c_read(display, cmd, &keycode, 1);
 	if (ret) return ret;
 
 	hbs658_swap_nibbles(&keycode, 1);
 
 	if (keycode != 0xFF) {
 		col = FIELD_GET(HBS658_KEY_COL_MASK, keycode);
-		tm16xx_set_key(keypad, 0, col, true);
+		tm16xx_set_key(display, 0, col, true);
 	}
 
 	return 0;

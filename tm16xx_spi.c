@@ -183,15 +183,14 @@ static int tm1628_data(struct tm16xx_display *display, u8 index,
 	return tm16xx_spi_write(display, cmd, 3);
 }
 
-static int tm1628_keys(struct tm16xx_keypad *keypad)
+static int tm1628_keys(struct tm16xx_display *display)
 {
-	u8 *cmd = keypad->display->spi_buffer;
-	u8 *codes = keypad->display->spi_buffer;
+	u8 *cmd = display->spi_buffer;
+	u8 *codes = display->spi_buffer;
 	int ret, i;
 
 	cmd[0] = TM16XX_CMD_READ;
-	ret = tm16xx_spi_read(keypad->display, cmd, 1, codes,
-			      TM1628_KEY_READ_LEN);
+	ret = tm16xx_spi_read(display, cmd, 1, codes, TM1628_KEY_READ_LEN);
 	if (ret) return ret;
 
 	/* prevent false readings */
@@ -199,26 +198,25 @@ static int tm1628_keys(struct tm16xx_keypad *keypad)
 		if (codes[i] & ~TM1628_KEY_MASK) return -EINVAL;
 	}
 
-	tm16xx_for_each_key(keypad, row, col) {
+	tm16xx_for_each_key(display, row, col) {
 		int byte = col >> 1;
 		int bit = row + ((col & 1) * 3);
 		bool value = !!(codes[byte] & BIT(bit));
 
-		tm16xx_set_key(keypad, row, col, value);
+		tm16xx_set_key(display, row, col, value);
 	}
 
 	return 0;
 }
 
-static int tm1638_keys(struct tm16xx_keypad *keypad)
+static int tm1638_keys(struct tm16xx_display *display)
 {
-	u8 *cmd = keypad->display->spi_buffer;
-	u8 *codes = keypad->display->spi_buffer;
+	u8 *cmd = display->spi_buffer;
+	u8 *codes = display->spi_buffer;
 	int ret, i;
 
 	cmd[0] = TM16XX_CMD_READ;
-	ret = tm16xx_spi_read(keypad->display, cmd, 1, codes,
-			      TM1638_KEY_READ_LEN);
+	ret = tm16xx_spi_read(display, cmd, 1, codes, TM1638_KEY_READ_LEN);
 	if (ret) return ret;
 
 	/* prevent false readings */
@@ -226,26 +224,25 @@ static int tm1638_keys(struct tm16xx_keypad *keypad)
 		if (codes[i] & ~TM1638_KEY_MASK) return -EINVAL;
 	}
 
-	tm16xx_for_each_key(keypad, row, col) {
+	tm16xx_for_each_key(display, row, col) {
 		int byte = col >> 1;
 		int bit = (2 - row) + ((col & 1) << 2);
 		bool value = !!(codes[byte] & BIT(bit));
 
-		tm16xx_set_key(keypad, row, col, value);
+		tm16xx_set_key(display, row, col, value);
 	}
 
 	return 0;
 }
 
-static int tm1618_keys(struct tm16xx_keypad *keypad)
+static int tm1618_keys(struct tm16xx_display *display)
 {
-	u8 *cmd = keypad->display->spi_buffer;
-	u8 *codes = keypad->display->spi_buffer;
+	u8 *cmd = display->spi_buffer;
+	u8 *codes = display->spi_buffer;
 	int ret, i;
 
 	cmd[0] = TM16XX_CMD_READ;
-	ret = tm16xx_spi_read(keypad->display, cmd, 1, codes,
-			      TM1618_KEY_READ_LEN);
+	ret = tm16xx_spi_read(display, cmd, 1, codes, TM1618_KEY_READ_LEN);
 	if (ret) return ret;
 
 	/* prevent false readings */
@@ -253,11 +250,11 @@ static int tm1618_keys(struct tm16xx_keypad *keypad)
 		if (codes[i] & ~TM1618_KEY_MASK) return -EINVAL;
 	}
 
-	tm16xx_set_key(keypad, 0, 0, !!(codes[0] & BIT(1)));
-	tm16xx_set_key(keypad, 0, 1, !!(codes[0] & BIT(4)));
-	tm16xx_set_key(keypad, 0, 2, !!(codes[1] & BIT(1)));
-	tm16xx_set_key(keypad, 0, 3, !!(codes[1] & BIT(4)));
-	tm16xx_set_key(keypad, 0, 4, !!(codes[2] & BIT(1)));
+	tm16xx_set_key(display, 0, 0, !!(codes[0] & BIT(1)));
+	tm16xx_set_key(display, 0, 1, !!(codes[0] & BIT(4)));
+	tm16xx_set_key(display, 0, 2, !!(codes[1] & BIT(1)));
+	tm16xx_set_key(display, 0, 3, !!(codes[1] & BIT(4)));
+	tm16xx_set_key(display, 0, 4, !!(codes[2] & BIT(1)));
 
 	return 0;
 }
@@ -274,15 +271,14 @@ static int fd620_data(struct tm16xx_display *display, u8 index,
 	return tm16xx_spi_write(display, cmd, 3);
 }
 
-static int fd620_keys(struct tm16xx_keypad *keypad)
+static int fd620_keys(struct tm16xx_display *display)
 {
-	u8 *cmd = keypad->display->spi_buffer;
-	u8 *codes = keypad->display->spi_buffer;
+	u8 *cmd = display->spi_buffer;
+	u8 *codes = display->spi_buffer;
 	int ret, i;
 
 	cmd[0] = TM16XX_CMD_READ;
-	ret = tm16xx_spi_read(keypad->display, cmd, 1, codes,
-			      FD620_KEY_READ_LEN);
+	ret = tm16xx_spi_read(display, cmd, 1, codes, FD620_KEY_READ_LEN);
 	if (ret) return ret;
 
 	/* prevent false readings */
@@ -290,13 +286,13 @@ static int fd620_keys(struct tm16xx_keypad *keypad)
 		if (codes[i] & ~FD620_KEY_MASK) return -EINVAL;
 	}
 
-	tm16xx_set_key(keypad, 0, 0, codes[0] & BIT(0));
-	tm16xx_set_key(keypad, 0, 1, codes[0] & BIT(3));
-	tm16xx_set_key(keypad, 0, 2, codes[1] & BIT(0));
-	tm16xx_set_key(keypad, 0, 3, codes[1] & BIT(3));
-	tm16xx_set_key(keypad, 0, 4, codes[2] & BIT(0));
-	tm16xx_set_key(keypad, 0, 5, codes[2] & BIT(3));
-	tm16xx_set_key(keypad, 0, 6, codes[3] & BIT(0));
+	tm16xx_set_key(display, 0, 0, codes[0] & BIT(0));
+	tm16xx_set_key(display, 0, 1, codes[0] & BIT(3));
+	tm16xx_set_key(display, 0, 2, codes[1] & BIT(0));
+	tm16xx_set_key(display, 0, 3, codes[1] & BIT(3));
+	tm16xx_set_key(display, 0, 4, codes[2] & BIT(0));
+	tm16xx_set_key(display, 0, 5, codes[2] & BIT(3));
+	tm16xx_set_key(display, 0, 6, codes[3] & BIT(0));
 
 	return 0;
 }
