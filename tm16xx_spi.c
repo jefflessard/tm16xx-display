@@ -312,7 +312,7 @@ static const struct tm16xx_controller tm1620_controller = {
 
 static const struct tm16xx_controller tm1628_controller = {
 	.max_grids = 7,
-	.max_segments = 14, // seg 11 unused
+	.max_segments = 14, /* seg 11 unused */
 	.max_brightness = 8,
 	.max_key_rows = 2,
 	.max_key_cols = 10,

@@ -117,7 +117,7 @@ static int tm1650_data(struct tm16xx_display *display, u8 index,
 	u8 cmds[2];
 
 	cmds[0] = TM1650_CMD_ADDR + index * 2;
-	cmds[1] = grid; // SEG 1 to 8
+	cmds[1] = grid; /* SEG 1 to 8 */
 
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
@@ -163,7 +163,7 @@ static int fd655_data(struct tm16xx_display *display, u8 index,
 	u8 cmds[2];
 
 	cmds[0] = FD655_CMD_ADDR + index * 2;
-	cmds[1] = grid; // SEG 1 to 8
+	cmds[1] = grid; /* SEG 1 to 8 */
 
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));
 }
