@@ -1,0 +1,57 @@
+What:		/sys/class/leds/<led>/value
+Date:		August 2025
+KernelVersion:	6.17
+Contact:	Jean-François Lessard <jefflessard3@gmail.com>
+Description:
+		Controls the text displayed on the TM16xx 7-segment display.
+
+		Reading returns the current display content as ASCII characters,
+		one character per digit position, followed by a newline.
+
+		Writing sets new display content. Input characters are mapped
+		to 7-segment patterns using the configured character map. The
+		string length should not exceed the number of available digits
+		(see num_digits). Shorter strings will clear remaining digits.
+
+		Example:
+		  echo "1234" > value    # Display "1234"
+		  cat value              # Returns "1234\n"
+
+What:		/sys/class/leds/<led>/num_digits
+Date:		August 2025
+KernelVersion:	6.17
+Contact:	Jean-François Lessard <jefflessard3@gmail.com>
+Description:
+		Read-only attribute showing the number of 7-segment digit
+		positions available on this TM16xx display controller.
+
+		The value is determined by the device tree configuration
+		and represents the maximum length for the 'value' attribute.
+
+		Example:
+		  cat num_digits         # Returns "4\n" for 4-digit display
+
+What:		/sys/class/leds/<led>/map_seg7
+Date:		August 2025
+KernelVersion:	6.17
+Contact:	Jean-François Lessard <jefflessard3@gmail.com>
+Description:
+		Read/write binary blob representing the ASCII-to-7-segment
+		display conversion table used by the TM16xx driver, as defined
+		by struct seg7_conversion_map in <linux/map_to_7segment.h>.
+
+		This attribute is not human-readable. Writes must match the
+		struct size exactly, else -EINVAL is returned; reads return the
+		entire mapping as a binary blob.
+
+		This interface and its implementation match existing conventions
+		used in auxdisplay and segment-mapped display drivers since 2005.
+
+		ABI note: This style of binary sysfs attribute *is an exception*
+		to current "one value per file, text only" sysfs rules, for
+		historical compatibility and driver uniformity. New drivers are
+		discouraged from introducing additional binary sysfs ABIs.
+
+		Reference interface guidance:
+		- include/uapi/linux/map_to_7segment.h
+Users:		Display configuration utilities and embedded system scripts/tools.
