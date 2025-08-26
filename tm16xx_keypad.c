@@ -166,19 +166,20 @@ int tm16xx_keypad_probe(struct tm16xx_display *display)
 				     "Failed to read poll-interval\n");
 
 	keypad = devm_kzalloc(display->dev, sizeof(*keypad), GFP_KERNEL);
-	if (!keypad) return -ENOMEM;
+	if (!keypad)
+		return -ENOMEM;
 	display->keypad = keypad;
 
 	nbits = tm16xx_key_nbits(display);
 	keypad->state = devm_bitmap_zalloc(display->dev, nbits, GFP_KERNEL);
 	keypad->last_state = devm_bitmap_zalloc(display->dev, nbits, GFP_KERNEL);
 	keypad->changes = devm_bitmap_zalloc(display->dev, nbits, GFP_KERNEL);
-	if (!keypad->state || !keypad->last_state || !keypad->changes) {
+	if (!keypad->state || !keypad->last_state || !keypad->changes)
 		return -ENOMEM;
-	}
 
 	input = devm_input_allocate_device(display->dev);
-	if (!input) return -ENOMEM;
+	if (!input)
+		return -ENOMEM;
 	input->name = "tm16xx-keypad";
 	keypad->input = input;
 	input_set_drvdata(input, display);

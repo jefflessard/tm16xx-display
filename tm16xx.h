@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * TM16xx and compatible LED display/keypad controller driver
  * Supports TM16xx, FD6xx, PT6964, HBS658, AIP16xx and related chips.
@@ -137,6 +137,7 @@ struct tm16xx_controller {
  * @controller: Controller-specific function table and limits.
  * @client: Union of I2C and SPI client pointers.
  * @spi_buffer: DMA-safe buffer for SPI transactions, or NULL for I2C.
+ * @keypad: Opaque pointer to tm16xx_keypad struct.
  * @num_grids: Number of controller grids in use.
  * @num_segments: Number of controller segments in use.
  * @main_led: LED class device for the entire display.

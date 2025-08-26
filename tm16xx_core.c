@@ -8,20 +8,15 @@
 
 #include <linux/map_to_7segment.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <linux/property.h>
 #include <linux/version.h> // TODO remove
 
-/* Required for default main led device name excluding the unit address
- * as implemented in drivers/leds/led-core.c which relies on of_node->name */
-#include <linux/of.h>
-
 #include "tm16xx.h"
 
-
+static const char *tm16xx_init_value;
 #ifdef CONFIG_PANEL_BOOT_MESSAGE
-static const char *tm16xx_init_value = CONFIG_PANEL_BOOT_MESSAGE;
-#else
-static const char *tm16xx_init_value = NULL;
+tm16xx_init_value = CONFIG_PANEL_BOOT_MESSAGE;
 #endif
 
 static SEG7_CONVERSION_MAP(map_seg7, MAP_ASCII7SEG_ALPHANUM);
@@ -318,7 +313,8 @@ static ssize_t tm16xx_map_seg7_store(struct device *dev,
 				     struct device_attribute *attr,
 				     const char *buf, size_t cnt)
 {
-	if (cnt != sizeof(map_seg7)) return -EINVAL;
+	if (cnt != sizeof(map_seg7))
+		return -EINVAL;
 	memcpy(&map_seg7, buf, cnt);
 	return cnt;
 }
@@ -525,15 +521,18 @@ int tm16xx_probe(struct tm16xx_display *display)
 
 	nbits = tm16xx_led_nbits(display);
 	display->state = devm_bitmap_zalloc(dev, nbits, GFP_KERNEL);
-	if (!display->state) return -ENOMEM;
+	if (!display->state)
+		return -ENOMEM;
 
 	mutex_init(&display->lock);
 	INIT_WORK(&display->flush_init, tm16xx_display_flush_init);
 	INIT_WORK(&display->flush_display, tm16xx_display_flush_data);
 
 	/* Initialize main LED properties */
-	if (dev->of_node) main->name = dev->of_node->name;
-	if (!main->name) main->name = "display";
+	if (dev->of_node)
+		main->name = dev->of_node->name;
+	if (!main->name)
+		main->name = "display";
 	device_property_read_string(dev, "label", &main->name);
 
 	main->max_brightness = display->controller->max_brightness;
@@ -549,17 +548,11 @@ int tm16xx_probe(struct tm16xx_display *display)
 	main->groups = tm16xx_main_led_groups;
 	main->flags = LED_RETAIN_AT_SHUTDOWN | LED_CORE_SUSPENDRESUME;
 
+	/* Register individual LEDs from device tree */
 	ret = led_classdev_register(dev, main);
 	if (ret < 0)
 		return dev_err_probe(dev, ret, "Failed to register main LED\n");
 
-	/* Register individual LEDs from device tree:
-	 * Use non-devm LED registration to allow explicit unregistration on
-	 * device removal, ensuring LED triggers are immediately stopped.
-	 * This prevents stale LED trigger activity from continuing after the
-	 * hardware is gone, avoiding the need for complex state tracking in
-	 * brightness callbacks.
-	 */
 	i = 0;
 	leds_node = device_get_named_child_node(dev, "leds");
 	fwnode_for_each_child_node(leds_node, child) {
@@ -599,7 +592,8 @@ int tm16xx_probe(struct tm16xx_display *display)
 	return 0;
 
 unregister_leds:
-	while (i--) led_classdev_unregister(&display->leds[i].cdev);
+	while (i--)
+		led_classdev_unregister(&display->leds[i].cdev);
 
 	led_classdev_unregister(main);
 	return ret;

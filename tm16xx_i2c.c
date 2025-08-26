@@ -18,10 +18,12 @@ static int tm16xx_i2c_probe(struct i2c_client *client)
 	int ret;
 
 	controller = i2c_get_match_data(client);
-	if (!controller) return -EINVAL;
+	if (!controller)
+		return -EINVAL;
 
 	display = devm_kzalloc(&client->dev, sizeof(*display), GFP_KERNEL);
-	if (!display) return -ENOMEM;
+	if (!display)
+		return -ENOMEM;
 
 	display->client.i2c = client;
 	display->dev = &client->dev;
@@ -30,7 +32,8 @@ static int tm16xx_i2c_probe(struct i2c_client *client)
 	i2c_set_clientdata(client, display);
 
 	ret = tm16xx_probe(display);
-	if (ret) return ret;
+	if (ret)
+		return ret;
 
 	return 0;
 }
@@ -64,7 +67,8 @@ static int tm16xx_i2c_write(struct tm16xx_display *display, u8 *data, size_t len
 	int ret;
 
 	ret = i2c_transfer(display->client.i2c->adapter, &msg, 1);
-	if (ret < 0) return ret;
+	if (ret < 0)
+		return ret;
 
 	return (ret == 1) ? 0 : -EIO;
 }
@@ -91,7 +95,8 @@ static int tm16xx_i2c_read(struct tm16xx_display *display, u8 cmd, u8 *data,
 	int ret;
 
 	ret = i2c_transfer(display->client.i2c->adapter, msgs, ARRAY_SIZE(msgs));
-	if (ret < 0) return ret;
+	if (ret < 0)
+		return ret;
 
 	dev_dbg(display->dev, "i2c_read %ph: %*ph\n", &cmd, (char)len, data);
 
@@ -129,9 +134,11 @@ static int tm1650_keys(struct tm16xx_display *display)
 	int ret;
 
 	ret = tm16xx_i2c_read(display, TM1650_CMD_READ, &keycode, 1);
-	if (ret) return ret;
+	if (ret)
+		return ret;
 
-	if (keycode == 0x00 || keycode == 0xFF) return -EINVAL;
+	if (keycode == 0x00 || keycode == 0xFF)
+		return -EINVAL;
 
 	row = FIELD_GET(TM1650_KEY_ROW_MASK, keycode);
 	pressed = FIELD_GET(TM1650_KEY_DOWN_MASK, keycode) != 0;
@@ -195,14 +202,16 @@ static int hbs658_init(struct tm16xx_display *display)
 	cmd = TM16XX_CMD_WRITE | TM16XX_DATA_ADDR_AUTO;
 	hbs658_swap_nibbles(&cmd, 1);
 	ret = tm16xx_i2c_write(display, &cmd, 1);
-	if (ret < 0) return ret;
+	if (ret < 0)
+		return ret;
 
 	/* Set control command with brightness */
 	cmd = TM16XX_CMD_CTRL |
 	      TM16XX_CTRL_BRIGHTNESS(brightness, brightness - 1, TM16XX);
 	hbs658_swap_nibbles(&cmd, 1);
 	ret = tm16xx_i2c_write(display, &cmd, 1);
-	if (ret < 0) return ret;
+	if (ret < 0)
+		return ret;
 
 	return 0;
 }
@@ -227,7 +236,8 @@ static int hbs658_keys(struct tm16xx_display *display)
 	cmd = TM16XX_CMD_READ;
 	hbs658_swap_nibbles(&cmd, 1);
 	ret = tm16xx_i2c_read(display, cmd, &keycode, 1);
-	if (ret) return ret;
+	if (ret)
+		return ret;
 
 	hbs658_swap_nibbles(&keycode, 1);
 

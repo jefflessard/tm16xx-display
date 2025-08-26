@@ -22,15 +22,18 @@ static int tm16xx_spi_probe(struct spi_device *spi)
 	int ret;
 
 	controller = spi_get_device_match_data(spi);
-	if (!controller) return -EINVAL;
+	if (!controller)
+		return -EINVAL;
 
 	display = devm_kzalloc(&spi->dev, sizeof(*display), GFP_KERNEL);
-	if (!display) return -ENOMEM;
+	if (!display)
+		return -ENOMEM;
 
 	/* Allocate DMA-safe buffer */
 	display->spi_buffer = devm_kzalloc(&spi->dev, TM16XX_SPI_BUFFER_SIZE,
 					   GFP_KERNEL);
-	if (!display->spi_buffer) return -ENOMEM;
+	if (!display->spi_buffer)
+		return -ENOMEM;
 
 	display->client.spi = spi;
 	display->dev = &spi->dev;
@@ -39,7 +42,8 @@ static int tm16xx_spi_probe(struct spi_device *spi)
 	spi_set_drvdata(spi, display);
 
 	ret = tm16xx_probe(display);
-	if (ret) return ret;
+	if (ret)
+		return ret;
 
 	return 0;
 }
@@ -133,18 +137,21 @@ static int tm1628_init(struct tm16xx_display *display)
 		cmd[0] |= TM16XX_MODE_7GRIDS;
 
 	ret = tm16xx_spi_write(display, cmd, 1);
-	if (ret < 0) return ret;
+	if (ret < 0)
+		return ret;
 
 	/* Set data command */
 	cmd[0] = TM16XX_CMD_WRITE | TM16XX_DATA_ADDR_AUTO;
 	ret = tm16xx_spi_write(display, cmd, 1);
-	if (ret < 0) return ret;
+	if (ret < 0)
+		return ret;
 
 	/* Set control command with brightness */
 	cmd[0] = TM16XX_CMD_CTRL |
 		 TM16XX_CTRL_BRIGHTNESS(brightness, brightness - 1, TM16XX);
 	ret = tm16xx_spi_write(display, cmd, 1);
-	if (ret < 0) return ret;
+	if (ret < 0)
+		return ret;
 
 	return 0;
 }
@@ -181,11 +188,13 @@ static int tm1628_keys(struct tm16xx_display *display)
 
 	cmd[0] = TM16XX_CMD_READ;
 	ret = tm16xx_spi_read(display, cmd, 1, codes, TM1628_KEY_READ_LEN);
-	if (ret) return ret;
+	if (ret)
+		return ret;
 
 	/* prevent false readings */
 	for (i = 0; i < TM1628_KEY_READ_LEN; i++) {
-		if (codes[i] & ~TM1628_KEY_MASK) return -EINVAL;
+		if (codes[i] & ~TM1628_KEY_MASK)
+			return -EINVAL;
 	}
 
 	tm16xx_for_each_key(display, row, col) {
@@ -207,11 +216,13 @@ static int tm1638_keys(struct tm16xx_display *display)
 
 	cmd[0] = TM16XX_CMD_READ;
 	ret = tm16xx_spi_read(display, cmd, 1, codes, TM1638_KEY_READ_LEN);
-	if (ret) return ret;
+	if (ret)
+		return ret;
 
 	/* prevent false readings */
 	for (i = 0; i < TM1638_KEY_READ_LEN; i++) {
-		if (codes[i] & ~TM1638_KEY_MASK) return -EINVAL;
+		if (codes[i] & ~TM1638_KEY_MASK)
+			return -EINVAL;
 	}
 
 	tm16xx_for_each_key(display, row, col) {
@@ -233,11 +244,13 @@ static int tm1618_keys(struct tm16xx_display *display)
 
 	cmd[0] = TM16XX_CMD_READ;
 	ret = tm16xx_spi_read(display, cmd, 1, codes, TM1618_KEY_READ_LEN);
-	if (ret) return ret;
+	if (ret)
+		return ret;
 
 	/* prevent false readings */
 	for (i = 0; i < TM1618_KEY_READ_LEN; i++) {
-		if (codes[i] & ~TM1618_KEY_MASK) return -EINVAL;
+		if (codes[i] & ~TM1618_KEY_MASK)
+			return -EINVAL;
 	}
 
 	tm16xx_set_key(display, 0, 0, !!(codes[0] & BIT(1)));
@@ -269,11 +282,13 @@ static int fd620_keys(struct tm16xx_display *display)
 
 	cmd[0] = TM16XX_CMD_READ;
 	ret = tm16xx_spi_read(display, cmd, 1, codes, FD620_KEY_READ_LEN);
-	if (ret) return ret;
+	if (ret)
+		return ret;
 
 	/* prevent false readings */
 	for (i = 0; i < FD620_KEY_READ_LEN; i++) {
-		if (codes[i] & ~FD620_KEY_MASK) return -EINVAL;
+		if (codes[i] & ~FD620_KEY_MASK)
+			return -EINVAL;
 	}
 
 	tm16xx_set_key(display, 0, 0, codes[0] & BIT(0));
