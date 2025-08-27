@@ -315,7 +315,7 @@ static int tm16xx_display_init(struct tm16xx_display *display)
 	return 0;
 }
 
-static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
+static int tm16xx_parse_fwnode(struct device *dev, struct tm16xx_display *display)
 {
 	struct fwnode_handle *leds_node, *digits_node, *child;
 	struct tm16xx_led *led;
@@ -450,7 +450,7 @@ int tm16xx_probe(struct tm16xx_display *display)
 	unsigned int nbits;
 	int ret, i;
 
-	ret = tm16xx_parse_dt(dev, display);
+	ret = tm16xx_parse_fwnode(dev, display);
 	if (ret < 0)
 		return dev_err_probe(dev, ret, "Failed to parse device tree\n");
 
