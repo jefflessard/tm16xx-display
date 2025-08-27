@@ -17,9 +17,9 @@
 #include <linux/property.h>
 #include <linux/sysfs.h>
 #include <linux/workqueue.h>
-#include <linux/version.h> // TODO remove
 
 #include "tm16xx.h"
+#include "tm16xx_compat.h" // TODO remove
 
 #define TM16XX_DIGIT_SEGMENTS	7
 
@@ -87,7 +87,6 @@ static inline void tm16xx_set_seg(const struct tm16xx_display *display,
 	assign_bit(grid * display->num_segments + seg, display->state, on);
 }
 
-#if KERNEL_VERSION(6, 10, 0) <= LINUX_VERSION_CODE // TODO remove
 /**
  * tm16xx_get_grid() - Get the current segment pattern for a grid
  * @display: pointer to tm16xx_display
@@ -101,22 +100,6 @@ static inline unsigned int tm16xx_get_grid(const struct tm16xx_display *display,
 	return bitmap_read(display->state, index * display->num_segments,
 			   display->num_segments);
 }
-#else
-static inline unsigned int tm16xx_get_grid(const struct tm16xx_display *display,
-					   const unsigned int index)
-{
-	unsigned int start = index * display->num_segments;
-	unsigned int value = 0;
-	unsigned int i;
-
-	for (i = 0; i < display->num_segments; i++) {
-		if (test_bit(start + i, display->state))
-			value |= BIT(i);
-	}
-
-	return value;
-}
-#endif
 
 /* main display */
 /**
@@ -329,9 +312,7 @@ static int tm16xx_parse_fwnode(struct device *dev, struct tm16xx_display *displa
 	/* parse digits */
 	digits_node = device_get_named_child_node(dev, "digits");
 	if (digits_node) {
-		display->num_digits = 0;
-		fwnode_for_each_child_node(digits_node, child)
-			display->num_digits++;
+		display->num_digits = fwnode_get_child_node_count(digits_node);
 
 		if (display->num_digits) {
 			display->digits = devm_kcalloc(dev, display->num_digits,
@@ -383,9 +364,7 @@ static int tm16xx_parse_fwnode(struct device *dev, struct tm16xx_display *displa
 	/* parse leds */
 	leds_node = device_get_named_child_node(dev, "leds");
 	if (leds_node) {
-		display->num_leds = 0;
-		fwnode_for_each_child_node(leds_node, child)
-			display->num_leds++;
+		display->num_leds = fwnode_get_child_node_count(leds_node);
 
 		if (display->num_leds) {
 			display->leds = devm_kcalloc(dev, display->num_leds,
