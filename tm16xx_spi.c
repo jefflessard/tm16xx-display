@@ -117,17 +117,17 @@ static int tm16xx_spi_write(struct tm16xx_display *display, u8 *data, size_t len
 static int tm1628_init(struct tm16xx_display *display)
 {
 	const enum led_brightness brightness = display->main_led.brightness;
-	const u8 num_grids = display->num_grids;
+	const u8 num_hwgrid = display->num_hwgrid;
 	u8 *cmd = display->spi_buffer;
 	int ret;
 
 	/* Set mode command based on grid count */
 	cmd[0] = TM16XX_CMD_MODE;
-	if (num_grids <= 4)
+	if (num_hwgrid <= 4)
 		cmd[0] |= TM16XX_MODE_4GRIDS;
-	else if (num_grids == 5)
+	else if (num_hwgrid == 5)
 		cmd[0] |= TM16XX_MODE_5GRIDS;
-	else if (num_grids == 6)
+	else if (num_hwgrid == 6)
 		cmd[0] |= TM16XX_MODE_6GRIDS;
 	else
 		cmd[0] |= TM16XX_MODE_7GRIDS;

@@ -134,8 +134,8 @@ struct tm16xx_controller {
  * @controller: Controller-specific function table and limits.
  * @spi_buffer: DMA-safe buffer for SPI transactions, or NULL for I2C.
  * @keypad: Opaque pointer to tm16xx_keypad struct.
- * @num_grids: Number of controller grids in use.
- * @num_segments: Number of controller segments in use.
+ * @num_hwgrid: Number of controller grids in use.
+ * @num_hwseg: Number of controller segments in use.
  * @main_led: LED class device for the entire display.
  * @leds: Array of individual LED icon structures.
  * @num_leds: Number of individual LED icons.
@@ -152,8 +152,8 @@ struct tm16xx_display {
 	const struct tm16xx_controller *controller;
 	u8 *spi_buffer;
 	struct tm16xx_keypad *keypad;
-	u8 num_grids;
-	u8 num_segments;
+	u8 num_hwgrid;
+	u8 num_hwseg;
 	struct led_classdev main_led;
 	struct tm16xx_led *leds;
 	u8 num_leds;

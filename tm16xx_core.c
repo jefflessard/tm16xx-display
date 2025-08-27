@@ -33,23 +33,23 @@ static SEG7_CONVERSION_MAP(map_seg7, MAP_ASCII7SEG_ALPHANUM);
 /**
  * struct tm16xx_led - Individual LED icon mapping
  * @cdev: LED class device for sysfs interface.
- * @grid: Controller grid index of the LED.
- * @segment: Controller segment index of the LED.
+ * @hwgrid: Controller grid index of the LED.
+ * @hwseg: Controller segment index of the LED.
  */
 struct tm16xx_led {
 	struct led_classdev cdev;
-	u8 grid;
-	u8 segment;
+	u8 hwgrid;
+	u8 hwseg;
 };
 
 /**
  * struct tm16xx_digit_segment - Digit segment mapping to display coordinates
- * @grid: Controller grid index for this segment.
- * @segment: Controller segment index for this segment.
+ * @hwgrid: Controller grid index for this segment.
+ * @hwseg: Controller segment index for this segment.
  */
 struct tm16xx_digit_segment {
-	u8 grid;
-	u8 segment;
+	u8 hwgrid;
+	u8 hwseg;
 };
 
 /**
@@ -71,20 +71,20 @@ struct tm16xx_digit {
  */
 static inline unsigned int tm16xx_led_nbits(const struct tm16xx_display *display)
 {
-	return display->num_grids * display->num_segments;
+	return display->num_hwgrid * display->num_hwseg;
 }
 
 /**
  * tm16xx_set_seg() - Set the display state for a specific grid/segment
  * @display: pointer to tm16xx_display
- * @grid: grid index
- * @seg: segment index
+ * @hwgrid: grid index
+ * @hwseg: segment index
  * @on: true to turn on, false to turn off
  */
 static inline void tm16xx_set_seg(const struct tm16xx_display *display,
-				  const u8 grid, const u8 seg, const bool on)
+				  const u8 hwgrid, const u8 hwseg, const bool on)
 {
-	assign_bit(grid * display->num_segments + seg, display->state, on);
+	assign_bit(hwgrid * display->num_hwseg + hwseg, display->state, on);
 }
 
 /**
@@ -97,8 +97,8 @@ static inline void tm16xx_set_seg(const struct tm16xx_display *display,
 static inline unsigned int tm16xx_get_grid(const struct tm16xx_display *display,
 					   const unsigned int index)
 {
-	return bitmap_read(display->state, index * display->num_segments,
-			   display->num_segments);
+	return bitmap_read(display->state, index * display->num_hwseg,
+			   display->num_hwseg);
 }
 
 /* main display */
@@ -138,7 +138,7 @@ static void tm16xx_display_flush_data(struct work_struct *work)
 
 	scoped_guard(mutex, &display->lock) {
 		if (display->controller->data) {
-			for (i = 0; i < display->num_grids; i++) {
+			for (i = 0; i < display->num_hwgrid; i++) {
 				grid = tm16xx_get_grid(display, i);
 				ret = display->controller->data(display, i,
 								grid);
@@ -180,7 +180,7 @@ static void tm16xx_led_set(struct led_classdev *led_cdev,
 	struct tm16xx_led *led = container_of(led_cdev, struct tm16xx_led, cdev);
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
 
-	tm16xx_set_seg(display, led->grid, led->segment, value);
+	tm16xx_set_seg(display, led->hwgrid, led->hwseg, value);
 	schedule_work(&display->flush_display);
 }
 
@@ -218,7 +218,7 @@ static ssize_t tm16xx_value_store(struct device *dev,
 		for (j = 0; j < TM16XX_DIGIT_SEGMENTS; j++) {
 			ds = &digit->segments[j];
 			val = seg_pattern & BIT(j);
-			tm16xx_set_seg(display, ds->grid, ds->segment, val);
+			tm16xx_set_seg(display, ds->hwgrid, ds->hwseg, val);
 		}
 	}
 
@@ -227,7 +227,7 @@ static ssize_t tm16xx_value_store(struct device *dev,
 		digit->value = 0;
 		for (j = 0; j < TM16XX_DIGIT_SEGMENTS; j++) {
 			ds = &digit->segments[j];
-			tm16xx_set_seg(display, ds->grid, ds->segment, 0);
+			tm16xx_set_seg(display, ds->hwgrid, ds->hwseg, 0);
 		}
 	}
 
@@ -303,7 +303,7 @@ static int tm16xx_parse_fwnode(struct device *dev, struct tm16xx_display *displa
 	struct fwnode_handle *leds_node, *digits_node, *child;
 	struct tm16xx_led *led;
 	struct tm16xx_digit *digit;
-	unsigned int max_grid = 0, max_segment = 0;
+	unsigned int max_hwgrid = 0, max_hwseg = 0;
 	unsigned int i, j;
 	int ret;
 	u32 segments[TM16XX_DIGIT_SEGMENTS * 2];
@@ -346,12 +346,12 @@ static int tm16xx_parse_fwnode(struct device *dev, struct tm16xx_display *displa
 				}
 
 				for (j = 0; j < TM16XX_DIGIT_SEGMENTS; ++j) {
-					digit->segments[j].grid = segments[2 * j];
-					digit->segments[j].segment = segments[2 * j + 1];
-					max_grid = umax(max_grid,
-							digit->segments[j].grid);
-					max_segment = umax(max_segment,
-							   digit->segments[j].segment);
+					digit->segments[j].hwgrid = segments[2 * j];
+					digit->segments[j].hwseg = segments[2 * j + 1];
+					max_hwgrid = umax(max_hwgrid,
+							  digit->segments[j].hwgrid);
+					max_hwseg = umax(max_hwseg,
+							 digit->segments[j].hwseg);
 				}
 				digit->value = 0;
 				i++;
@@ -387,10 +387,10 @@ static int tm16xx_parse_fwnode(struct device *dev, struct tm16xx_display *displa
 					return ret;
 				}
 
-				led->grid = reg[0];
-				led->segment = reg[1];
-				max_grid = umax(max_grid, led->grid);
-				max_segment = umax(max_segment, led->segment);
+				led->hwgrid = reg[0];
+				led->hwseg = reg[1];
+				max_hwgrid = umax(max_hwgrid, led->hwgrid);
+				max_hwseg = umax(max_hwseg, led->hwseg);
 				i++;
 			}
 		}
@@ -398,20 +398,20 @@ static int tm16xx_parse_fwnode(struct device *dev, struct tm16xx_display *displa
 		fwnode_handle_put(leds_node);
 	}
 
-	if (max_grid >= display->controller->max_grids) {
+	if (max_hwgrid >= display->controller->max_grids) {
 		dev_err(dev, "grid %u exceeds controller max_grids %u\n",
-			max_grid, display->controller->max_grids);
+			max_hwgrid, display->controller->max_grids);
 		return -EINVAL;
 	}
 
-	if (max_segment >= display->controller->max_segments) {
+	if (max_hwseg >= display->controller->max_segments) {
 		dev_err(dev, "segment %u exceeds controller max_segments %u\n",
-			max_segment, display->controller->max_segments);
+			max_hwseg, display->controller->max_segments);
 		return -EINVAL;
 	}
 
-	display->num_grids = max_grid + 1;
-	display->num_segments = max_segment + 1;
+	display->num_hwgrid = max_hwgrid + 1;
+	display->num_hwseg = max_hwseg + 1;
 
 	return 0;
 }
