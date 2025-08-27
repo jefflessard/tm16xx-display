@@ -317,7 +317,7 @@ MODULE_DEVICE_TABLE(i2c, tm16xx_i2c_id);
 static struct i2c_driver tm16xx_i2c_driver = {
 	.driver = {
 		.name = "tm16xx-i2c",
-		.of_match_table = of_match_ptr(tm16xx_i2c_of_match),
+		.of_match_table = tm16xx_i2c_of_match,
 	},
 	.probe = tm16xx_i2c_probe,
 	.remove = tm16xx_i2c_remove,

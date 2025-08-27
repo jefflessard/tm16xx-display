@@ -7,7 +7,6 @@
  */
 
 #include <linux/mod_devicetable.h>
-#include <linux/of.h>
 #include <linux/spi/spi.h>
 
 #include "tm16xx.h"
@@ -383,7 +382,7 @@ MODULE_DEVICE_TABLE(spi, tm16xx_spi_id);
 static struct spi_driver tm16xx_spi_driver = {
 	.driver = {
 		.name = "tm16xx-spi",
-		.of_match_table = of_match_ptr(tm16xx_spi_of_match),
+		.of_match_table = tm16xx_spi_of_match,
 	},
 	.probe = tm16xx_spi_probe,
 	.remove = tm16xx_spi_remove,
