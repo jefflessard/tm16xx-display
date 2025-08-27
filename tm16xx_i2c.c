@@ -3,7 +3,7 @@
  * TM16xx and compatible LED display/keypad controller driver
  * Supports TM16xx, FD6xx, PT6964, HBS658, AIP16xx and related chips.
  *
- * Copyright (C) 2024 Jean-François Lessard
+ * Copyright (C) 2025 Jean-François Lessard
  */
 
 #include <linux/bitfield.h>
