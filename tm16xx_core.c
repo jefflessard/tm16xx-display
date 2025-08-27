@@ -29,6 +29,21 @@ tm16xx_init_value = CONFIG_PANEL_BOOT_MESSAGE;
 
 static SEG7_CONVERSION_MAP(map_seg7, MAP_ASCII7SEG_ALPHANUM);
 
+// TODO add to include/linux/property.h
+#define fwnode_for_each_child_node_scoped(fwnode, child)		\
+	for (struct fwnode_handle *child __free(fwnode_handle) =	\
+		fwnode_get_next_child_node(fwnode, NULL);		\
+	     child; child = fwnode_get_next_child_node(fwnode, child))
+
+#define fwnode_for_each_named_child_node_scoped(fwnode, child, name)	\
+	fwnode_for_each_child_node_scoped(fwnode, child)		\
+		for_each_if(fwnode_name_eq(child, name))
+
+#define fwnode_for_each_available_child_node_scoped(fwnode, child)	\
+	for (struct fwnode_handle *child __free(fwnode_handle) =	\
+		fwnode_get_next_available_child_node(fwnode, NULL);	\
+	     child; child = fwnode_get_next_available_child_node(fwnode, child))
+
 /**
  * struct tm16xx_led - Individual LED icon mapping
  * @cdev: LED class device for sysfs interface.
@@ -299,7 +314,6 @@ static int tm16xx_display_init(struct tm16xx_display *display)
 
 static int tm16xx_parse_fwnode(struct device *dev, struct tm16xx_display *display)
 {
-	struct fwnode_handle *leds_node, *digits_node, *child;
 	struct tm16xx_led *led;
 	struct tm16xx_digit *digit;
 	unsigned int max_hwgrid = 0, max_hwseg = 0;
@@ -308,8 +322,12 @@ static int tm16xx_parse_fwnode(struct device *dev, struct tm16xx_display *displa
 	u32 segments[TM16XX_DIGIT_SEGMENTS * 2];
 	u32 reg[2];
 
+	struct fwnode_handle *digits_node __free(fwnode_handle) =
+		device_get_named_child_node(dev, "digits");
+	struct fwnode_handle *leds_node __free(fwnode_handle) =
+		device_get_named_child_node(dev, "leds");
+
 	/* parse digits */
-	digits_node = device_get_named_child_node(dev, "digits");
 	if (digits_node) {
 		display->num_digits = fwnode_get_child_node_count(digits_node);
 
@@ -317,32 +335,24 @@ static int tm16xx_parse_fwnode(struct device *dev, struct tm16xx_display *displa
 			display->digits = devm_kcalloc(dev, display->num_digits,
 						       sizeof(*display->digits),
 						       GFP_KERNEL);
-			if (!display->digits) {
-				fwnode_handle_put(digits_node);
+			if (!display->digits)
 				return -ENOMEM;
-			}
 
 			i = 0;
-			fwnode_for_each_child_node(digits_node, child) {
+			fwnode_for_each_available_child_node_scoped(digits_node, child) {
 				digit = &display->digits[i];
 
 				ret = fwnode_property_read_u32(child, "reg",
 							       reg);
-				if (ret < 0) {
-					fwnode_handle_put(child);
-					fwnode_handle_put(digits_node);
+				if (ret < 0)
 					return ret;
-				}
 
 				ret = fwnode_property_read_u32_array(child,
 								     "segments",
 								     segments,
 								     TM16XX_DIGIT_SEGMENTS * 2);
-				if (ret < 0) {
-					fwnode_handle_put(child);
-					fwnode_handle_put(digits_node);
+				if (ret < 0)
 					return ret;
-				}
 
 				for (j = 0; j < TM16XX_DIGIT_SEGMENTS; ++j) {
 					digit->segments[j].hwgrid = segments[2 * j];
@@ -355,13 +365,10 @@ static int tm16xx_parse_fwnode(struct device *dev, struct tm16xx_display *displa
 				digit->value = 0;
 				i++;
 			}
-
-			fwnode_handle_put(digits_node);
 		}
 	}
 
 	/* parse leds */
-	leds_node = device_get_named_child_node(dev, "leds");
 	if (leds_node) {
 		display->num_leds = fwnode_get_child_node_count(leds_node);
 
@@ -369,22 +376,17 @@ static int tm16xx_parse_fwnode(struct device *dev, struct tm16xx_display *displa
 			display->leds = devm_kcalloc(dev, display->num_leds,
 						     sizeof(*display->leds),
 						     GFP_KERNEL);
-			if (!display->leds) {
-				fwnode_handle_put(leds_node);
+			if (!display->leds)
 				return -ENOMEM;
-			}
 
 			i = 0;
-			fwnode_for_each_child_node(leds_node, child) {
+			fwnode_for_each_available_child_node_scoped(leds_node, child) {
 				led = &display->leds[i];
 				ret = fwnode_property_read_u32_array(child,
 								     "reg", reg,
 								     2);
-				if (ret < 0) {
-					fwnode_handle_put(child);
-					fwnode_handle_put(leds_node);
+				if (ret < 0)
 					return ret;
-				}
 
 				led->hwgrid = reg[0];
 				led->hwseg = reg[1];
@@ -393,8 +395,6 @@ static int tm16xx_parse_fwnode(struct device *dev, struct tm16xx_display *displa
 				i++;
 			}
 		}
-
-		fwnode_handle_put(leds_node);
 	}
 
 	if (max_hwgrid >= display->controller->max_grids) {
@@ -426,7 +426,7 @@ int tm16xx_probe(struct tm16xx_display *display)
 	struct device *dev = display->dev;
 	struct led_classdev *main = &display->main_led;
 	struct led_init_data led_init = {0};
-	struct fwnode_handle *leds_node, *child;
+	struct fwnode_handle *leds_node;
 	struct tm16xx_led *led;
 	unsigned int nbits, i;
 	int ret;
@@ -469,7 +469,7 @@ int tm16xx_probe(struct tm16xx_display *display)
 	led_init.devname_mandatory = true;
 	led_init.default_label = "led";
 	leds_node = device_get_named_child_node(dev, "leds");
-	fwnode_for_each_child_node(leds_node, child) {
+	fwnode_for_each_available_child_node_scoped(leds_node, child) {
 		led_init.fwnode = child;
 		led = &display->leds[i];
 		led->cdev.max_brightness = 1;
@@ -479,7 +479,6 @@ int tm16xx_probe(struct tm16xx_display *display)
 
 		ret = led_classdev_register_ext(dev, &led->cdev, &led_init);
 		if (ret < 0) {
-			fwnode_handle_put(child);
 			dev_err_probe(dev, ret, "Failed to register LED %s\n",
 				      led->cdev.name);
 			goto unregister_leds;

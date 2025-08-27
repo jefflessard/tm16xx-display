@@ -4,6 +4,8 @@
 #include <linux/version.h>
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 10, 0)
+DEFINE_FREE(fwnode_handle, struct fwnode_handle *, fwnode_handle_put(_T))
+
 static __always_inline
 unsigned long bitmap_read(const unsigned long *map, unsigned long start, unsigned long nbits)
 {
