@@ -201,14 +201,6 @@ static void tm16xx_led_set(struct led_classdev *led_cdev,
 	schedule_work(&display->flush_display);
 }
 
-/**
- * tm16xx_value_show() - Sysfs: show current display digit values
- * @dev: pointer to device
- * @attr: device attribute (unused)
- * @buf: output buffer
- *
- * Return: number of bytes written to output buffer
- */
 static ssize_t tm16xx_value_show(struct device *dev,
 				 struct device_attribute *attr, char *buf)
 {
@@ -223,15 +215,6 @@ static ssize_t tm16xx_value_show(struct device *dev,
 	return i;
 }
 
-/**
- * tm16xx_value_store() - Sysfs: set display digit values
- * @dev: pointer to device
- * @attr: device attribute (unused)
- * @buf: new digit values (ASCII chars)
- * @count: buffer length
- *
- * Return: number of bytes written or negative error code
- */
 static ssize_t tm16xx_value_store(struct device *dev,
 				  struct device_attribute *attr,
 				  const char *buf, size_t count)
@@ -269,14 +252,6 @@ static ssize_t tm16xx_value_store(struct device *dev,
 	return count;
 }
 
-/**
- * tm16xx_num_digits_show() - Sysfs: show number of digits on display
- * @dev: pointer to device
- * @attr: device attribute (unused)
- * @buf: output buffer
- *
- * Return: number of bytes written
- */
 static ssize_t tm16xx_num_digits_show(struct device *dev,
 				      struct device_attribute *attr, char *buf)
 {
@@ -286,14 +261,6 @@ static ssize_t tm16xx_num_digits_show(struct device *dev,
 	return sysfs_emit(buf, "%u\n", display->num_digits);
 }
 
-/**
- * tm16xx_map_seg7_show() - Sysfs: show current 7-segment character map (binary blob)
- * @dev: pointer to device
- * @attr: device attribute (unused)
- * @buf: output buffer
- *
- * Return: size of map_seg7
- */
 static ssize_t tm16xx_map_seg7_show(struct device *dev,
 				    struct device_attribute *attr, char *buf)
 {
@@ -301,15 +268,6 @@ static ssize_t tm16xx_map_seg7_show(struct device *dev,
 	return sizeof(map_seg7);
 }
 
-/**
- * tm16xx_map_seg7_store() - Sysfs: set 7-segment character map (binary blob)
- * @dev: pointer to device
- * @attr: device attribute (unused)
- * @buf: new mapping (must match size of map_seg7)
- * @cnt: buffer length
- *
- * Return: cnt on success, negative errno on failure
- */
 static ssize_t tm16xx_map_seg7_store(struct device *dev,
 				     struct device_attribute *attr,
 				     const char *buf, size_t cnt)
@@ -332,12 +290,6 @@ static struct attribute *tm16xx_main_led_attrs[] = {
 };
 ATTRIBUTE_GROUPS(tm16xx_main_led);
 
-/**
- * tm16xx_display_init() - Initialize display hardware and state
- * @display: pointer to tm16xx_display
- *
- * Return: 0 on success, negative error code on failure
- */
 static int tm16xx_display_init(struct tm16xx_display *display)
 {
 	unsigned int nbits = tm16xx_led_nbits(display);
@@ -363,13 +315,6 @@ static int tm16xx_display_init(struct tm16xx_display *display)
 	return 0;
 }
 
-/**
- * tm16xx_parse_dt() - Parse device tree for digit and LED mapping
- * @dev: pointer to struct device
- * @display: pointer to tm16xx_display
- *
- * Return: 0 on success, negative error code on failure
- */
 static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 {
 	struct fwnode_handle *leds_node, *digits_node, *child;
