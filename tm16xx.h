@@ -132,7 +132,6 @@ struct tm16xx_controller {
  * struct tm16xx_display - Main driver structure for the display
  * @dev: Pointer to device struct.
  * @controller: Controller-specific function table and limits.
- * @client: Union of I2C and SPI client pointers.
  * @spi_buffer: DMA-safe buffer for SPI transactions, or NULL for I2C.
  * @keypad: Opaque pointer to tm16xx_keypad struct.
  * @num_grids: Number of controller grids in use.
@@ -151,10 +150,6 @@ struct tm16xx_controller {
 struct tm16xx_display {
 	struct device *dev;
 	const struct tm16xx_controller *controller;
-	union {
-		struct i2c_client *i2c;
-		struct spi_device *spi;
-	} client;
 	u8 *spi_buffer;
 	struct tm16xx_keypad *keypad;
 	u8 num_grids;

@@ -28,7 +28,6 @@ static int tm16xx_i2c_probe(struct i2c_client *client)
 	if (!display)
 		return -ENOMEM;
 
-	display->client.i2c = client;
 	display->dev = &client->dev;
 	display->controller = controller;
 
@@ -58,6 +57,8 @@ static void tm16xx_i2c_remove(struct i2c_client *client)
  */
 static int tm16xx_i2c_write(struct tm16xx_display *display, u8 *data, size_t len)
 {
+	struct i2c_client *i2c = container_of(display->dev, struct i2c_client, dev);
+
 	/* expected sequence: S Command [A] Data [A] P */
 	struct i2c_msg msg = {
 		.addr = data[0] >> 1,
@@ -67,7 +68,7 @@ static int tm16xx_i2c_write(struct tm16xx_display *display, u8 *data, size_t len
 	};
 	int ret;
 
-	ret = i2c_transfer(display->client.i2c->adapter, &msg, 1);
+	ret = i2c_transfer(i2c->adapter, &msg, 1);
 	if (ret < 0)
 		return ret;
 
@@ -86,6 +87,8 @@ static int tm16xx_i2c_write(struct tm16xx_display *display, u8 *data, size_t len
 static int tm16xx_i2c_read(struct tm16xx_display *display, u8 cmd, u8 *data,
 			   size_t len)
 {
+	struct i2c_client *i2c = container_of(display->dev, struct i2c_client, dev);
+
 	/* expected sequence: S Command [A] [Data] [A] P */
 	struct i2c_msg msgs[1] = {{
 		.addr = cmd >> 1,
@@ -95,7 +98,7 @@ static int tm16xx_i2c_read(struct tm16xx_display *display, u8 cmd, u8 *data,
 	}};
 	int ret;
 
-	ret = i2c_transfer(display->client.i2c->adapter, msgs, ARRAY_SIZE(msgs));
+	ret = i2c_transfer(i2c->adapter, msgs, ARRAY_SIZE(msgs));
 	if (ret < 0)
 		return ret;
 

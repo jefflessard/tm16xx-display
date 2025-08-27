@@ -38,7 +38,6 @@ static int tm16xx_spi_probe(struct spi_device *spi)
 	if (!display->spi_buffer)
 		return -ENOMEM;
 
-	display->client.spi = spi;
 	display->dev = &spi->dev;
 	display->controller = controller;
 
@@ -71,7 +70,7 @@ static void tm16xx_spi_remove(struct spi_device *spi)
 static int tm16xx_spi_read(struct tm16xx_display *display, u8 *cmd,
 			   size_t cmd_len, u8 *data, size_t data_len)
 {
-	struct spi_device *spi = display->client.spi;
+	struct spi_device *spi = container_of(display->dev, struct spi_device, dev);
 	struct spi_message msg;
 	int ret;
 
@@ -109,7 +108,7 @@ static int tm16xx_spi_read(struct tm16xx_display *display, u8 *cmd,
  */
 static int tm16xx_spi_write(struct tm16xx_display *display, u8 *data, size_t len)
 {
-	struct spi_device *spi = display->client.spi;
+	struct spi_device *spi = container_of(display->dev, struct spi_device, dev);
 
 	return spi_write(spi, data, len);
 }
