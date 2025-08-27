@@ -132,7 +132,7 @@ static void tm16xx_display_flush_init(struct work_struct *work)
 			ret = display->controller->init(display);
 			display->flush_status = ret;
 		}
-		if (ret < 0)
+		if (ret)
 			dev_err(display->dev,
 				"Failed to configure controller: %d\n", ret);
 	}
@@ -156,7 +156,7 @@ static void tm16xx_display_flush_data(struct work_struct *work)
 				grid = tm16xx_get_grid(display, i);
 				ret = display->controller->data(display, i,
 								grid);
-				if (ret < 0) {
+				if (ret) {
 					dev_err(display->dev,
 						"Failed to write display data: %d\n",
 						ret);
@@ -293,7 +293,7 @@ static int tm16xx_display_init(struct tm16xx_display *display)
 
 	schedule_work(&display->flush_init);
 	flush_work(&display->flush_init);
-	if (display->flush_status < 0)
+	if (display->flush_status)
 		return display->flush_status;
 
 	if (tm16xx_init_value) {
@@ -305,7 +305,7 @@ static int tm16xx_display_init(struct tm16xx_display *display)
 		schedule_work(&display->flush_display);
 		flush_work(&display->flush_display);
 		bitmap_zero(display->state, nbits);
-		if (display->flush_status < 0)
+		if (display->flush_status)
 			return display->flush_status;
 	}
 
@@ -344,7 +344,7 @@ static int tm16xx_parse_fwnode(struct device *dev, struct tm16xx_display *displa
 
 				ret = fwnode_property_read_u32(child, "reg",
 							       reg);
-				if (ret < 0)
+				if (ret)
 					return ret;
 
 				ret = fwnode_property_read_u32_array(child,
@@ -432,7 +432,7 @@ int tm16xx_probe(struct tm16xx_display *display)
 	int ret;
 
 	ret = tm16xx_parse_fwnode(dev, display);
-	if (ret < 0)
+	if (ret)
 		return dev_err_probe(dev, ret, "Failed to parse device tree\n");
 
 	nbits = tm16xx_led_nbits(display);
@@ -461,7 +461,7 @@ int tm16xx_probe(struct tm16xx_display *display)
 
 	/* Register individual LEDs from device tree */
 	ret = led_classdev_register_ext(dev, main, &led_init);
-	if (ret < 0)
+	if (ret)
 		return dev_err_probe(dev, ret, "Failed to register main LED\n");
 
 	i = 0;
@@ -478,7 +478,7 @@ int tm16xx_probe(struct tm16xx_display *display)
 				  LED_CORE_SUSPENDRESUME;
 
 		ret = led_classdev_register_ext(dev, &led->cdev, &led_init);
-		if (ret < 0) {
+		if (ret) {
 			dev_err_probe(dev, ret, "Failed to register LED %s\n",
 				      led->cdev.name);
 			goto unregister_leds;
@@ -488,13 +488,13 @@ int tm16xx_probe(struct tm16xx_display *display)
 	}
 
 	ret = tm16xx_display_init(display);
-	if (ret < 0) {
+	if (ret) {
 		dev_err_probe(dev, ret, "Failed to initialize display\n");
 		goto unregister_leds;
 	}
 
 	ret = tm16xx_keypad_probe(display);
-	if (ret < 0)
+	if (ret)
 		dev_warn(dev, "Failed to initialize keypad: %d\n", ret);
 
 	return 0;

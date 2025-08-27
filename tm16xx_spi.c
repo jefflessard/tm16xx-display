@@ -133,20 +133,20 @@ static int tm1628_init(struct tm16xx_display *display)
 		cmd[0] |= TM16XX_MODE_7GRIDS;
 
 	ret = tm16xx_spi_write(display, cmd, 1);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	/* Set data command */
 	cmd[0] = TM16XX_CMD_WRITE | TM16XX_DATA_ADDR_AUTO;
 	ret = tm16xx_spi_write(display, cmd, 1);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	/* Set control command with brightness */
 	cmd[0] = TM16XX_CMD_CTRL |
 		 TM16XX_CTRL_BRIGHTNESS(brightness, brightness - 1, TM16XX);
 	ret = tm16xx_spi_write(display, cmd, 1);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	return 0;

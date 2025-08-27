@@ -205,7 +205,7 @@ static int hbs658_init(struct tm16xx_display *display)
 	cmd = TM16XX_CMD_WRITE | TM16XX_DATA_ADDR_AUTO;
 	hbs658_swap_nibbles(&cmd, 1);
 	ret = tm16xx_i2c_write(display, &cmd, 1);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	/* Set control command with brightness */
@@ -213,7 +213,7 @@ static int hbs658_init(struct tm16xx_display *display)
 	      TM16XX_CTRL_BRIGHTNESS(brightness, brightness - 1, TM16XX);
 	hbs658_swap_nibbles(&cmd, 1);
 	ret = tm16xx_i2c_write(display, &cmd, 1);
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	return 0;
