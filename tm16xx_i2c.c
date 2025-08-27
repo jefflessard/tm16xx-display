@@ -292,7 +292,6 @@ static const struct tm16xx_controller hbs658_controller = {
 	.keys = hbs658_keys,
 };
 
-#if IS_ENABLED(CONFIG_OF)
 static const struct of_device_id tm16xx_i2c_of_match[] = {
 	{ .compatible = "titanmec,tm1650", .data = &tm1650_controller },
 	{ .compatible = "fdhisi,fd6551",   .data = &fd6551_controller },
@@ -301,7 +300,6 @@ static const struct of_device_id tm16xx_i2c_of_match[] = {
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, tm16xx_i2c_of_match);
-#endif
 
 static const struct i2c_device_id tm16xx_i2c_id[] = {
 	{ "tm1650", (kernel_ulong_t)&tm1650_controller },

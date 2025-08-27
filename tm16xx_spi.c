@@ -354,7 +354,6 @@ static const struct tm16xx_controller fd620_controller = {
 	.keys = fd620_keys,
 };
 
-#if IS_ENABLED(CONFIG_OF)
 static const struct of_device_id tm16xx_spi_of_match[] = {
 	{ .compatible = "titanmec,tm1618",  .data = &tm1618_controller },
 	{ .compatible = "titanmec,tm1620",  .data = &tm1620_controller },
@@ -364,7 +363,6 @@ static const struct of_device_id tm16xx_spi_of_match[] = {
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, tm16xx_spi_of_match);
-#endif
 
 static const struct spi_device_id tm16xx_spi_id[] = {
 	{ "tm1618",  (kernel_ulong_t)&tm1618_controller },
