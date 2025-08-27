@@ -15,6 +15,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/property.h>
+#include <linux/sysfs.h>
 #include <linux/workqueue.h>
 #include <linux/version.h> // TODO remove
 
@@ -215,7 +216,7 @@ static ssize_t tm16xx_value_show(struct device *dev,
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
 	int i;
 
-	for (i = 0; i < display->num_digits && i < PAGE_SIZE - 1; i++)
+	for (i = 0; i < display->num_digits && i < PAGE_SIZE - 2; i++)
 		buf[i] = display->digits[i].value;
 
 	buf[i++] = '\n';
@@ -282,7 +283,7 @@ static ssize_t tm16xx_num_digits_show(struct device *dev,
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
 
-	return sprintf(buf, "%u\n", display->num_digits);
+	return sysfs_emit(buf, "%u\n", display->num_digits);
 }
 
 /**
