@@ -319,7 +319,6 @@ static const struct tm16xx_controller tm1620_controller = {
 	.max_key_cols = 0,
 	.init = tm1628_init,
 	.data = tm1628_data,
-	.keys = NULL,
 };
 
 static const struct tm16xx_controller tm1628_controller = {
