@@ -94,8 +94,8 @@
 
 #define HBS658_KEY_COL_MASK	GENMASK(7, 5)
 
-#define TM16XX_CTRL_BRIGHTNESS(on, val, prfx) \
-	((on) ? (FIELD_PREP(prfx##_CTRL_BR_MASK, (val)) | prfx##_CTRL_ON) : 0)
+#define TM16XX_CTRL_BRIGHTNESS(on, val, prefix) \
+	((on) ? (FIELD_PREP(prefix##_CTRL_BR_MASK, (val)) | prefix##_CTRL_ON) : 0)
 
 /* Forward declarations */
 struct tm16xx_display;
