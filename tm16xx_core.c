@@ -328,7 +328,7 @@ static struct attribute *tm16xx_main_led_attrs[] = {
 	&dev_attr_value.attr,
 	&dev_attr_num_digits.attr,
 	&dev_attr_map_seg7.attr,
-	NULL,
+	NULL
 };
 ATTRIBUTE_GROUPS(tm16xx_main_led);
 
