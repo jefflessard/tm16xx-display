@@ -6,6 +6,9 @@
  * Copyright (C) 2024 Jean-François Lessard
  */
 
+#include <linux/bitmap.h>
+#include <linux/cleanup.h>
+#include <linux/device.h>
 #include <linux/input.h>
 #include <linux/input/matrix_keypad.h>
 #include <linux/property.h>

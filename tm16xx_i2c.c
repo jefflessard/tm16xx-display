@@ -6,8 +6,11 @@
  * Copyright (C) 2024 Jean-François Lessard
  */
 
+#include <linux/bitfield.h>
+#include <linux/device.h>
 #include <linux/i2c.h>
 #include <linux/mod_devicetable.h>
+#include <linux/module.h>
 
 #include "tm16xx.h"
 

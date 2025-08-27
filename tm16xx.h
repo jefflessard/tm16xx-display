@@ -10,11 +10,8 @@
 #define _TM16XX_H
 
 #include <linux/bitfield.h>
-#include <linux/bitmap.h>
 #include <linux/leds.h>
 #include <linux/workqueue.h>
-
-#define TM16XX_DIGIT_SEGMENTS	7
 
 /* Common bit field definitions */
 

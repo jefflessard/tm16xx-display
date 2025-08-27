@@ -6,13 +6,21 @@
  * Copyright (C) 2024 Jean-François Lessard
  */
 
+#include <linux/bitfield.h>
+#include <linux/bitmap.h>
+#include <linux/cleanup.h>
+#include <linux/device.h>
+#include <linux/leds.h>
 #include <linux/map_to_7segment.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/property.h>
+#include <linux/workqueue.h>
 #include <linux/version.h> // TODO remove
 
 #include "tm16xx.h"
+
+#define TM16XX_DIGIT_SEGMENTS	7
 
 static const char *tm16xx_init_value;
 #ifdef CONFIG_PANEL_BOOT_MESSAGE
