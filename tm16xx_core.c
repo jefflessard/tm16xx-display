@@ -13,7 +13,6 @@
 #include <linux/leds.h>
 #include <linux/map_to_7segment.h>
 #include <linux/module.h>
-#include <linux/of.h>
 #include <linux/property.h>
 #include <linux/sysfs.h>
 #include <linux/workqueue.h>
@@ -426,7 +425,9 @@ int tm16xx_probe(struct tm16xx_display *display)
 {
 	struct device *dev = display->dev;
 	struct led_classdev *main = &display->main_led;
+	struct led_init_data led_init = {0};
 	struct fwnode_handle *leds_node, *child;
+	struct tm16xx_led *led;
 	unsigned int nbits, i;
 	int ret;
 
@@ -444,12 +445,7 @@ int tm16xx_probe(struct tm16xx_display *display)
 	INIT_WORK(&display->flush_display, tm16xx_display_flush_data);
 
 	/* Initialize main LED properties */
-	if (dev->of_node)
-		main->name = dev->of_node->name;
-	if (!main->name)
-		main->name = "display";
-	device_property_read_string(dev, "label", &main->name);
-
+	led_init.fwnode = dev_fwnode(dev); /* apply label property */
 	main->max_brightness = display->controller->max_brightness;
 	device_property_read_u32(dev, "max-brightness", &main->max_brightness);
 	main->max_brightness = umin(main->max_brightness,
@@ -464,20 +460,18 @@ int tm16xx_probe(struct tm16xx_display *display)
 	main->flags = LED_RETAIN_AT_SHUTDOWN | LED_CORE_SUSPENDRESUME;
 
 	/* Register individual LEDs from device tree */
-	ret = led_classdev_register(dev, main);
+	ret = led_classdev_register_ext(dev, main, &led_init);
 	if (ret < 0)
 		return dev_err_probe(dev, ret, "Failed to register main LED\n");
 
 	i = 0;
+	led_init.devicename = dev_name(main->dev);
+	led_init.devname_mandatory = true;
+	led_init.default_label = "led";
 	leds_node = device_get_named_child_node(dev, "leds");
 	fwnode_for_each_child_node(leds_node, child) {
-		struct tm16xx_led *led = &display->leds[i];
-		struct led_init_data led_init = {
-			.fwnode = child,
-			.devicename = dev_name(main->dev),
-			.devname_mandatory = true,
-			.default_label = "led",
-		};
+		led_init.fwnode = child;
+		led = &display->leds[i];
 		led->cdev.max_brightness = 1;
 		led->cdev.brightness_set = tm16xx_led_set;
 		led->cdev.flags = LED_RETAIN_AT_SHUTDOWN |
