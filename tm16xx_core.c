@@ -359,8 +359,6 @@ static int tm16xx_display_init(struct tm16xx_display *display)
 			return display->flush_status;
 	}
 
-	dev_info(display->dev, "Display turned on\n");
-
 	return 0;
 }
 
@@ -620,8 +618,6 @@ void tm16xx_remove(struct tm16xx_display *display)
 	display->main_led.brightness = LED_OFF;
 	schedule_work(&display->flush_init);
 	flush_work(&display->flush_init);
-
-	dev_info(display->dev, "Display turned off\n");
 }
 EXPORT_SYMBOL_NS(tm16xx_remove, TM16XX);
 
