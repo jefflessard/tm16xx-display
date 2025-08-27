@@ -130,7 +130,6 @@ static void tm16xx_display_flush_init(struct work_struct *work)
 	int ret;
 
 	if (display->controller->init) {
-		dev_dbg(display->dev, "Configuring controller\n");
 		scoped_guard(mutex, &display->lock) {
 			ret = display->controller->init(display);
 			display->flush_status = ret;
@@ -153,7 +152,6 @@ static void tm16xx_display_flush_data(struct work_struct *work)
 	int i, ret = 0;
 	unsigned int grid;
 
-	dev_dbg(display->dev, "Sending data to controller\n");
 	scoped_guard(mutex, &display->lock) {
 		if (display->controller->data) {
 			for (i = 0; i < display->num_grids; i++) {
@@ -183,7 +181,6 @@ static void tm16xx_brightness_set(struct led_classdev *led_cdev,
 {
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
 
-	dev_dbg(display->dev, "Setting brightness to %d\n", brightness);
 	led_cdev->brightness = brightness;
 	schedule_work(&display->flush_init);
 }
@@ -198,9 +195,6 @@ static void tm16xx_led_set(struct led_classdev *led_cdev,
 {
 	struct tm16xx_led *led = container_of(led_cdev, struct tm16xx_led, cdev);
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
-
-	dev_dbg(display->dev, "Setting led %u,%u to %d\n", led->grid,
-		led->segment, value);
 
 	tm16xx_set_seg(display, led->grid, led->segment, value);
 	schedule_work(&display->flush_display);
@@ -248,8 +242,6 @@ static ssize_t tm16xx_value_store(struct device *dev,
 	int i, j;
 	int seg_pattern;
 	bool val;
-
-	dev_dbg(display->dev, "Setting value to %s\n", buf);
 
 	for (i = 0; i < display->num_digits && i < count; i++) {
 		digit = &display->digits[i];
@@ -349,7 +341,6 @@ static int tm16xx_display_init(struct tm16xx_display *display)
 {
 	unsigned int nbits = tm16xx_led_nbits(display);
 
-	dev_dbg(display->dev, "Initializing display\n");
 	schedule_work(&display->flush_init);
 	flush_work(&display->flush_init);
 	if (display->flush_status < 0)
@@ -396,8 +387,6 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 		display->num_digits = 0;
 		fwnode_for_each_child_node(digits_node, child)
 			display->num_digits++;
-
-		dev_dbg(dev, "Number of digits: %u\n", display->num_digits);
 
 		if (display->num_digits) {
 			display->digits = devm_kcalloc(dev, display->num_digits,
@@ -453,8 +442,6 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 		fwnode_for_each_child_node(leds_node, child)
 			display->num_leds++;
 
-		dev_dbg(dev, "Number of LEDs: %u\n", display->num_leds);
-
 		if (display->num_leds) {
 			display->leds = devm_kcalloc(dev, display->num_leds,
 						     sizeof(*display->leds),
@@ -502,9 +489,6 @@ static int tm16xx_parse_dt(struct device *dev, struct tm16xx_display *display)
 	display->num_grids = max_grid + 1;
 	display->num_segments = max_segment + 1;
 
-	dev_dbg(dev, "Number of grids: %u\n", display->num_grids);
-	dev_dbg(dev, "Number of segments: %u\n", display->num_segments);
-
 	return 0;
 }
 
@@ -522,7 +506,6 @@ int tm16xx_probe(struct tm16xx_display *display)
 	unsigned int nbits;
 	int ret, i;
 
-	dev_dbg(dev, "Probing device\n");
 	ret = tm16xx_parse_dt(dev, display);
 	if (ret < 0)
 		return dev_err_probe(dev, ret, "Failed to parse device tree\n");
@@ -616,8 +599,6 @@ void tm16xx_remove(struct tm16xx_display *display)
 {
 	unsigned int nbits = tm16xx_led_nbits(display);
 	struct tm16xx_led *led;
-
-	dev_dbg(display->dev, "Removing display\n");
 
 	/*
 	 * Unregister LEDs first to immediately stop trigger activity.

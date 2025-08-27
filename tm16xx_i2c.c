@@ -58,8 +58,6 @@ static void tm16xx_i2c_remove(struct i2c_client *client)
  */
 static int tm16xx_i2c_write(struct tm16xx_display *display, u8 *data, size_t len)
 {
-	dev_dbg(display->dev, "i2c_write %*ph", (char)len, data);
-
 	/* expected sequence: S Command [A] Data [A] P */
 	struct i2c_msg msg = {
 		.addr = data[0] >> 1,
@@ -100,8 +98,6 @@ static int tm16xx_i2c_read(struct tm16xx_display *display, u8 cmd, u8 *data,
 	ret = i2c_transfer(display->client.i2c->adapter, msgs, ARRAY_SIZE(msgs));
 	if (ret < 0)
 		return ret;
-
-	dev_dbg(display->dev, "i2c_read %ph: %*ph\n", &cmd, (char)len, data);
 
 	return (ret == ARRAY_SIZE(msgs)) ? 0 : -EIO;
 }

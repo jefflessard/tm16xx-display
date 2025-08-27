@@ -75,8 +75,6 @@ static int tm16xx_spi_read(struct tm16xx_display *display, u8 *cmd,
 	struct spi_message msg;
 	int ret;
 
-	dev_dbg(display->dev, "spi_write %*ph", (char)cmd_len, cmd);
-
 	/* If STB is high during transmission, command is invalid.
 	 * Reading requires a minimum 2 microseconds wait (Twait)
 	 * after the 8th CLK rising edge before reading on falling edge.
@@ -98,8 +96,6 @@ static int tm16xx_spi_read(struct tm16xx_display *display, u8 *cmd,
 
 	ret = spi_sync(spi, &msg);
 
-	dev_dbg(display->dev, "spi_read %*ph", (char)data_len, data);
-
 	return ret;
 }
 
@@ -113,8 +109,6 @@ static int tm16xx_spi_read(struct tm16xx_display *display, u8 *cmd,
  */
 static int tm16xx_spi_write(struct tm16xx_display *display, u8 *data, size_t len)
 {
-	dev_dbg(display->dev, "spi_write %*ph", (char)len, data);
-
 	struct spi_device *spi = display->client.spi;
 
 	return spi_write(spi, data, len);

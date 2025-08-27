@@ -122,10 +122,6 @@ static void tm16xx_keypad_poll(struct input_dev *input)
 		pressed = _test_bit(bit, keypad->state);
 		scancode = MATRIX_SCAN_CODE(row, col, keypad->row_shift);
 
-		dev_dbg(display->dev,
-			"key changed: %u, row=%u col=%u down=%d\n", bit, row,
-			col, pressed);
-
 		input_event(keypad->input, EV_MSC, MSC_SCAN, scancode);
 		input_report_key(keypad->input, keycodes[scancode], pressed);
 	}
@@ -149,18 +145,12 @@ int tm16xx_keypad_probe(struct tm16xx_display *display)
 	unsigned int poll_interval, nbits;
 	int ret;
 
-	if (!display->controller->keys || !rows || !cols) {
-		dev_dbg(display->dev, "keypad not supported\n");
-		return 0;
-	}
+	if (!display->controller->keys || !rows || !cols)
+		return 0; /* keypad not supported */
 
 	if (!device_property_present(display->dev, "poll-interval") ||
-	    !device_property_present(display->dev, "linux,keymap")) {
-		dev_dbg(display->dev, "keypad disabled\n");
-		return 0;
-	}
-
-	dev_dbg(display->dev, "Configuring keypad\n");
+	    !device_property_present(display->dev, "linux,keymap"))
+		return 0; /* keypad disabled */
 
 	ret = device_property_read_u32(display->dev, "poll-interval",
 				       &poll_interval);
@@ -203,9 +193,6 @@ int tm16xx_keypad_probe(struct tm16xx_display *display)
 	if (ret < 0)
 		return dev_err_probe(display->dev, ret,
 				     "Failed to register input device\n");
-
-	dev_dbg(display->dev, "keypad rows=%u, cols=%u, poll=%u\n", rows, cols,
-		poll_interval);
 
 	return 0;
 }
