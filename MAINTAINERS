@@ -1,6 +1,10 @@
-AUXILIARY DISPLAY DRIVER FOR TM16XX AND COMPATIBLE CONTROLLERS
-M:  Jean-François Lessard <jefflessard3@gmail.com>
-L:  linux-auxdisplay@vger.kernel.org
-S:  Maintained
-F:  drivers/auxdisplay/auxdisplay-tm16xx.c
-F:  Documentation/devicetree/bindings/auxdisplay/tm16xx.yaml
+TM16XX-COMPATIBLE LED CONTROLLERS DISPLAY DRIVER
+M:	Jean-François Lessard <jefflessard3@gmail.com>
+S:	Maintained
+F:	Documentation/ABI/testing/sysfs-class-leds-tm16xx
+F:	Documentation/devicetree/bindings/auxdisplay/titanmec,tm16xx.yaml
+F:	drivers/auxdisplay/tm16xx.h
+F:	drivers/auxdisplay/tm16xx_core.c
+F:	drivers/auxdisplay/tm16xx_i2c.c
+F:	drivers/auxdisplay/tm16xx_keypad.c
+F:	drivers/auxdisplay/tm16xx_spi.c
