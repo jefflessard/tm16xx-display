@@ -180,7 +180,10 @@ static int tm1628_keys(struct tm16xx_display *display)
 {
 	u8 *cmd = display->spi_buffer;
 	u8 *codes = display->spi_buffer;
-	int ret, i;
+	unsigned int i;
+	int bit, byte;
+	bool value;
+	int ret;
 
 	cmd[0] = TM16XX_CMD_READ;
 	ret = tm16xx_spi_read(display, cmd, 1, codes, TM1628_KEY_READ_LEN);
@@ -194,9 +197,9 @@ static int tm1628_keys(struct tm16xx_display *display)
 	}
 
 	tm16xx_for_each_key(display, row, col) {
-		int byte = col >> 1;
-		int bit = row + ((col & 1) * 3);
-		bool value = !!(codes[byte] & BIT(bit));
+		byte = col >> 1;
+		bit = row + ((col & 1) * 3);
+		value = !!(codes[byte] & BIT(bit));
 
 		tm16xx_set_key(display, row, col, value);
 	}
@@ -208,7 +211,10 @@ static int tm1638_keys(struct tm16xx_display *display)
 {
 	u8 *cmd = display->spi_buffer;
 	u8 *codes = display->spi_buffer;
-	int ret, i;
+	unsigned int i;
+	int bit, byte;
+	bool value;
+	int ret;
 
 	cmd[0] = TM16XX_CMD_READ;
 	ret = tm16xx_spi_read(display, cmd, 1, codes, TM1638_KEY_READ_LEN);
@@ -222,9 +228,9 @@ static int tm1638_keys(struct tm16xx_display *display)
 	}
 
 	tm16xx_for_each_key(display, row, col) {
-		int byte = col >> 1;
-		int bit = (2 - row) + ((col & 1) << 2);
-		bool value = !!(codes[byte] & BIT(bit));
+		byte = col >> 1;
+		bit = (2 - row) + ((col & 1) << 2);
+		value = !!(codes[byte] & BIT(bit));
 
 		tm16xx_set_key(display, row, col, value);
 	}
@@ -236,7 +242,8 @@ static int tm1618_keys(struct tm16xx_display *display)
 {
 	u8 *cmd = display->spi_buffer;
 	u8 *codes = display->spi_buffer;
-	int ret, i;
+	unsigned int i;
+	int ret;
 
 	cmd[0] = TM16XX_CMD_READ;
 	ret = tm16xx_spi_read(display, cmd, 1, codes, TM1618_KEY_READ_LEN);
@@ -274,7 +281,8 @@ static int fd620_keys(struct tm16xx_display *display)
 {
 	u8 *cmd = display->spi_buffer;
 	u8 *codes = display->spi_buffer;
-	int ret, i;
+	unsigned int i;
+	int ret;
 
 	cmd[0] = TM16XX_CMD_READ;
 	ret = tm16xx_spi_read(display, cmd, 1, codes, FD620_KEY_READ_LEN);

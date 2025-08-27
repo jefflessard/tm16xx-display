@@ -108,8 +108,8 @@ static int tm16xx_i2c_read(struct tm16xx_display *display, u8 cmd, u8 *data,
 /* I2C controller-specific functions */
 static int tm1650_init(struct tm16xx_display *display)
 {
-	u8 cmds[2];
 	const enum led_brightness brightness = display->main_led.brightness;
+	u8 cmds[2];
 
 	cmds[0] = TM1650_CMD_CTRL;
 	cmds[1] = TM16XX_CTRL_BRIGHTNESS(brightness, brightness, TM1650) |
@@ -131,8 +131,9 @@ static int tm1650_data(struct tm16xx_display *display, u8 index,
 
 static int tm1650_keys(struct tm16xx_display *display)
 {
-	u8 keycode, row, col;
+	int row, col;
 	bool pressed;
+	u8 keycode;
 	int ret;
 
 	ret = tm16xx_i2c_read(display, TM1650_CMD_READ, &keycode, 1);
@@ -157,8 +158,8 @@ static int tm1650_keys(struct tm16xx_display *display)
 
 static int fd655_init(struct tm16xx_display *display)
 {
-	u8 cmds[2];
 	const enum led_brightness brightness = display->main_led.brightness;
+	u8 cmds[2];
 
 	cmds[0] = FD655_CMD_CTRL;
 	cmds[1] = TM16XX_CTRL_BRIGHTNESS(brightness, brightness % 3, FD655);
@@ -179,8 +180,8 @@ static int fd655_data(struct tm16xx_display *display, u8 index,
 
 static int fd6551_init(struct tm16xx_display *display)
 {
-	u8 cmds[2];
 	const enum led_brightness brightness = display->main_led.brightness;
+	u8 cmds[2];
 
 	cmds[0] = FD6551_CMD_CTRL;
 	cmds[1] = TM16XX_CTRL_BRIGHTNESS(brightness, ~(brightness - 1), FD6551);
@@ -232,7 +233,8 @@ static int hbs658_data(struct tm16xx_display *display, u8 index,
 
 static int hbs658_keys(struct tm16xx_display *display)
 {
-	u8 cmd, keycode, col;
+	u8 cmd, keycode;
+	int col;
 	int ret;
 
 	cmd = TM16XX_CMD_READ;

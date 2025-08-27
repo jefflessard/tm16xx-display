@@ -172,8 +172,8 @@ void tm16xx_remove(struct tm16xx_display *display);
 /* keypad support */
 #if IS_ENABLED(CONFIG_TM16XX_KEYPAD)
 int tm16xx_keypad_probe(struct tm16xx_display *display);
-void tm16xx_set_key(const struct tm16xx_display *display, const u8 row,
-		    const u8 col, const bool pressed);
+void tm16xx_set_key(const struct tm16xx_display *display, const int row,
+		    const int col, const bool pressed);
 #else
 static inline int tm16xx_keypad_probe(struct tm16xx_display *display)
 {
@@ -181,16 +181,14 @@ static inline int tm16xx_keypad_probe(struct tm16xx_display *display)
 }
 
 static inline void tm16xx_set_key(const struct tm16xx_display *display,
-				  const u8 row, const u8 col,
+				  const int row, const int col,
 				  const bool pressed)
 {
 }
 #endif
 
 #define tm16xx_for_each_key(display, _r, _c) \
-	for (unsigned int _r = 0; \
-	     _r < (display)->controller->max_key_rows; _r++) \
-		for (unsigned int _c = 0; \
-		     _c < (display)->controller->max_key_cols; _c++)
+	for (int _r = 0; _r < (display)->controller->max_key_rows; _r++) \
+		for (int _c = 0; _c < (display)->controller->max_key_cols; _c++)
 
 #endif /* _TM16XX_H */

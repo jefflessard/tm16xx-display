@@ -107,7 +107,7 @@ static inline unsigned int tm16xx_get_grid(const struct tm16xx_display *display,
 {
 	unsigned int start = index * display->num_segments;
 	unsigned int value = 0;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < display->num_segments; i++) {
 		if (test_bit(start + i, display->state))
@@ -150,8 +150,8 @@ static void tm16xx_display_flush_data(struct work_struct *work)
 	struct tm16xx_display *display = container_of(work,
 						      struct tm16xx_display,
 						      flush_display);
-	int i, ret = 0;
-	unsigned int grid;
+	unsigned int grid, i;
+	int ret = 0;
 
 	scoped_guard(mutex, &display->lock) {
 		if (display->controller->data) {
@@ -206,7 +206,7 @@ static ssize_t tm16xx_value_show(struct device *dev,
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < display->num_digits && i < PAGE_SIZE - 2; i++)
 		buf[i] = display->digits[i].value;
@@ -223,7 +223,7 @@ static ssize_t tm16xx_value_store(struct device *dev,
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
 	struct tm16xx_digit *digit;
 	struct tm16xx_digit_segment *ds;
-	int i, j;
+	unsigned int i, j;
 	int seg_pattern;
 	bool val;
 
@@ -320,8 +320,9 @@ static int tm16xx_parse_fwnode(struct device *dev, struct tm16xx_display *displa
 	struct fwnode_handle *leds_node, *digits_node, *child;
 	struct tm16xx_led *led;
 	struct tm16xx_digit *digit;
-	int max_grid = 0, max_segment = 0;
-	int ret, i, j;
+	unsigned int max_grid = 0, max_segment = 0;
+	unsigned int i, j;
+	int ret;
 	u32 segments[TM16XX_DIGIT_SEGMENTS * 2];
 	u32 reg[2];
 
@@ -447,8 +448,8 @@ int tm16xx_probe(struct tm16xx_display *display)
 	struct device *dev = display->dev;
 	struct led_classdev *main = &display->main_led;
 	struct fwnode_handle *leds_node, *child;
-	unsigned int nbits;
-	int ret, i;
+	unsigned int nbits, i;
+	int ret;
 
 	ret = tm16xx_parse_fwnode(dev, display);
 	if (ret < 0)

@@ -28,7 +28,7 @@ struct tm16xx_keypad {
 	unsigned long *state;
 	unsigned long *last_state;
 	unsigned long *changes;
-	u8 row_shift;
+	int row_shift;
 };
 
 /**
@@ -50,8 +50,8 @@ static inline unsigned int tm16xx_key_nbits(const struct tm16xx_display *display
  *
  * Return: row index
  */
-static inline u8 tm16xx_get_key_row(const struct tm16xx_display *display,
-				    const unsigned int bit)
+static inline int tm16xx_get_key_row(const struct tm16xx_display *display,
+				     const unsigned int bit)
 {
 	return bit / display->controller->max_key_cols;
 }
@@ -63,8 +63,8 @@ static inline u8 tm16xx_get_key_row(const struct tm16xx_display *display,
  *
  * Return: column index
  */
-static inline u8 tm16xx_get_key_col(const struct tm16xx_display *display,
-				    const unsigned int bit)
+static inline int tm16xx_get_key_col(const struct tm16xx_display *display,
+				     const unsigned int bit)
 {
 	return bit % display->controller->max_key_cols;
 }
@@ -76,8 +76,8 @@ static inline u8 tm16xx_get_key_col(const struct tm16xx_display *display,
  * @col: column index
  * @pressed: true if pressed, false otherwise
  */
-void tm16xx_set_key(const struct tm16xx_display *display, const u8 row,
-		    const u8 col, const bool pressed)
+void tm16xx_set_key(const struct tm16xx_display *display, const int row,
+		    const int col, const bool pressed)
 {
 	__assign_bit(row * display->controller->max_key_cols + col,
 		     display->keypad->state, pressed);
@@ -97,8 +97,8 @@ static void tm16xx_keypad_poll(struct input_dev *input)
 	struct tm16xx_keypad *keypad = display->keypad;
 	const unsigned short *keycodes = keypad->input->keycode;
 	unsigned int nbits = tm16xx_key_nbits(display);
-	unsigned int bit, scancode;
-	u8 row, col;
+	unsigned int bit;
+	int row, col, scancode;
 	bool pressed;
 	int ret;
 
@@ -138,8 +138,8 @@ static void tm16xx_keypad_poll(struct input_dev *input)
  */
 int tm16xx_keypad_probe(struct tm16xx_display *display)
 {
-	const u8 rows = display->controller->max_key_rows;
-	const u8 cols = display->controller->max_key_cols;
+	const unsigned int rows = display->controller->max_key_rows;
+	const unsigned int cols = display->controller->max_key_cols;
 	struct tm16xx_keypad *keypad;
 	struct input_dev *input;
 	unsigned int poll_interval, nbits;
@@ -177,7 +177,7 @@ int tm16xx_keypad_probe(struct tm16xx_display *display)
 	keypad->input = input;
 	input_set_drvdata(input, display);
 
-	keypad->row_shift = get_count_order(cols);
+	keypad->row_shift = get_count_order(cols); /* !cols already checked */
 	ret = matrix_keypad_build_keymap(NULL, "linux,keymap", rows, cols, NULL,
 					 input);
 	if (ret < 0)
