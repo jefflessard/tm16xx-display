@@ -31,6 +31,10 @@
 
 #define DEFAULT_SCROLL_RATE	(HZ / 2)
 
+// TODO remove
+#define timer_container_of(var, callback_timer, timer_fieldname)	\
+	container_of(callback_timer, typeof(*var), timer_fieldname)
+
 /**
  * linedisp_scroll() - scroll the display by a character
  * @t: really a pointer to the private data structure
@@ -381,7 +385,7 @@ out_put_device:
 	put_device(&linedisp->dev);
 	return err;
 }
-EXPORT_SYMBOL_NS_GPL(linedisp_register, "LINEDISP");
+EXPORT_SYMBOL_NS_GPL(linedisp_register, LINEDISP);
 
 /**
  * linedisp_unregister - unregister a character line display
@@ -394,7 +398,7 @@ void linedisp_unregister(struct linedisp *linedisp)
 	timer_delete_sync(&linedisp->timer);
 	put_device(&linedisp->dev);
 }
-EXPORT_SYMBOL_NS_GPL(linedisp_unregister, "LINEDISP");
+EXPORT_SYMBOL_NS_GPL(linedisp_unregister, LINEDISP);
 
 MODULE_DESCRIPTION("Character line display core support");
 MODULE_LICENSE("GPL");

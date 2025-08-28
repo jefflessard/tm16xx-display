@@ -12,7 +12,6 @@
 #define _LINEDISP_H
 
 #include <linux/device.h>
-#include <linux/timer_types.h>
 
 #include <linux/map_to_7segment.h>
 #include <linux/map_to_14segment.h>
