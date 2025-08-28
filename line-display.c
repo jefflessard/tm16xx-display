@@ -12,7 +12,8 @@
 #include <generated/utsrelease.h>
 #endif
 
-#include <linux/container_of.h>
+#include <linux/list.h>
+#include <linux/cleanup.h>
 #include <linux/device.h>
 #include <linux/export.h>
 #include <linux/idr.h>
@@ -20,6 +21,7 @@
 #include <linux/kstrtox.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/spinlock.h>
 #include <linux/string.h>
 #include <linux/sysfs.h>
 #include <linux/timer.h>
@@ -34,6 +36,75 @@
 // TODO remove
 #define timer_container_of(var, callback_timer, timer_fieldname)	\
 	container_of(callback_timer, typeof(*var), timer_fieldname)
+
+/* forward declarations */
+static const struct device_type linedisp_type;
+
+struct linedisp_attachment {
+	struct list_head list;
+	struct device *device;
+	struct linedisp *linedisp;
+	bool owns_device;  /* true for child device mode, false for attached mode */
+};
+
+static LIST_HEAD(linedisp_attachments);
+static DEFINE_SPINLOCK(linedisp_attachments_lock);
+
+static int create_attachment(struct device *dev, struct linedisp *linedisp, bool owns_device)
+{
+	struct linedisp_attachment *attachment;
+
+	attachment = kzalloc(sizeof(*attachment), GFP_KERNEL);
+	if (!attachment)
+		return -ENOMEM;
+
+	attachment->device = dev;
+	attachment->linedisp = linedisp;
+	attachment->owns_device = owns_device;
+
+	scoped_guard(spinlock, &linedisp_attachments_lock) {
+		list_add(&attachment->list, &linedisp_attachments);
+	}
+
+	return 0;
+}
+
+static struct linedisp* delete_attachment(struct device *dev, bool owns_device)
+{
+	struct linedisp_attachment *attachment, *tmp;
+	struct linedisp *linedisp = NULL;
+
+	scoped_guard(spinlock, &linedisp_attachments_lock) {
+		list_for_each_entry_safe(attachment, tmp, &linedisp_attachments, list) {
+			if (attachment->device == dev &&
+			    attachment->owns_device == owns_device) {
+				linedisp = attachment->linedisp;
+				list_del(&attachment->list);
+				kfree(attachment);
+				break;
+			}
+		}
+	}
+
+	return linedisp;
+}
+
+static struct linedisp *to_linedisp(struct device *dev)
+{
+	struct linedisp_attachment *attachment;
+	struct linedisp *linedisp = NULL;
+
+	scoped_guard(spinlock, &linedisp_attachments_lock) {
+		list_for_each_entry(attachment, &linedisp_attachments, list) {
+			if (attachment->device == dev) {
+				linedisp = attachment->linedisp;
+				break;
+			}
+		}
+	}
+
+	return linedisp;
+}
 
 /**
  * linedisp_scroll() - scroll the display by a character
@@ -137,7 +208,7 @@ static int linedisp_display(struct linedisp *linedisp, const char *msg,
 static ssize_t message_show(struct device *dev, struct device_attribute *attr,
 			    char *buf)
 {
-	struct linedisp *linedisp = container_of(dev, struct linedisp, dev);
+	struct linedisp *linedisp = to_linedisp(dev);
 
 	return sysfs_emit(buf, "%s\n", linedisp->message);
 }
@@ -156,7 +227,7 @@ static ssize_t message_show(struct device *dev, struct device_attribute *attr,
 static ssize_t message_store(struct device *dev, struct device_attribute *attr,
 			     const char *buf, size_t count)
 {
-	struct linedisp *linedisp = container_of(dev, struct linedisp, dev);
+	struct linedisp *linedisp = to_linedisp(dev);
 	int err;
 
 	err = linedisp_display(linedisp, buf, count);
@@ -168,7 +239,7 @@ static DEVICE_ATTR_RW(message);
 static ssize_t scroll_step_ms_show(struct device *dev,
 				   struct device_attribute *attr, char *buf)
 {
-	struct linedisp *linedisp = container_of(dev, struct linedisp, dev);
+	struct linedisp *linedisp = to_linedisp(dev);
 
 	return sysfs_emit(buf, "%u\n", jiffies_to_msecs(linedisp->scroll_rate));
 }
@@ -177,7 +248,7 @@ static ssize_t scroll_step_ms_store(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t count)
 {
-	struct linedisp *linedisp = container_of(dev, struct linedisp, dev);
+	struct linedisp *linedisp = to_linedisp(dev);
 	unsigned int ms;
 	int err;
 
@@ -197,9 +268,18 @@ static ssize_t scroll_step_ms_store(struct device *dev,
 
 static DEVICE_ATTR_RW(scroll_step_ms);
 
+static ssize_t num_chars_show(struct device *dev, struct device_attribute *attr,
+			      char *buf)
+{
+	struct linedisp *linedisp = to_linedisp(dev);
+	return sysfs_emit(buf, "%u\n", linedisp->num_chars);
+}
+
+static DEVICE_ATTR_RO(num_chars);
+
 static ssize_t map_seg_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	struct linedisp *linedisp = container_of(dev, struct linedisp, dev);
+	struct linedisp *linedisp = to_linedisp(dev);
 	struct linedisp_map *map = linedisp->map;
 
 	memcpy(buf, &map->map, map->size);
@@ -209,7 +289,7 @@ static ssize_t map_seg_show(struct device *dev, struct device_attribute *attr, c
 static ssize_t map_seg_store(struct device *dev, struct device_attribute *attr,
 			     const char *buf, size_t count)
 {
-	struct linedisp *linedisp = container_of(dev, struct linedisp, dev);
+	struct linedisp *linedisp = to_linedisp(dev);
 	struct linedisp_map *map = linedisp->map;
 
 	if (count != map->size)
@@ -228,6 +308,7 @@ static DEVICE_ATTR(map_seg14, 0644, map_seg_show, map_seg_store);
 static struct attribute *linedisp_attrs[] = {
 	&dev_attr_message.attr,
 	&dev_attr_scroll_step_ms.attr,
+	&dev_attr_num_chars.attr,
 	&dev_attr_map_seg7.attr,
 	&dev_attr_map_seg14.attr,
 	NULL
@@ -236,7 +317,7 @@ static struct attribute *linedisp_attrs[] = {
 static umode_t linedisp_attr_is_visible(struct kobject *kobj, struct attribute *attr, int n)
 {
 	struct device *dev = kobj_to_dev(kobj);
-	struct linedisp *linedisp = container_of(dev, struct linedisp, dev);
+	struct linedisp *linedisp = to_linedisp(dev);
 	struct linedisp_map *map = linedisp->map;
 	umode_t mode = attr->mode;
 
@@ -267,7 +348,7 @@ static DEFINE_IDA(linedisp_id);
 
 static void linedisp_release(struct device *dev)
 {
-	struct linedisp *linedisp = container_of(dev, struct linedisp, dev);
+	struct linedisp *linedisp = to_linedisp(dev);
 
 	kfree(linedisp->map);
 	kfree(linedisp->message);
@@ -324,6 +405,77 @@ static int linedisp_init_map(struct linedisp *linedisp)
 #define LINEDISP_INIT_TEXT "Linux " UTS_RELEASE "       "
 #endif
 
+int linedisp_attach(struct linedisp *linedisp, struct device *dev,
+		    unsigned int num_chars, const struct linedisp_ops *ops)
+{
+	int err;
+
+	memset(linedisp, 0, sizeof(*linedisp));
+	linedisp->ops = ops;
+	linedisp->num_chars = num_chars;
+	linedisp->scroll_rate = DEFAULT_SCROLL_RATE;
+
+	err = -ENOMEM;
+	linedisp->buf = kzalloc(linedisp->num_chars, GFP_KERNEL);
+	if (!linedisp->buf)
+		return err;
+
+	/* initialise a character mapping, if required */
+	err = linedisp_init_map(linedisp);
+	if (err)
+		goto out_free_buf;
+
+	/* initialise a timer for scrolling the message */
+	timer_setup(&linedisp->timer, linedisp_scroll, 0);
+
+	err = create_attachment(dev, linedisp, false);
+	if (err)
+		goto out_del_timer;
+
+	/* Add attribute groups to target device */
+	err = device_add_groups(dev, linedisp_groups);
+	if (err)
+		goto out_del_attach;
+
+	/* display a default message */
+	err = linedisp_display(linedisp, LINEDISP_INIT_TEXT, -1);
+	if (err)
+		goto out_rem_groups;
+
+	return 0;
+
+out_rem_groups:
+	device_remove_groups(dev, linedisp_groups);
+out_del_attach:
+	delete_attachment(dev, false);
+out_del_timer:
+	timer_delete_sync(&linedisp->timer);
+out_free_buf:
+	kfree(linedisp->buf);
+	return err;
+}
+EXPORT_SYMBOL_NS_GPL(linedisp_attach, LINEDISP);
+
+void linedisp_detach(struct device *dev)
+{
+	struct linedisp *linedisp = delete_attachment(dev, false);
+
+	if (!linedisp)
+		return;
+
+	/* Stop and delete timer first */
+	timer_delete_sync(&linedisp->timer);
+
+	/* Remove attribute groups from target device */
+	device_remove_groups(dev, linedisp_groups);
+
+	/* Free all allocated resources */
+	kfree(linedisp->map);
+	kfree(linedisp->message);
+	kfree(linedisp->buf);
+}
+EXPORT_SYMBOL_NS_GPL(linedisp_detach, LINEDISP);
+
 /**
  * linedisp_register - register a character line display
  * @linedisp: pointer to character line display structure
@@ -366,9 +518,13 @@ int linedisp_register(struct linedisp *linedisp, struct device *parent,
 	/* initialise a timer for scrolling the message */
 	timer_setup(&linedisp->timer, linedisp_scroll, 0);
 
-	err = device_add(&linedisp->dev);
+	err = create_attachment(&linedisp->dev, linedisp, true);
 	if (err)
 		goto out_del_timer;
+
+	err = device_add(&linedisp->dev);
+	if (err)
+		goto out_del_attach;
 
 	/* display a default message */
 	err = linedisp_display(linedisp, LINEDISP_INIT_TEXT, -1);
@@ -379,6 +535,8 @@ int linedisp_register(struct linedisp *linedisp, struct device *parent,
 
 out_del_dev:
 	device_del(&linedisp->dev);
+out_del_attach:
+	delete_attachment(&linedisp->dev, true);
 out_del_timer:
 	timer_delete_sync(&linedisp->timer);
 out_put_device:
@@ -395,6 +553,7 @@ EXPORT_SYMBOL_NS_GPL(linedisp_register, LINEDISP);
 void linedisp_unregister(struct linedisp *linedisp)
 {
 	device_del(&linedisp->dev);
+	delete_attachment(&linedisp->dev, true);
 	timer_delete_sync(&linedisp->timer);
 	put_device(&linedisp->dev);
 }

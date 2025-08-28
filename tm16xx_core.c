@@ -17,17 +17,11 @@
 #include <linux/sysfs.h>
 #include <linux/workqueue.h>
 
+#include "line-display.h"
 #include "tm16xx.h"
 #include "tm16xx_compat.h" // TODO remove
 
 #define TM16XX_DIGIT_SEGMENTS	7
-
-static const char *tm16xx_init_value;
-#ifdef CONFIG_PANEL_BOOT_MESSAGE
-tm16xx_init_value = CONFIG_PANEL_BOOT_MESSAGE;
-#endif
-
-static SEG7_CONVERSION_MAP(map_seg7, MAP_ASCII7SEG_ALPHANUM);
 
 // TODO add to include/linux/property.h
 #define fwnode_for_each_child_node_scoped(fwnode, child)		\
@@ -43,6 +37,9 @@ static SEG7_CONVERSION_MAP(map_seg7, MAP_ASCII7SEG_ALPHANUM);
 	for (struct fwnode_handle *child __free(fwnode_handle) =	\
 		fwnode_get_next_available_child_node(fwnode, NULL);	\
 	     child; child = fwnode_get_next_available_child_node(fwnode, child))
+
+#define linedisp_to_tm16xx(display) \
+	container_of(display, struct tm16xx_display, linedisp)
 
 /**
  * struct tm16xx_led - Individual LED icon mapping
@@ -197,26 +194,10 @@ static void tm16xx_led_set(struct led_classdev *led_cdev,
 	schedule_work(&display->flush_display);
 }
 
-static ssize_t tm16xx_value_show(struct device *dev,
-				 struct device_attribute *attr, char *buf)
+static int tm16xx_display_value(struct tm16xx_display *display, const char *buf, size_t count)
 {
-	struct led_classdev *led_cdev = dev_get_drvdata(dev);
-	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
-	unsigned int i;
-
-	for (i = 0; i < display->num_digits && i < PAGE_SIZE - 2; i++)
-		buf[i] = display->digits[i].value;
-
-	buf[i++] = '\n';
-	return i;
-}
-
-static ssize_t tm16xx_value_store(struct device *dev,
-				  struct device_attribute *attr,
-				  const char *buf, size_t count)
-{
-	struct led_classdev *led_cdev = dev_get_drvdata(dev);
-	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
+	struct linedisp *linedisp = &display->linedisp;
+	struct linedisp_map *map = linedisp->map;
 	struct tm16xx_digit *digit;
 	struct tm16xx_digit_segment *ds;
 	unsigned int i, j;
@@ -226,7 +207,7 @@ static ssize_t tm16xx_value_store(struct device *dev,
 	for (i = 0; i < display->num_digits && i < count; i++) {
 		digit = &display->digits[i];
 		digit->value = buf[i];
-		seg_pattern = map_to_seg7(&map_seg7, digit->value);
+		seg_pattern = map_to_seg7(&map->map.seg7, digit->value);
 
 		for (j = 0; j < TM16XX_DIGIT_SEGMENTS; j++) {
 			ds = &digit->segments[j];
@@ -245,68 +226,32 @@ static ssize_t tm16xx_value_store(struct device *dev,
 	}
 
 	schedule_work(&display->flush_display);
-	return count;
+	return 0;
 }
 
-static ssize_t tm16xx_num_digits_show(struct device *dev,
-				      struct device_attribute *attr, char *buf)
+static int tm16xx_linedisp_get_map_type(struct linedisp *linedisp)
 {
-	struct led_classdev *led_cdev = dev_get_drvdata(dev);
-	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
-
-	return sysfs_emit(buf, "%u\n", display->num_digits);
+	return LINEDISP_MAP_SEG7;
 }
 
-static ssize_t tm16xx_map_seg7_show(struct device *dev,
-				    struct device_attribute *attr, char *buf)
+static void tm16xx_linedisp_update(struct linedisp *linedisp)
 {
-	memcpy(buf, &map_seg7, sizeof(map_seg7));
-	return sizeof(map_seg7);
+	struct tm16xx_display *display = linedisp_to_tm16xx(linedisp);
+
+	tm16xx_display_value(display, linedisp->buf, linedisp->num_chars);
 }
 
-static ssize_t tm16xx_map_seg7_store(struct device *dev,
-				     struct device_attribute *attr,
-				     const char *buf, size_t cnt)
-{
-	if (cnt != sizeof(map_seg7))
-		return -EINVAL;
-	memcpy(&map_seg7, buf, cnt);
-	return cnt;
-}
-
-static DEVICE_ATTR(value, 0644, tm16xx_value_show, tm16xx_value_store);
-static DEVICE_ATTR(num_digits, 0444, tm16xx_num_digits_show, NULL);
-static DEVICE_ATTR(map_seg7, 0644, tm16xx_map_seg7_show, tm16xx_map_seg7_store);
-
-static struct attribute *tm16xx_main_led_attrs[] = {
-	&dev_attr_value.attr,
-	&dev_attr_num_digits.attr,
-	&dev_attr_map_seg7.attr,
-	NULL
+static const struct linedisp_ops tm16xx_linedisp_ops = {
+	.get_map_type = tm16xx_linedisp_get_map_type,
+	.update = tm16xx_linedisp_update,
 };
-ATTRIBUTE_GROUPS(tm16xx_main_led);
 
 static int tm16xx_display_init(struct tm16xx_display *display)
 {
-	unsigned int nbits = tm16xx_led_nbits(display);
-
 	schedule_work(&display->flush_init);
 	flush_work(&display->flush_init);
 	if (display->flush_status)
 		return display->flush_status;
-
-	if (tm16xx_init_value) {
-		tm16xx_value_store(display->main_led.dev, NULL,
-				   tm16xx_init_value,
-				   strlen(tm16xx_init_value));
-	} else {
-		bitmap_fill(display->state, nbits);
-		schedule_work(&display->flush_display);
-		flush_work(&display->flush_display);
-		bitmap_zero(display->state, nbits);
-		if (display->flush_status)
-			return display->flush_status;
-	}
 
 	return 0;
 }
@@ -449,7 +394,6 @@ int tm16xx_probe(struct tm16xx_display *display)
 	main->brightness = umin(main->brightness, main->max_brightness);
 
 	main->brightness_set = tm16xx_brightness_set;
-	main->groups = tm16xx_main_led_groups;
 	main->flags = LED_RETAIN_AT_SHUTDOWN | LED_CORE_SUSPENDRESUME;
 
 	/* Register individual LEDs from device tree */
@@ -485,6 +429,13 @@ int tm16xx_probe(struct tm16xx_display *display)
 		goto unregister_leds;
 	}
 
+	ret = linedisp_attach(&display->linedisp, display->main_led.dev,
+			      display->num_digits, &tm16xx_linedisp_ops);
+	if (ret) {
+		dev_err_probe(dev, ret, "Failed to initialize line-display\n");
+		goto unregister_leds;
+	}
+
 	ret = tm16xx_keypad_probe(display);
 	if (ret)
 		dev_warn(dev, "Failed to initialize keypad: %d\n", ret);
@@ -508,6 +459,8 @@ void tm16xx_remove(struct tm16xx_display *display)
 {
 	unsigned int nbits = tm16xx_led_nbits(display);
 	struct tm16xx_led *led;
+
+	linedisp_detach(display->main_led.dev);
 
 	/*
 	 * Unregister LEDs first to immediately stop trigger activity.
@@ -535,3 +488,4 @@ EXPORT_SYMBOL_NS(tm16xx_remove, TM16XX);
 MODULE_AUTHOR("Jean-François Lessard");
 MODULE_DESCRIPTION("TM16xx LED Display Controllers");
 MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS(LINEDISP);

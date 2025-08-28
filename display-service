@@ -80,7 +80,7 @@ display_clear() {
 		fi
 	done
 
-	: > "$DISPLAY_PATH/value" 2>/dev/null
+	: > "$DISPLAY_PATH/message" 2>/dev/null
 	echo 0 > "$DISPLAY_PATH/brightness" 2>/dev/null
 }
 
@@ -100,7 +100,7 @@ display_text() {
 	done
 
 	while [ "${#_text}" -ge "$NUM_DIGITS" ]; do
-		printf '%s\n' "$(printf '%s' "$_text" | cut -c1-"$NUM_DIGITS")" > "$DISPLAY_PATH/value"
+		printf '%s\n' "$(printf '%s' "$_text" | cut -c1-"$NUM_DIGITS")" > "$DISPLAY_PATH/message"
 		_text="$(printf '%s' "$_text" | cut -c2-)"
 		sleep "$_sleep"
 	done
@@ -108,20 +108,20 @@ display_text() {
 
 display_check() {
 	log_info "all digits and leds on"
-	echo 88888888 > "$DISPLAY_PATH/value"
+	echo 88888888 > "$DISPLAY_PATH/message"
 	for led in "$DISPLAY_PATH":*; do
 		echo 1 > "$led/brightness"
 	done
 	sleep 1
 
 	log_info "all digits and leds off"
-	: > "$DISPLAY_PATH/value"
+	: > "$DISPLAY_PATH/message"
 	for led in "$DISPLAY_PATH":*; do
 		echo 0 > "$led/brightness"
 	done
 
 	log_info "digit order: 12345678"
-	echo 12345678 > "$DISPLAY_PATH/value"
+	echo 12345678 > "$DISPLAY_PATH/message"
 	sleep 1
 
 	for led in "$DISPLAY_PATH":*; do
@@ -250,7 +250,7 @@ daemon_time_update() {
 		[ "$sleep_time" -le 0 ] && sleep_time=60
 		sleep "$sleep_time" &
 
-		[ -f "$DISPLAY_PATH/value" ] && date +%H%M > "$DISPLAY_PATH/value" 2>/dev/null || log_warn "Failed to update time"
+		[ -f "$DISPLAY_PATH/message" ] && date +%H%M > "$DISPLAY_PATH/message" 2>/dev/null || log_warn "Failed to update time"
 		wait
 	done
 }
@@ -335,8 +335,8 @@ if [ -z "$BRIGHTNESS" ]; then
 		BRIGHTNESS=7
 	fi
 fi
-if [ -f "$DISPLAY_PATH/num_digits" ]; then
-	NUM_DIGITS=$(cat "$DISPLAY_PATH/num_digits")
+if [ -f "$DISPLAY_PATH/num_chars" ]; then
+	NUM_DIGITS=$(cat "$DISPLAY_PATH/num_chars")
 else
 	NUM_DIGITS=8
 fi

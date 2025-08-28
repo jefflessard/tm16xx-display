@@ -1,6 +1,12 @@
 # Makefile for building the tm16xx kernel module and updating the device tree
 
-# tm16xx module
+# linedisp module
+# if custom initial display value is wanted:
+CCFLAGS += -DCONFIG_PANEL_BOOT_MESSAGE=\\\"boot\\\"
+# CCFLAGS += -DCONFIG_PANEL_BOOT_MESSAGE=\\\"\\\"
+obj-m += line-display.o
+
+# tm16xx core module
 CCFLAGS += -DCONFIG_TM16XX
 obj-m += tm16xx.o
 tm16xx-objs += tm16xx_core.o
@@ -16,10 +22,6 @@ obj-m += tm16xx_i2c.o
 # tm16xx-spi module
 CCFLAGS += -DCONFIG_TM16XX_SPI
 obj-m += tm16xx_spi.o
-
-# if custom initial display value is wanted:
-# CCFLAGS += -DCONFIG_PANEL_BOOT_MESSAGE=\\\"boot\\\"
-# CCFLAGS += -DCONFIG_PANEL_BOOT_MESSAGE=\\\"\\\"
 
 # Path to the kernel source tree
 KDIR ?= /lib/modules/$(shell uname -r)/build
