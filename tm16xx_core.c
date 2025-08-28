@@ -154,8 +154,7 @@ static void tm16xx_display_flush_data(struct work_struct *work)
 		if (display->controller->data) {
 			for (i = 0; i < display->num_hwgrid; i++) {
 				grid = tm16xx_get_grid(display, i);
-				ret = display->controller->data(display, i,
-								grid);
+				ret = display->controller->data(display, i, grid);
 				if (ret) {
 					dev_err(display->dev,
 						"Failed to write display data: %d\n",
@@ -342,25 +341,21 @@ static int tm16xx_parse_fwnode(struct device *dev, struct tm16xx_display *displa
 			fwnode_for_each_available_child_node_scoped(digits_node, child) {
 				digit = &display->digits[i];
 
-				ret = fwnode_property_read_u32(child, "reg",
-							       reg);
+				ret = fwnode_property_read_u32(child, "reg", reg);
 				if (ret)
 					return ret;
 
-				ret = fwnode_property_read_u32_array(child,
-								     "segments",
-								     segments,
-								     TM16XX_DIGIT_SEGMENTS * 2);
+				ret = fwnode_property_read_u32_array(
+					child, "segments", segments,
+					TM16XX_DIGIT_SEGMENTS * 2);
 				if (ret < 0)
 					return ret;
 
 				for (j = 0; j < TM16XX_DIGIT_SEGMENTS; ++j) {
 					digit->segments[j].hwgrid = segments[2 * j];
 					digit->segments[j].hwseg = segments[2 * j + 1];
-					max_hwgrid = umax(max_hwgrid,
-							  digit->segments[j].hwgrid);
-					max_hwseg = umax(max_hwseg,
-							 digit->segments[j].hwseg);
+					max_hwgrid = umax(max_hwgrid, digit->segments[j].hwgrid);
+					max_hwseg = umax(max_hwseg, digit->segments[j].hwseg);
 				}
 				digit->value = 0;
 				i++;
@@ -382,9 +377,7 @@ static int tm16xx_parse_fwnode(struct device *dev, struct tm16xx_display *displa
 			i = 0;
 			fwnode_for_each_available_child_node_scoped(leds_node, child) {
 				led = &display->leds[i];
-				ret = fwnode_property_read_u32_array(child,
-								     "reg", reg,
-								     2);
+				ret = fwnode_property_read_u32_array(child, "reg", reg, 2);
 				if (ret < 0)
 					return ret;
 
@@ -474,8 +467,7 @@ int tm16xx_probe(struct tm16xx_display *display)
 		led = &display->leds[i];
 		led->cdev.max_brightness = 1;
 		led->cdev.brightness_set = tm16xx_led_set;
-		led->cdev.flags = LED_RETAIN_AT_SHUTDOWN |
-				  LED_CORE_SUSPENDRESUME;
+		led->cdev.flags = LED_RETAIN_AT_SHUTDOWN | LED_CORE_SUSPENDRESUME;
 
 		ret = led_classdev_register_ext(dev, &led->cdev, &led_init);
 		if (ret) {

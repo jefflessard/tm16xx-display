@@ -123,8 +123,7 @@ struct tm16xx_controller {
 	const u8 max_key_rows;
 	const u8 max_key_cols;
 	int (*const init)(struct tm16xx_display *display);
-	int (*const data)(struct tm16xx_display *display, u8 index,
-			  unsigned int grid);
+	int (*const data)(struct tm16xx_display *display, u8 index, unsigned int grid);
 	int (*const keys)(struct tm16xx_display *display);
 };
 

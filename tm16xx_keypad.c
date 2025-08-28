@@ -152,8 +152,7 @@ int tm16xx_keypad_probe(struct tm16xx_display *display)
 	    !device_property_present(display->dev, "linux,keymap"))
 		return 0; /* keypad disabled */
 
-	ret = device_property_read_u32(display->dev, "poll-interval",
-				       &poll_interval);
+	ret = device_property_read_u32(display->dev, "poll-interval", &poll_interval);
 	if (ret)
 		return dev_err_probe(display->dev, ret,
 				     "Failed to read poll-interval\n");
@@ -178,8 +177,7 @@ int tm16xx_keypad_probe(struct tm16xx_display *display)
 	input_set_drvdata(input, display);
 
 	keypad->row_shift = get_count_order(cols); /* !cols already checked */
-	ret = matrix_keypad_build_keymap(NULL, "linux,keymap", rows, cols, NULL,
-					 input);
+	ret = matrix_keypad_build_keymap(NULL, "linux,keymap", rows, cols, NULL, input);
 	if (ret)
 		return dev_err_probe(display->dev, ret,
 				     "Failed to build keymap\n");

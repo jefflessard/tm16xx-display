@@ -33,8 +33,7 @@ static int tm16xx_spi_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	/* Allocate DMA-safe buffer */
-	display->spi_buffer = devm_kzalloc(&spi->dev, TM16XX_SPI_BUFFER_SIZE,
-					   GFP_KERNEL);
+	display->spi_buffer = devm_kzalloc(&spi->dev, TM16XX_SPI_BUFFER_SIZE, GFP_KERNEL);
 	if (!display->spi_buffer)
 		return -ENOMEM;
 
