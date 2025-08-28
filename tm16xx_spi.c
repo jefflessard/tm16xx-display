@@ -107,7 +107,7 @@ static int tm16xx_spi_read(struct tm16xx_display *display, u8 *cmd,
  */
 static int tm16xx_spi_write(struct tm16xx_display *display, u8 *data, size_t len)
 {
-	struct spi_device *spi = container_of(display->dev, struct spi_device, dev);
+	struct spi_device *spi = to_spi_device(display->dev);
 
 	return spi_write(spi, data, len);
 }

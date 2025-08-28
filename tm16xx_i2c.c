@@ -86,7 +86,7 @@ static int tm16xx_i2c_write(struct tm16xx_display *display, u8 *data, size_t len
  */
 static int tm16xx_i2c_read(struct tm16xx_display *display, u8 cmd, u8 *data, size_t len)
 {
-	struct i2c_client *i2c = container_of(display->dev, struct i2c_client, dev);
+	struct i2c_client *i2c = to_i2c_client(display->dev);
 
 	/* expected sequence: S Command [A] [Data] [A] P */
 	struct i2c_msg msgs[1] = {{
