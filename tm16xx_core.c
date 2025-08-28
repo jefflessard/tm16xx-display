@@ -433,7 +433,7 @@ int tm16xx_probe(struct tm16xx_display *display)
 	if (!display->state)
 		return -ENOMEM;
 
-	mutex_init(&display->lock);
+	devm_mutex_init(display->dev, &display->lock);
 	INIT_WORK(&display->flush_init, tm16xx_display_flush_init);
 	INIT_WORK(&display->flush_display, tm16xx_display_flush_data);
 
