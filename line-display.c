@@ -6,6 +6,7 @@
  * Author: Paul Burton <paul.burton@mips.com>
  *
  * Copyright (C) 2021 Glider bv
+ * Copyright (C) 2025 Jean-François Lessard
  */
 
 #ifndef CONFIG_PANEL_BOOT_MESSAGE
@@ -69,7 +70,7 @@ static int create_attachment(struct device *dev, struct linedisp *linedisp, bool
 	return 0;
 }
 
-static struct linedisp* delete_attachment(struct device *dev, bool owns_device)
+static struct linedisp *delete_attachment(struct device *dev, bool owns_device)
 {
 	struct linedisp_attachment *attachment, *tmp;
 	struct linedisp *linedisp = NULL;
@@ -272,6 +273,7 @@ static ssize_t num_chars_show(struct device *dev, struct device_attribute *attr,
 			      char *buf)
 {
 	struct linedisp *linedisp = to_linedisp(dev);
+
 	return sysfs_emit(buf, "%u\n", linedisp->num_chars);
 }
 
@@ -432,7 +434,7 @@ int linedisp_attach(struct linedisp *linedisp, struct device *dev,
 	if (err)
 		goto out_del_timer;
 
-	/* Add attribute groups to target device */
+	/* add attribute groups to target device */
 	err = device_add_groups(dev, linedisp_groups);
 	if (err)
 		goto out_del_attach;
@@ -463,13 +465,10 @@ void linedisp_detach(struct device *dev)
 	if (!linedisp)
 		return;
 
-	/* Stop and delete timer first */
 	timer_delete_sync(&linedisp->timer);
 
-	/* Remove attribute groups from target device */
 	device_remove_groups(dev, linedisp_groups);
 
-	/* Free all allocated resources */
 	kfree(linedisp->map);
 	kfree(linedisp->message);
 	kfree(linedisp->buf);

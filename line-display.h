@@ -6,12 +6,14 @@
  * Author: Paul Burton <paul.burton@mips.com>
  *
  * Copyright (C) 2021 Glider bv
+ * Copyright (C) 2025 Jean-François Lessard
  */
 
 #ifndef _LINEDISP_H
 #define _LINEDISP_H
 
 #include <linux/device.h>
+// TODO #include <linux/timer_types.h>
 
 #include <linux/map_to_7segment.h>
 #include <linux/map_to_14segment.h>
