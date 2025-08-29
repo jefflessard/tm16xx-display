@@ -9,6 +9,7 @@
 #include <linux/bitfield.h>
 #include <linux/bitmap.h>
 #include <linux/cleanup.h>
+#include <linux/container_of.h>
 #include <linux/device.h>
 #include <linux/leds.h>
 #include <linux/map_to_7segment.h>

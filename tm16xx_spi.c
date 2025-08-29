@@ -69,7 +69,7 @@ static void tm16xx_spi_remove(struct spi_device *spi)
 static int tm16xx_spi_read(struct tm16xx_display *display, u8 *cmd,
 			   size_t cmd_len, u8 *data, size_t data_len)
 {
-	struct spi_device *spi = container_of(display->dev, struct spi_device, dev);
+	struct spi_device *spi = to_spi_device(display->dev);
 	struct spi_message msg;
 	int ret;
 
