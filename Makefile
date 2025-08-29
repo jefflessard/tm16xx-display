@@ -2,7 +2,7 @@
 
 # linedisp module
 # if custom initial display value is wanted:
-CCFLAGS += -DCONFIG_PANEL_BOOT_MESSAGE=\\\"boot\\\"
+# CCFLAGS += -DCONFIG_PANEL_BOOT_MESSAGE=\\\"boot\\\"
 # CCFLAGS += -DCONFIG_PANEL_BOOT_MESSAGE=\\\"\\\"
 obj-m += line-display.o
 

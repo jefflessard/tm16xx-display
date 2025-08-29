@@ -54,23 +54,14 @@ struct tm16xx_led {
 };
 
 /**
- * struct tm16xx_digit_segment - Digit segment mapping to display coordinates
- * @hwgrid: Controller grid index for this segment.
- * @hwseg: Controller segment index for this segment.
- */
-struct tm16xx_digit_segment {
-	u8 hwgrid;
-	u8 hwseg;
-};
-
-/**
  * struct tm16xx_digit - 7-segment digit mapping and value
- * @segments: Array mapping each 7-segment position to a grid/segment on the controller.
+ * @hwgrids: Array mapping each 7-segment position to a grid on the controller.
+ * @hwsegs: Array mapping each 7-segment position to a segment on the controller.
  * @value: Current character value displayed on this digit.
  */
 struct tm16xx_digit {
-	struct tm16xx_digit_segment segments[TM16XX_DIGIT_SEGMENTS];
-	char value;
+	u8 hwgrids[TM16XX_DIGIT_SEGMENTS];
+	u8 hwsegs[TM16XX_DIGIT_SEGMENTS];
 };
 
 /* state bitmap helpers */
@@ -199,29 +190,24 @@ static int tm16xx_display_value(struct tm16xx_display *display, const char *buf,
 	struct linedisp *linedisp = &display->linedisp;
 	struct linedisp_map *map = linedisp->map;
 	struct tm16xx_digit *digit;
-	struct tm16xx_digit_segment *ds;
 	unsigned int i, j;
 	int seg_pattern;
 	bool val;
 
 	for (i = 0; i < display->num_digits && i < count; i++) {
 		digit = &display->digits[i];
-		digit->value = buf[i];
-		seg_pattern = map_to_seg7(&map->map.seg7, digit->value);
+		seg_pattern = map_to_seg7(&map->map.seg7, buf[i]);
 
 		for (j = 0; j < TM16XX_DIGIT_SEGMENTS; j++) {
-			ds = &digit->segments[j];
 			val = seg_pattern & BIT(j);
-			tm16xx_set_seg(display, ds->hwgrid, ds->hwseg, val);
+			tm16xx_set_seg(display, digit->hwgrids[j], digit->hwsegs[j], val);
 		}
 	}
 
 	for (; i < display->num_digits; i++) {
 		digit = &display->digits[i];
-		digit->value = 0;
 		for (j = 0; j < TM16XX_DIGIT_SEGMENTS; j++) {
-			ds = &digit->segments[j];
-			tm16xx_set_seg(display, ds->hwgrid, ds->hwseg, 0);
+			tm16xx_set_seg(display, digit->hwgrids[j], digit->hwsegs[j], 0);
 		}
 	}
 
@@ -297,12 +283,11 @@ static int tm16xx_parse_fwnode(struct device *dev, struct tm16xx_display *displa
 					return ret;
 
 				for (j = 0; j < TM16XX_DIGIT_SEGMENTS; ++j) {
-					digit->segments[j].hwgrid = segments[2 * j];
-					digit->segments[j].hwseg = segments[2 * j + 1];
-					max_hwgrid = umax(max_hwgrid, digit->segments[j].hwgrid);
-					max_hwseg = umax(max_hwseg, digit->segments[j].hwseg);
+					digit->hwgrids[j] = segments[2 * j];
+					digit->hwsegs[j] = segments[2 * j + 1];
+					max_hwgrid = umax(max_hwgrid, digit->hwgrids[j]);
+					max_hwseg = umax(max_hwseg, digit->hwsegs[j]);
 				}
-				digit->value = 0;
 				i++;
 			}
 		}
