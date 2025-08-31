@@ -207,9 +207,8 @@ static int tm16xx_display_value(struct tm16xx_display *display, const char *buf,
 
 	for (; i < display->num_digits; i++) {
 		digit = &display->digits[i];
-		for (j = 0; j < TM16XX_DIGIT_SEGMENTS; j++) {
+		for (j = 0; j < TM16XX_DIGIT_SEGMENTS; j++)
 			tm16xx_set_seg(display, digit->hwgrids[j], digit->hwsegs[j], 0);
-		}
 	}
 
 	schedule_work(&display->flush_display);
@@ -364,7 +363,14 @@ int tm16xx_probe(struct tm16xx_display *display)
 	if (!display->state)
 		return -ENOMEM;
 
+	// TODO
 	devm_mutex_init(display->dev, &display->lock);
+	/*
+	ret = devm_mutex_init(display->dev, &display->lock);
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to initialize mutex\n");
+	*/
+
 	INIT_WORK(&display->flush_init, tm16xx_display_flush_init);
 	INIT_WORK(&display->flush_display, tm16xx_display_flush_data);
 
