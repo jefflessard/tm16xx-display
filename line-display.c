@@ -106,7 +106,8 @@ static struct linedisp *to_linedisp(struct device *dev)
 	return attachment->linedisp;
 }
 
-static inline bool should_scroll(struct linedisp *linedisp) {
+static inline bool should_scroll(struct linedisp *linedisp)
+{
 	return linedisp->message_len > linedisp->num_chars && linedisp->scroll_rate;
 }
 
@@ -418,6 +419,15 @@ static int linedisp_init_map(struct linedisp *linedisp)
 #define LINEDISP_INIT_TEXT "Linux " UTS_RELEASE "       "
 #endif
 
+/**
+ * linedisp_attach - attach a character line display
+ * @linedisp: pointer to character line display structure
+ * @dev: pointer of the device to attach to
+ * @num_chars: the number of characters that can be displayed
+ * @ops: character line display operations
+ *
+ * Return: zero on success, else a negative error code.
+ */
 int linedisp_attach(struct linedisp *linedisp, struct device *dev,
 		    unsigned int num_chars, const struct linedisp_ops *ops)
 {
@@ -468,6 +478,11 @@ out_free_buf:
 }
 EXPORT_SYMBOL_NS_GPL(linedisp_attach, LINEDISP);
 
+/**
+ * linedisp_detach - detach a character line display
+ * @dev: pointer of the device to detach from, that was previously
+ * 	 attached with linedisp_attach()
+ */
 void linedisp_detach(struct device *dev)
 {
 	struct linedisp *linedisp = delete_attachment(dev, false);
