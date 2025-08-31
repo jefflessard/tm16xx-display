@@ -14,7 +14,8 @@ description: |
   LED icons and 7-segment digit groups through a grid/segment addressing scheme.
   Controllers manage a matrix of LEDs organized as grids (columns/banks in
   vendor datasheets) and segments (rows/bit positions in vendor datasheets).
-  Maximum grid and segment indices are controller-specific.
+  Maximum brightness and grid/segment indices are controller-specific.
+  Controller-specific maximum are validated in the driver.
 
   The controller is agnostic of the display layout. Board-specific LED wiring is
   described through child nodes that specify grid/segment coordinates for
@@ -71,22 +72,23 @@ properties:
       The label for the top-level LED. If omitted, the label is taken from the
       node name (excluding the unit address). It has to uniquely identify a
       device, i.e. no other LED class device can be assigned the same label.
-    $ref: /schemas/leds/common.yaml#/properties/label
 
   max-brightness:
+    minimum: 0  # 0=off
+    maximum: 8  # Maximum across all TM16xx controllers
     description:
       Normally the maximum brightness is determined by the hardware and this
       property is not required. This property is used to put a software limit
       on the brightness apart from what the driver says, as it could happen
       that a LED can be made so bright that it gets damaged or causes damage
       due to restrictions in a specific system, such as mounting conditions.
-    $ref: /schemas/leds/common.yaml#/properties/max-brightness
 
   default-brightness:
+    minimum: 0  # 0=off
+    maximum: 8  # Maximum across all TM16xx controllers
     description:
       Brightness to be set if LED's default state is on. Used only during
       initialization. If the option is not set then max brightness is used.
-    $ref: /schemas/types.yaml#/definitions/uint32
 
   digits:
     type: object
@@ -106,7 +108,10 @@ properties:
 
         properties:
           reg:
-            description: Digit position identifier
+            description:
+              Digit position identifier numbered sequentially left-to-right,
+              with reg=0 representing the leftmost digit position as displayed
+              to the user.
             maxItems: 1
 
           segments:
@@ -160,10 +165,6 @@ properties:
         required:
           - reg
 
-allOf:
-  - $ref: /schemas/input/input.yaml#
-  - $ref: /schemas/input/matrix-keymap.yaml#
-
 dependencies:
   poll-interval:
     - linux,keymap
@@ -173,32 +174,39 @@ dependencies:
     - linux,keymap
     - poll-interval
 
-# SPI controllers require 3-wire (combined MISO/MOSI line)
-if:
-  properties:
-    compatible:
-      contains:
-        enum:
-          - fdhisi,fd620
-          - fdhisi,fd628
-          - princeton,pt6964
-          - titanmec,tm1618
-          - titanmec,tm1620
-          - titanmec,tm1628
-          - titanmec,tm1638
-          - wxicore,aip1618
-          - wxicore,aip1628
-then:
-  allOf:
-    - $ref: /schemas/spi/spi-peripheral-props.yaml#
-  properties:
-    spi-3wire: true
-  required:
-    - spi-3wire
-
 required:
   - compatible
   - reg
+
+allOf:
+  - $ref: /schemas/leds/common.yaml#
+    properties:
+      color: false
+      function: false
+      function-enumerator: false
+  - $ref: /schemas/input/input.yaml#
+  - $ref: /schemas/input/matrix-keymap.yaml#
+  # SPI controllers require 3-wire (combined MISO/MOSI line)
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - fdhisi,fd620
+              - fdhisi,fd628
+              - princeton,pt6964
+              - titanmec,tm1618
+              - titanmec,tm1620
+              - titanmec,tm1628
+              - titanmec,tm1638
+              - wxicore,aip1618
+              - wxicore,aip1628
+    then:
+      $ref: /schemas/spi/spi-peripheral-props.yaml#
+      properties:
+        spi-3wire: true
+      required:
+        - spi-3wire
 
 unevaluatedProperties: false
 
