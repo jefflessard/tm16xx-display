@@ -13,13 +13,13 @@
 #include <generated/utsrelease.h>
 #endif
 
-#include <linux/list.h>
 #include <linux/cleanup.h>
 #include <linux/device.h>
 #include <linux/export.h>
 #include <linux/idr.h>
 #include <linux/jiffies.h>
 #include <linux/kstrtox.h>
+#include <linux/list.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
@@ -37,9 +37,6 @@
 // TODO remove
 #define timer_container_of(var, callback_timer, timer_fieldname)	\
 	container_of(callback_timer, typeof(*var), timer_fieldname)
-
-/* forward declarations */
-static const struct device_type linedisp_type;
 
 struct linedisp_attachment {
 	struct list_head list;
@@ -63,29 +60,31 @@ static int create_attachment(struct device *dev, struct linedisp *linedisp, bool
 	attachment->linedisp = linedisp;
 	attachment->owns_device = owns_device;
 
-	scoped_guard(spinlock, &linedisp_attachments_lock) {
-		list_add(&attachment->list, &linedisp_attachments);
-	}
+	guard(spinlock)(&linedisp_attachments_lock);
+	list_add(&attachment->list, &linedisp_attachments);
 
 	return 0;
 }
 
 static struct linedisp *delete_attachment(struct device *dev, bool owns_device)
 {
-	struct linedisp_attachment *attachment, *tmp;
-	struct linedisp *linedisp = NULL;
+	struct linedisp_attachment *attachment;
+	struct linedisp *linedisp;
 
-	scoped_guard(spinlock, &linedisp_attachments_lock) {
-		list_for_each_entry_safe(attachment, tmp, &linedisp_attachments, list) {
-			if (attachment->device == dev &&
-			    attachment->owns_device == owns_device) {
-				linedisp = attachment->linedisp;
-				list_del(&attachment->list);
-				kfree(attachment);
-				break;
-			}
-		}
+	guard(spinlock)(&linedisp_attachments_lock);
+
+	list_for_each_entry(attachment, &linedisp_attachments, list) {
+		if (attachment->device == dev &&
+		    attachment->owns_device == owns_device)
+			break;
 	}
+
+	if (list_entry_is_head(attachment, &linedisp_attachments, list))
+		return NULL;
+
+	linedisp = attachment->linedisp;
+	list_del(&attachment->list);
+	kfree(attachment);
 
 	return linedisp;
 }
@@ -93,18 +92,18 @@ static struct linedisp *delete_attachment(struct device *dev, bool owns_device)
 static struct linedisp *to_linedisp(struct device *dev)
 {
 	struct linedisp_attachment *attachment;
-	struct linedisp *linedisp = NULL;
 
-	scoped_guard(spinlock, &linedisp_attachments_lock) {
-		list_for_each_entry(attachment, &linedisp_attachments, list) {
-			if (attachment->device == dev) {
-				linedisp = attachment->linedisp;
-				break;
-			}
-		}
+	guard(spinlock)(&linedisp_attachments_lock);
+
+	list_for_each_entry(attachment, &linedisp_attachments, list) {
+		if (attachment->device == dev)
+			break;
 	}
 
-	return linedisp;
+	if (list_entry_is_head(attachment, &linedisp_attachments, list))
+		return NULL;
+
+	return attachment->linedisp;
 }
 
 /**
@@ -417,10 +416,9 @@ int linedisp_attach(struct linedisp *linedisp, struct device *dev,
 	linedisp->num_chars = num_chars;
 	linedisp->scroll_rate = DEFAULT_SCROLL_RATE;
 
-	err = -ENOMEM;
 	linedisp->buf = kzalloc(linedisp->num_chars, GFP_KERNEL);
 	if (!linedisp->buf)
-		return err;
+		return -ENOMEM;
 
 	/* initialise a character mapping, if required */
 	err = linedisp_init_map(linedisp);
