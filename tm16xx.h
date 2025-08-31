@@ -133,7 +133,7 @@ struct tm16xx_controller {
  * struct tm16xx_display - Main driver structure for the display
  * @dev: Pointer to device struct.
  * @controller: Controller-specific function table and limits.
- * @linedisp: charactwr line display structure
+ * @linedisp: character line display structure
  * @keypad: Opaque pointer to tm16xx_keypad struct.
  * @spi_buffer: DMA-safe buffer for SPI transactions, or NULL for I2C.
  * @num_hwgrid: Number of controller grids in use.
