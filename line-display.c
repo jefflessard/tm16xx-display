@@ -481,7 +481,7 @@ EXPORT_SYMBOL_NS_GPL(linedisp_attach, LINEDISP);
 /**
  * linedisp_detach - detach a character line display
  * @dev: pointer of the device to detach from, that was previously
- * 	 attached with linedisp_attach()
+ *	 attached with linedisp_attach()
  */
 void linedisp_detach(struct device *dev)
 {

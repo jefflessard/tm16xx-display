@@ -276,9 +276,9 @@ static int tm16xx_parse_fwnode(struct device *dev, struct tm16xx_display *displa
 				if (ret)
 					return ret;
 
-				ret = fwnode_property_read_u32_array(
-					child, "segments", segments,
-					TM16XX_DIGIT_SEGMENTS * 2);
+				ret = fwnode_property_read_u32_array(child,
+								     "segments", segments,
+								     TM16XX_DIGIT_SEGMENTS * 2);
 				if (ret < 0)
 					return ret;
 
