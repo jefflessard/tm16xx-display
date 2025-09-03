@@ -434,6 +434,10 @@ static int linedisp_init_map(struct linedisp *linedisp)
  * @num_chars: the number of characters that can be displayed
  * @ops: character line display operations
  *
+ * Directly attach the line-display sysfs attributes to the the passed device.
+ * The caller is responsible for calling linedisp_detach() to release resources
+ * after use.
+ *
  * Return: zero on success, else a negative error code.
  */
 int linedisp_attach(struct linedisp *linedisp, struct device *dev,
@@ -514,6 +518,11 @@ EXPORT_SYMBOL_NS_GPL(linedisp_detach, LINEDISP);
  * @parent: parent device
  * @num_chars: the number of characters that can be displayed
  * @ops: character line display operations
+ *
+ * Register the line-display sysfs attributes to a new device named
+ * "linedisp.N" added to the passed parent device.
+ * The caller is responsible for calling linedisp_unregister() to release
+ * resources after use.
  *
  * Return: zero on success, else a negative error code.
  */
