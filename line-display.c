@@ -38,17 +38,25 @@
 #define timer_container_of(var, callback_timer, timer_fieldname)	\
 	container_of(callback_timer, typeof(*var), timer_fieldname)
 
+/**
+ * struct linedisp_attachment - Holds the device to linedisp mapping
+ * @list: List entry for the linedisp_attachments list
+ * @device: Pointer to the device where linedisp attributes are added
+ * @linedisp: Pointer to the linedisp mapped to the device
+ * @direct: true for directly attached device using linedisp_attach(),
+ *	    false for child registered device using linedisp_register()
+ */
 struct linedisp_attachment {
 	struct list_head list;
 	struct device *device;
 	struct linedisp *linedisp;
-	bool owns_device;  /* true for child device mode, false for attached mode */
+	bool direct;
 };
 
 static LIST_HEAD(linedisp_attachments);
 static DEFINE_SPINLOCK(linedisp_attachments_lock);
 
-static int create_attachment(struct device *dev, struct linedisp *linedisp, bool owns_device)
+static int create_attachment(struct device *dev, struct linedisp *linedisp, bool direct)
 {
 	struct linedisp_attachment *attachment;
 
@@ -58,7 +66,7 @@ static int create_attachment(struct device *dev, struct linedisp *linedisp, bool
 
 	attachment->device = dev;
 	attachment->linedisp = linedisp;
-	attachment->owns_device = owns_device;
+	attachment->direct = direct;
 
 	guard(spinlock)(&linedisp_attachments_lock);
 	list_add(&attachment->list, &linedisp_attachments);
@@ -66,7 +74,7 @@ static int create_attachment(struct device *dev, struct linedisp *linedisp, bool
 	return 0;
 }
 
-static struct linedisp *delete_attachment(struct device *dev, bool owns_device)
+static struct linedisp *delete_attachment(struct device *dev, bool direct)
 {
 	struct linedisp_attachment *attachment;
 	struct linedisp *linedisp;
@@ -75,7 +83,7 @@ static struct linedisp *delete_attachment(struct device *dev, bool owns_device)
 
 	list_for_each_entry(attachment, &linedisp_attachments, list) {
 		if (attachment->device == dev &&
-		    attachment->owns_device == owns_device)
+		    attachment->direct == direct)
 			break;
 	}
 
@@ -450,7 +458,7 @@ int linedisp_attach(struct linedisp *linedisp, struct device *dev,
 	/* initialise a timer for scrolling the message */
 	timer_setup(&linedisp->timer, linedisp_scroll, 0);
 
-	err = create_attachment(dev, linedisp, false);
+	err = create_attachment(dev, linedisp, true);
 	if (err)
 		goto out_del_timer;
 
@@ -469,7 +477,7 @@ int linedisp_attach(struct linedisp *linedisp, struct device *dev,
 out_rem_groups:
 	device_remove_groups(dev, linedisp_groups);
 out_del_attach:
-	delete_attachment(dev, false);
+	delete_attachment(dev, true);
 out_del_timer:
 	timer_delete_sync(&linedisp->timer);
 out_free_buf:
@@ -485,7 +493,7 @@ EXPORT_SYMBOL_NS_GPL(linedisp_attach, LINEDISP);
  */
 void linedisp_detach(struct device *dev)
 {
-	struct linedisp *linedisp = delete_attachment(dev, false);
+	struct linedisp *linedisp = delete_attachment(dev, true);
 
 	if (!linedisp)
 		return;
@@ -542,7 +550,7 @@ int linedisp_register(struct linedisp *linedisp, struct device *parent,
 	/* initialise a timer for scrolling the message */
 	timer_setup(&linedisp->timer, linedisp_scroll, 0);
 
-	err = create_attachment(&linedisp->dev, linedisp, true);
+	err = create_attachment(&linedisp->dev, linedisp, false);
 	if (err)
 		goto out_del_timer;
 
@@ -560,7 +568,7 @@ int linedisp_register(struct linedisp *linedisp, struct device *parent,
 out_del_dev:
 	device_del(&linedisp->dev);
 out_del_attach:
-	delete_attachment(&linedisp->dev, true);
+	delete_attachment(&linedisp->dev, false);
 out_del_timer:
 	timer_delete_sync(&linedisp->timer);
 out_put_device:
@@ -577,7 +585,7 @@ EXPORT_SYMBOL_NS_GPL(linedisp_register, LINEDISP);
 void linedisp_unregister(struct linedisp *linedisp)
 {
 	device_del(&linedisp->dev);
-	delete_attachment(&linedisp->dev, true);
+	delete_attachment(&linedisp->dev, false);
 	timer_delete_sync(&linedisp->timer);
 	put_device(&linedisp->dev);
 }
