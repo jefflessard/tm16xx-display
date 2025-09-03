@@ -150,8 +150,7 @@ static void linedisp_scroll(struct timer_list *t)
 	linedisp->scroll_pos %= linedisp->message_len;
 
 	/* rearm the timer */
-	if (should_scroll(linedisp))
-		mod_timer(&linedisp->timer, jiffies + linedisp->scroll_rate);
+	mod_timer(&linedisp->timer, jiffies + linedisp->scroll_rate);
 }
 
 /**
@@ -497,8 +496,9 @@ EXPORT_SYMBOL_NS_GPL(linedisp_attach, LINEDISP);
  */
 void linedisp_detach(struct device *dev)
 {
-	struct linedisp *linedisp = delete_attachment(dev, true);
+	struct linedisp *linedisp;
 
+	linedisp = delete_attachment(dev, true);
 	if (!linedisp)
 		return;
 
