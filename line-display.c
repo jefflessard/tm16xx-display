@@ -465,20 +465,18 @@ int linedisp_attach(struct linedisp *linedisp, struct device *dev,
 	if (err)
 		goto out_del_timer;
 
+	/* display a default message */
+	err = linedisp_display(linedisp, LINEDISP_INIT_TEXT, -1);
+	if (err)
+		goto out_del_attach;
+
 	/* add attribute groups to target device */
 	err = device_add_groups(dev, linedisp_groups);
 	if (err)
 		goto out_del_attach;
 
-	/* display a default message */
-	err = linedisp_display(linedisp, LINEDISP_INIT_TEXT, -1);
-	if (err)
-		goto out_rem_groups;
-
 	return 0;
 
-out_rem_groups:
-	device_remove_groups(dev, linedisp_groups);
 out_del_attach:
 	delete_attachment(dev, true);
 out_del_timer:
@@ -563,19 +561,17 @@ int linedisp_register(struct linedisp *linedisp, struct device *parent,
 	if (err)
 		goto out_del_timer;
 
+	/* display a default message */
+	err = linedisp_display(linedisp, LINEDISP_INIT_TEXT, -1);
+	if (err)
+		goto out_del_attach;
+
 	err = device_add(&linedisp->dev);
 	if (err)
 		goto out_del_attach;
 
-	/* display a default message */
-	err = linedisp_display(linedisp, LINEDISP_INIT_TEXT, -1);
-	if (err)
-		goto out_del_dev;
-
 	return 0;
 
-out_del_dev:
-	device_del(&linedisp->dev);
 out_del_attach:
 	delete_attachment(&linedisp->dev, false);
 out_del_timer:
