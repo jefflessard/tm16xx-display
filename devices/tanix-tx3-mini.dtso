@@ -80,11 +80,11 @@
 				};
 				led@4,3 {
 					reg = <4 3>;
-					function = "play";
+					function = "pause";
 				};
 				led@4,2 {
 					reg = <4 2>;
-					function = "pause";
+					function = "play";
 				};
 				led@4,4 {
 					reg = <4 4>;
