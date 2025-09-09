@@ -321,11 +321,7 @@ done
 
 # --- Setup display path ---
 DISPLAY_PATH="/sys/class/leds/$DISPLAY"
-if [ ! -d "$DISPLAY_PATH" ]; then
-	log_warn "Display device directory missing at $DISPLAY_PATH; attempting module load"
-	load_module tm16xx || die "Cannot load tm16xx kernel module"
-	[ -d "$DISPLAY_PATH" ] || die "Display device not present after modprobe"
-fi
+[ -d "$DISPLAY_PATH" ] || die "No display device at $DISPLAY_PATH, is tm16xx module loaded?"
 
 # --- Initialize display parameters ---
 if [ -z "$BRIGHTNESS" ]; then
