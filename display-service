@@ -106,30 +106,38 @@ display_text() {
 	done
 }
 
+read_line() {
+	echo "Press Enter to continue..."
+	read any_key
+}
+
 display_check() {
 	log_info "all digits and leds on"
 	echo 88888888 > "$DISPLAY_PATH/message"
 	for led in "$DISPLAY_PATH":*; do
 		echo 1 > "$led/brightness"
 	done
-	sleep 1
+	read_line
 
 	log_info "all digits and leds off"
 	: > "$DISPLAY_PATH/message"
 	for led in "$DISPLAY_PATH":*; do
 		echo 0 > "$led/brightness"
 	done
+	read_line
 
 	log_info "digit order: 12345678"
 	echo 12345678 > "$DISPLAY_PATH/message"
-	sleep 1
+	read_line
 
 	for led in "$DISPLAY_PATH":*; do
 		echo 1 > "$led/brightness"
 		led_name="${led##*:}"
 		led_name=$(printf '%s' "$led_name" | tr '[:lower:]' '[:upper:]')
 		log_info "led $led_name on"
-		display_text "$led_name" " " 0.25
+		echo "$led_name $led_name " > "$DISPLAY_PATH/message"
+		read_line
+
 		echo 0 > "$led/brightness"
 	done
 }
