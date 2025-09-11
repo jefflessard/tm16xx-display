@@ -25,7 +25,6 @@
 			digits {
 				#address-cells = <1>;
 				#size-cells = <0>;
-
 				digit@0 {
 					reg = <0>;
 					segments = <0 7>,
@@ -36,7 +35,6 @@
 						   <5 7>,
 						   <6 7>;
 				};
-
 				digit@1 {
 					reg = <1>;
 					segments = <0 6>,
@@ -47,7 +45,6 @@
 						   <5 6>,
 						   <6 6>;
 				};
-
 				digit@2 {
 					reg = <2>;
 					segments = <0 5>,
@@ -58,7 +55,6 @@
 						   <5 5>,
 						   <6 5>;
 				};
-
 				digit@3 {
 					reg = <3>;
 					segments = <0 4>,
@@ -96,11 +92,11 @@
 				};
 				led@5,3 {
 					reg = <5 3>;
-					function = "hd";
+					function = "hdmi";
 				};
 				led@6,3 {
 					reg = <6 3>;
-					function = "cvbs";
+					function = "video";
 				};
 			};
 		};

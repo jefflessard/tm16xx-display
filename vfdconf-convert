@@ -76,7 +76,7 @@ template() {
 			if [ "$TRANSPOSED" == "0x00" ]; then
 				addresses+="<$digit $segment>,\n\t\t\t\t\t\t   "
 			else
-				addresses+="<$segment $digit>,\n\t\t\t\t\t\t   "
+				addresses+="<$segment $((7 - digit))>,\n\t\t\t\t\t\t   "
 			fi
 		done
 		digit_items+=\
@@ -99,7 +99,7 @@ template() {
 			led_items="${led_items//'{LED}'/$segment}"
 		else
 			led_items="${led_items//'{GRID}'/$segment}"
-			led_items="${led_items//'{LED}'/$grid}"
+			led_items="${led_items//'{LED}'/$((7 - $grid))}"
 		fi
 	else
 		led_items="$(cat "$display_type")"
@@ -110,7 +110,7 @@ template() {
 				led_items="${led_items//'{LED'$i'}'/$segment}"
 			else
 				led_items="${led_items//'{GRID'$i'}'/$segment}"
-				led_items="${led_items//'{LED'$i'}'/$LED_INDEX}"
+				led_items="${led_items//'{LED'$i'}'/$((7 - $LED_INDEX))}"
 			fi
 		done
 	fi
