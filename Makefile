@@ -1,30 +1,29 @@
 # Makefile for building the tm16xx kernel module and updating the device tree
 
+# Path to the kernel source tree
+KDIR ?= /lib/modules/$(shell uname -r)/build
+
+# Module source directory
+MDIR := drivers/auxdisplay
+
+# Build configuration string
+# tm16xx core module
+CONFIG += CONFIG_TM16XX=m
+CCFLAGS += -DCONFIG_TM16XX
+# keypad support
+CONFIG += CONFIG_TM16XX_KEYPAD=y
+CCFLAGS += -DCONFIG_TM16XX_KEYPAD
+# tm16xx-i2c module
+CONFIG += CONFIG_TM16XX_I2C=m
+CCFLAGS += -DCONFIG_TM16XX_I2C
+# tm16xx-spi module
+CONFIG += CONFIG_TM16XX_SPI=m
 # linedisp module
+CONFIG += CONFIG_LINEDISP=m
+CCFLAGS += -DCONFIG_TM16XX_SPI
 # if custom initial display value is wanted:
 # CCFLAGS += -DCONFIG_PANEL_BOOT_MESSAGE=\\\"boot\\\"
 # CCFLAGS += -DCONFIG_PANEL_BOOT_MESSAGE=\\\"\\\"
-obj-m += line-display.o
-
-# tm16xx core module
-CCFLAGS += -DCONFIG_TM16XX
-obj-m += tm16xx.o
-tm16xx-objs += tm16xx_core.o
-
-# keypad support
-CCFLAGS += -DCONFIG_TM16XX_KEYPAD
-tm16xx-objs += tm16xx_keypad.o
-
-# tm16xx-i2c module
-CCFLAGS += -DCONFIG_TM16XX_I2C
-obj-m += tm16xx_i2c.o
-
-# tm16xx-spi module
-CCFLAGS += -DCONFIG_TM16XX_SPI
-obj-m += tm16xx_spi.o
-
-# Path to the kernel source tree
-KDIR ?= /lib/modules/$(shell uname -r)/build
 
 # Device Tree parameters
 ORIGINAL_DTB = original.dtb
@@ -43,14 +42,14 @@ debug: CCFLAGS += -g -DDEBUG
 debug: module
 
 module:
-	make EXTRA_CFLAGS="$(CCFLAGS)" -C $(KDIR) M=$(PWD) modules
+	make EXTRA_CFLAGS="$(CCFLAGS)" -C $(KDIR) M=$(PWD)/$(MDIR) $(CONFIG) modules
 
 clean:
-	$(MAKE) -C $(KDIR) M=$(PWD) clean
+	$(MAKE) -C $(KDIR) M=$(PWD)/$(MDIR) $(CONFIG) clean
 	rm -Rf $(RELEASE_DIR)
 
 module-install:
-	$(MAKE) -C $(KDIR) M=$(PWD) modules_install INSTALL_MOD_PATH=$(INSTALL_MOD_PATH)
+	$(MAKE) -C $(KDIR) M=$(PWD)/$(MDIR) $(CONFIG) modules_install INSTALL_MOD_PATH=$(INSTALL_MOD_PATH)
 
 service-install:
 	modprobe tm16xx
