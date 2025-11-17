@@ -1,6 +1,10 @@
 #ifndef _TM16XX_COMPAT_H
 #define _TM16XX_COMPAT_H
 
+#include <linux/bitmap.h>
+#include <linux/cleanup.h>
+#include <linux/fwnode.h>
+#include <linux/property.h>
 #include <linux/version.h>
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 10, 0)
@@ -15,7 +19,7 @@
 
 DEFINE_FREE(fwnode_handle, struct fwnode_handle *, fwnode_handle_put(_T))
 
-static __always_inline
+static __always_inline __maybe_unused
 unsigned long bitmap_read(const unsigned long *map, unsigned long start, unsigned long nbits)
 {
 	size_t index = BIT_WORD(start);
@@ -36,7 +40,8 @@ unsigned long bitmap_read(const unsigned long *map, unsigned long start, unsigne
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 16, 0)
-static unsigned int fwnode_get_child_node_count(const struct fwnode_handle *fwnode)
+static __maybe_unused
+unsigned int fwnode_get_child_node_count(const struct fwnode_handle *fwnode)
 {
 	struct fwnode_handle *child;
 	unsigned int count = 0;

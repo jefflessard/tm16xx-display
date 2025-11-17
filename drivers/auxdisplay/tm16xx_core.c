@@ -20,7 +20,6 @@
 
 #include "line-display.h"
 #include "tm16xx.h"
-#include "tm16xx_compat.h" // TODO remove
 
 #define TM16XX_DIGIT_SEGMENTS	7
 

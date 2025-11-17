@@ -25,6 +25,9 @@ CCFLAGS += -DCONFIG_TM16XX_SPI
 # CCFLAGS += -DCONFIG_PANEL_BOOT_MESSAGE=\\\"boot\\\"
 # CCFLAGS += -DCONFIG_PANEL_BOOT_MESSAGE=\\\"\\\"
 
+# backward compatibility
+CCFLAGS += -include $(PWD)/$(MDIR)/tm16xx_compat.h
+
 # Device Tree parameters
 ORIGINAL_DTB = original.dtb
 
