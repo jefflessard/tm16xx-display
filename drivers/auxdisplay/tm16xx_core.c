@@ -6,6 +6,7 @@
  * Copyright (C) 2025 Jean-François Lessard
  */
 
+#include <linux/bits.h>
 #include <linux/bitfield.h>
 #include <linux/bitmap.h>
 #include <linux/cleanup.h>
@@ -177,12 +178,24 @@ static int tm16xx_display_value(struct tm16xx_display *display, const char *buf,
 	struct linedisp_map *map = linedisp->map;
 	struct tm16xx_digit *digit;
 	unsigned int i, j;
-	int seg_pattern;
+	int seg_pattern, ret = 0;
 	bool val;
 
-	for (i = 0; i < display->num_digits && i < count; i++) {
+	for (i = 0; i < display->num_digits; i++) {
 		digit = &display->digits[i];
-		seg_pattern = map_to_seg7(&map->map.seg7, buf[i]);
+
+		if (i < count) {
+			seg_pattern = map_to_seg7(&map->map.seg7, buf[i]);
+			if (seg_pattern < 0) {
+				dev_err(display->dev,
+					"Invalid mapping to 7 segment at position %u: %c",
+					i, buf[i]);
+				ret = -EINVAL;
+				seg_pattern = 0;
+			}
+		} else {
+			seg_pattern = 0;
+		}
 
 		for (j = 0; j < TM16XX_DIGIT_SEGMENTS; j++) {
 			val = seg_pattern & BIT(j);
@@ -190,14 +203,8 @@ static int tm16xx_display_value(struct tm16xx_display *display, const char *buf,
 		}
 	}
 
-	for (; i < display->num_digits; i++) {
-		digit = &display->digits[i];
-		for (j = 0; j < TM16XX_DIGIT_SEGMENTS; j++)
-			tm16xx_set_seg(display, digit->hwgrids[j], digit->hwsegs[j], 0);
-	}
-
 	schedule_work(&display->flush_display);
-	return 0;
+	return ret;
 }
 
 static int tm16xx_linedisp_get_map_type(struct linedisp *linedisp)
