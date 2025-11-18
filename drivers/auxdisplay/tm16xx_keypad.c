@@ -11,7 +11,9 @@
 #include <linux/device.h>
 #include <linux/input.h>
 #include <linux/input/matrix_keypad.h>
+#include <linux/mutex.h>
 #include <linux/property.h>
+#include <linux/types.h>
 
 #include "tm16xx.h"
 

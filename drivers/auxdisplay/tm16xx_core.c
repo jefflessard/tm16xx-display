@@ -14,11 +14,14 @@
 #include <linux/leds.h>
 #include <linux/map_to_7segment.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/property.h>
 #include <linux/sysfs.h>
+#include <linux/types.h>
 #include <linux/workqueue.h>
 
 #include "line-display.h"
+
 #include "tm16xx.h"
 
 #define TM16XX_DIGIT_SEGMENTS	7
