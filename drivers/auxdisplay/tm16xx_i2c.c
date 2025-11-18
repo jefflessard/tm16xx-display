@@ -182,7 +182,7 @@ static int fd6551_init(struct tm16xx_display *display)
 	const enum led_brightness brightness = display->main_led.brightness;
 	u8 cmds[2];
 
-	cmds[0] = FD6551_CMD_CTRL;
+	cmds[0] = FD655_CMD_CTRL;
 	cmds[1] = TM16XX_CTRL_BRIGHTNESS(brightness, ~(brightness - 1), FD6551);
 
 	return tm16xx_i2c_write(display, cmds, ARRAY_SIZE(cmds));

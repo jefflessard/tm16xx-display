@@ -93,7 +93,6 @@
 #define FD655_CTRL_BR_MASK	GENMASK(6, 5)
 #define FD655_CTRL_ON		(1 << 0)
 
-#define FD6551_CMD_CTRL		0x48
 #define FD6551_CTRL_BR_MASK	GENMASK(3, 1)
 #define FD6551_CTRL_ON		(1 << 0)
 
