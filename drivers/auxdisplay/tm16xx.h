@@ -108,7 +108,7 @@ struct tm16xx_led;
 struct tm16xx_keypad;
 
 /**
- * DOC: struct tm16xx_controller - Controller-specific operations and limits
+ * struct tm16xx_controller - Controller-specific operations and limits
  * @max_grids: Maximum number of grids supported by the controller.
  * @max_segments: Maximum number of segments supported by the controller.
  * @max_brightness: Maximum brightness level supported by the controller.
@@ -121,14 +121,14 @@ struct tm16xx_keypad;
  * Holds function pointers and limits for controller-specific operations.
  */
 struct tm16xx_controller {
-	const u8 max_grids;
-	const u8 max_segments;
-	const u8 max_brightness;
-	const u8 max_key_rows;
-	const u8 max_key_cols;
-	int (*const init)(struct tm16xx_display *display);
-	int (*const data)(struct tm16xx_display *display, u8 index, unsigned int grid);
-	int (*const keys)(struct tm16xx_display *display);
+	u8 max_grids;
+	u8 max_segments;
+	u8 max_brightness;
+	u8 max_key_rows;
+	u8 max_key_cols;
+	int (*init)(struct tm16xx_display *display);
+	int (*data)(struct tm16xx_display *display, u8 index, unsigned int grid);
+	int (*keys)(struct tm16xx_display *display);
 };
 
 /**
