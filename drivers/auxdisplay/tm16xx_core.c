@@ -357,7 +357,7 @@ int tm16xx_probe(struct tm16xx_display *display)
 	INIT_WORK(&display->flush_display, tm16xx_display_flush_data);
 
 	/* Initialize main LED properties */
-	led_init.fwnode = dev_fwnode(dev); /* apply label property */
+	led_init.fwnode = dev_fwnode(dev);
 	main->max_brightness = display->controller->max_brightness;
 	device_property_read_u32(dev, "max-brightness", &main->max_brightness);
 	main->max_brightness = umin(main->max_brightness,
