@@ -527,7 +527,7 @@ config SEG_LED_GPIO
 	  will be called seg-led-gpio.
 
 config TM16XX
-	tristate
+	tristate "TM16xx LED matrix display controllers" if COMPILE_TEST
 	depends on INPUT
 	select INPUT_MATRIXKMAP
 	select LEDS_CLASS
