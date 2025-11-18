@@ -102,6 +102,7 @@
 	((on) ? (FIELD_PREP(prefix##_CTRL_BR_MASK, (val)) | prefix##_CTRL_ON) : 0)
 
 /* Forward declarations */
+struct device;
 struct tm16xx_display;
 struct tm16xx_digit;
 struct tm16xx_led;
