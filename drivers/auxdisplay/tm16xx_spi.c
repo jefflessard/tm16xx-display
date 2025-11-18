@@ -395,4 +395,4 @@ module_spi_driver(tm16xx_spi_driver);
 MODULE_AUTHOR("Jean-François Lessard");
 MODULE_DESCRIPTION("TM16xx-spi LED Display Controllers");
 MODULE_LICENSE("GPL");
-MODULE_IMPORT_NS(TM16XX);
+MODULE_IMPORT_NS("TM16XX");

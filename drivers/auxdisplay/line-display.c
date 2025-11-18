@@ -485,7 +485,7 @@ out_free_buf:
 	kfree(linedisp->buf);
 	return err;
 }
-EXPORT_SYMBOL_NS_GPL(linedisp_attach, LINEDISP);
+EXPORT_SYMBOL_NS_GPL(linedisp_attach, "LINEDISP");
 
 /**
  * linedisp_detach - detach a character line display
@@ -508,7 +508,7 @@ void linedisp_detach(struct device *dev)
 	kfree(linedisp->message);
 	kfree(linedisp->buf);
 }
-EXPORT_SYMBOL_NS_GPL(linedisp_detach, LINEDISP);
+EXPORT_SYMBOL_NS_GPL(linedisp_detach, "LINEDISP");
 
 /**
  * linedisp_register - register a character line display
@@ -580,7 +580,7 @@ out_put_device:
 	put_device(&linedisp->dev);
 	return err;
 }
-EXPORT_SYMBOL_NS_GPL(linedisp_register, LINEDISP);
+EXPORT_SYMBOL_NS_GPL(linedisp_register, "LINEDISP");
 
 /**
  * linedisp_unregister - unregister a character line display
@@ -594,7 +594,7 @@ void linedisp_unregister(struct linedisp *linedisp)
 	timer_delete_sync(&linedisp->timer);
 	put_device(&linedisp->dev);
 }
-EXPORT_SYMBOL_NS_GPL(linedisp_unregister, LINEDISP);
+EXPORT_SYMBOL_NS_GPL(linedisp_unregister, "LINEDISP");
 
 MODULE_DESCRIPTION("Character line display core support");
 MODULE_LICENSE("GPL");

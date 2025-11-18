@@ -329,4 +329,4 @@ module_i2c_driver(tm16xx_i2c_driver);
 MODULE_AUTHOR("Jean-François Lessard");
 MODULE_DESCRIPTION("TM16xx-i2c LED Display Controllers");
 MODULE_LICENSE("GPL");
-MODULE_IMPORT_NS(TM16XX);
+MODULE_IMPORT_NS("TM16XX");

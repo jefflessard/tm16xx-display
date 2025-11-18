@@ -440,7 +440,7 @@ unregister_leds:
 	led_classdev_unregister(main);
 	return ret;
 }
-EXPORT_SYMBOL_NS(tm16xx_probe, TM16XX);
+EXPORT_SYMBOL_NS(tm16xx_probe, "TM16XX");
 
 /**
  * tm16xx_remove() - Remove display, unregister LEDs, blank output
@@ -474,9 +474,9 @@ void tm16xx_remove(struct tm16xx_display *display)
 	schedule_work(&display->flush_init);
 	flush_work(&display->flush_init);
 }
-EXPORT_SYMBOL_NS(tm16xx_remove, TM16XX);
+EXPORT_SYMBOL_NS(tm16xx_remove, "TM16XX");
 
 MODULE_AUTHOR("Jean-François Lessard");
 MODULE_DESCRIPTION("TM16xx LED Display Controllers");
 MODULE_LICENSE("GPL");
-MODULE_IMPORT_NS(LINEDISP);
+MODULE_IMPORT_NS("LINEDISP");

@@ -3,7 +3,9 @@
 
 #include <linux/bitmap.h>
 #include <linux/cleanup.h>
+#include <linux/export.h>
 #include <linux/fwnode.h>
+#include <linux/module.h>
 #include <linux/property.h>
 #include <linux/version.h>
 
@@ -37,6 +39,22 @@ unsigned long bitmap_read(const unsigned long *map, unsigned long start, unsigne
 	value_high = map[index + 1] & BITMAP_LAST_WORD_MASK(start + nbits);
 	return (value_low >> offset) | (value_high << space);
 }
+#endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
+/* Redefine namespace macros for older kernels to accept quoted strings */
+#undef EXPORT_SYMBOL_NS
+#undef EXPORT_SYMBOL_NS_GPL
+#undef MODULE_IMPORT_NS
+
+#define EXPORT_SYMBOL_NS(sym, ns) \
+	__EXPORT_SYMBOL(sym, "", ns)
+
+#define EXPORT_SYMBOL_NS_GPL(sym, ns) \
+	__EXPORT_SYMBOL(sym, "GPL", ns)
+
+#define MODULE_IMPORT_NS(ns) \
+	MODULE_INFO(import_ns, ns)
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 16, 0)

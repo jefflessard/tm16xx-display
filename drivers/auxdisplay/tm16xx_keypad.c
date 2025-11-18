@@ -82,7 +82,7 @@ void tm16xx_set_key(const struct tm16xx_display *display, const int row,
 	__assign_bit(row * display->controller->max_key_cols + col,
 		     display->keypad->state, pressed);
 }
-EXPORT_SYMBOL_NS(tm16xx_set_key, TM16XX);
+EXPORT_SYMBOL_NS(tm16xx_set_key, "TM16XX");
 
 /**
  * tm16xx_keypad_poll() - Polls the keypad, reports events
