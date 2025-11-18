@@ -27,6 +27,8 @@ CCFLAGS += -DCONFIG_TM16XX_SPI
 
 # backward compatibility
 CCFLAGS += -include $(PWD)/$(MDIR)/tm16xx_compat.h
+# needed for linux/timer_types.h (<6.8)
+CCFLAGS += -I$(PWD)/include/
 
 # Device Tree parameters
 ORIGINAL_DTB = original.dtb
