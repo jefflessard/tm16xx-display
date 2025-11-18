@@ -102,7 +102,7 @@ properties:
         const: 0
 
     patternProperties:
-      "^digit@[0-9]+$":
+      "^digit@[0-9a-f]+$":
         type: object
         unevaluatedProperties: false
 
@@ -152,8 +152,10 @@ properties:
         const: 0
 
     patternProperties:
-      "^led@[0-9]+,[0-9]+$":
+      "^led@[0-9a-f]+,[0-9a-f]+$":
         type: object
+        description:
+          Individual LED icon addressed by <grid>,<segment> matrix coordinates.
         $ref: /schemas/leds/common.yaml#
         unevaluatedProperties: false
 
