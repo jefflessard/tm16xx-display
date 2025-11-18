@@ -9,8 +9,11 @@
 #ifndef _TM16XX_H
 #define _TM16XX_H
 
+#include <linux/bits.h>
 #include <linux/bitfield.h>
 #include <linux/leds.h>
+#include <linux/mutex.h>
+#include <linux/types.h>
 #include <linux/workqueue.h>
 
 #include "line-display.h"
