@@ -536,13 +536,16 @@ config TM16XX
 	select NEW_LEDS
 	select TM16XX_KEYPAD if (INPUT)
 	help
-	  Core TM16XX-compatible 7-segment LED controllers module
+	  Core support for TM16xx-compatible 7-segment LED matrix display
+	  controllers from multiple vendors (Titan Micro, Fuda Hisi, i-Core,
+	  Princeton, Winrise). Provides LED class integration for display
+	  control and optional keypad scanning support.
 
 config TM16XX_KEYPAD
 	bool
 	depends on TM16XX
 	help
-	  Enable keyscan support for TM16XX driver.
+	  Enable optional keyscan support for TM16XX driver.
 
 config TM16XX_I2C
 	tristate "TM16XX-compatible I2C 7-segment LED controllers with keyscan"
