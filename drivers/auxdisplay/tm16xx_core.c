@@ -334,7 +334,7 @@ int tm16xx_probe(struct tm16xx_display *display)
 {
 	struct device *dev = display->dev;
 	struct led_classdev *main = &display->main_led;
-	struct led_init_data led_init = {0};
+	struct led_init_data led_init = {};
 	struct fwnode_handle *leds_node;
 	struct tm16xx_led *led;
 	unsigned int nbits, i;
@@ -423,7 +423,7 @@ unregister_leds:
 	led_classdev_unregister(main);
 	return ret;
 }
-EXPORT_SYMBOL_NS(tm16xx_probe, "TM16XX");
+EXPORT_SYMBOL_NS_GPL(tm16xx_probe, "TM16XX");
 
 void tm16xx_remove(struct tm16xx_display *display)
 {
@@ -453,7 +453,7 @@ void tm16xx_remove(struct tm16xx_display *display)
 	schedule_work(&display->flush_init);
 	flush_work(&display->flush_init);
 }
-EXPORT_SYMBOL_NS(tm16xx_remove, "TM16XX");
+EXPORT_SYMBOL_NS_GPL(tm16xx_remove, "TM16XX");
 
 MODULE_AUTHOR("Jean-François Lessard");
 MODULE_DESCRIPTION("TM16xx LED Display Controllers");
