@@ -102,11 +102,10 @@ static void tm16xx_display_flush_init(struct work_struct *work)
 	if (!display->controller->init)
 		return;
 
-	scoped_guard(mutex, &display->lock) {
-		ret = display->controller->init(display);
-		display->flush_status = ret;
-	}
+	guard(mutex)(&display->lock);
 
+	ret = display->controller->init(display);
+	display->flush_status = ret;
 	if (ret)
 		dev_err(display->dev, "Failed to configure controller: %d\n", ret);
 }
@@ -124,18 +123,18 @@ static void tm16xx_display_flush_data(struct work_struct *work)
 	if (!display->controller->data)
 		return;
 
-	scoped_guard(mutex, &display->lock) {
-		for (i = 0; i < display->num_hwgrid; i++) {
-			grid = tm16xx_get_grid(display, i);
-			ret = display->controller->data(display, i, grid);
-			if (ret) {
-				dev_err(display->dev, "Failed to write display data: %d\n", ret);
-				break;
-			}
-		}
+	guard(mutex)(&display->lock);
 
-		display->flush_status = ret;
+	for (i = 0; i < display->num_hwgrid; i++) {
+		grid = tm16xx_get_grid(display, i);
+		ret = display->controller->data(display, i, grid);
+		if (ret) {
+			dev_err(display->dev, "Failed to write display data: %d\n", ret);
+			break;
+		}
 	}
+
+	display->flush_status = ret;
 }
 
 /**
