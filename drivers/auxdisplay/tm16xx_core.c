@@ -23,21 +23,6 @@
 
 #define TM16XX_DIGIT_SEGMENTS	7
 
-// TODO add to include/linux/property.h
-#define fwnode_for_each_child_node_scoped(fwnode, child)		\
-	for (struct fwnode_handle *child __free(fwnode_handle) =	\
-		fwnode_get_next_child_node(fwnode, NULL);		\
-	     child; child = fwnode_get_next_child_node(fwnode, child))
-
-#define fwnode_for_each_named_child_node_scoped(fwnode, child, name)	\
-	fwnode_for_each_child_node_scoped(fwnode, child)		\
-		for_each_if(fwnode_name_eq(child, name))
-
-#define fwnode_for_each_available_child_node_scoped(fwnode, child)	\
-	for (struct fwnode_handle *child __free(fwnode_handle) =	\
-		fwnode_get_next_available_child_node(fwnode, NULL);	\
-	     child; child = fwnode_get_next_available_child_node(fwnode, child))
-
 #define linedisp_to_tm16xx(display) \
 	container_of(display, struct tm16xx_display, linedisp)
 
