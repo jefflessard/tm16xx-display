@@ -76,7 +76,7 @@ static inline int tm16xx_get_key_col(const struct tm16xx_display *display,
  * @display: pointer to tm16xx_display
  * @row: row index
  * @col: column index
- * @pressed: true if pressed, false otherwise
+ * @pressed: %true if pressed, %false otherwise
  */
 void tm16xx_set_key(const struct tm16xx_display *display, const int row,
 		    const int col, const bool pressed)

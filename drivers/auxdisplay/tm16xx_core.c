@@ -68,7 +68,7 @@ static inline unsigned int tm16xx_led_nbits(const struct tm16xx_display *display
  * @display: pointer to tm16xx_display
  * @hwgrid: grid index
  * @hwseg: segment index
- * @on: true to turn on, false to turn off
+ * @on: %true to turn on, %false to turn off
  */
 static inline void tm16xx_set_seg(const struct tm16xx_display *display,
 				  const u8 hwgrid, const u8 hwseg, const bool on)
