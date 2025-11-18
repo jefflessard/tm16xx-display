@@ -6,7 +6,6 @@
  * Copyright (C) 2025 Jean-François Lessard
  */
 
-
 #include <linux/bitfield.h>
 #include <linux/device.h>
 #include <linux/mod_devicetable.h>

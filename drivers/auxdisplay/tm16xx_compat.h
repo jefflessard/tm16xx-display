@@ -48,9 +48,11 @@ unsigned long bitmap_read(const unsigned long *map, unsigned long start, unsigne
 	value_high = map[index + 1] & BITMAP_LAST_WORD_MASK(start + nbits);
 	return (value_low >> offset) | (value_high << space);
 }
+
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
+
 /* Redefine namespace macros for older kernels to accept quoted strings */
 #undef EXPORT_SYMBOL_NS
 #undef EXPORT_SYMBOL_NS_GPL
@@ -64,9 +66,11 @@ unsigned long bitmap_read(const unsigned long *map, unsigned long start, unsigne
 
 #define MODULE_IMPORT_NS(ns) \
 	MODULE_INFO(import_ns, ns)
+
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 16, 0)
+
 static __maybe_unused
 unsigned int fwnode_get_child_node_count(const struct fwnode_handle *fwnode)
 {
@@ -78,9 +82,14 @@ unsigned int fwnode_get_child_node_count(const struct fwnode_handle *fwnode)
 
 	return count;
 }
+
+#define timer_container_of(var, callback_timer, timer_fieldname)	\
+	container_of(callback_timer, typeof(*var), timer_fieldname)
+
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 18, 0)
+
 #define fwnode_for_each_child_node_scoped(fwnode, child)		\
 	for (struct fwnode_handle *child __free(fwnode_handle) =	\
 		fwnode_get_next_child_node(fwnode, NULL);		\
@@ -94,6 +103,7 @@ unsigned int fwnode_get_child_node_count(const struct fwnode_handle *fwnode)
 	for (struct fwnode_handle *child __free(fwnode_handle) =	\
 		fwnode_get_next_available_child_node(fwnode, NULL);	\
 	     child; child = fwnode_get_next_available_child_node(fwnode, child))
+
 #endif
 
 #endif /* _TM16XX_COMPAT_H */

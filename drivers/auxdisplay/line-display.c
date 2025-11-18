@@ -34,10 +34,6 @@
 
 #define DEFAULT_SCROLL_RATE	(HZ / 2)
 
-// TODO remove
-#define timer_container_of(var, callback_timer, timer_fieldname)	\
-	container_of(callback_timer, typeof(*var), timer_fieldname)
-
 /**
  * struct linedisp_attachment - Holds the device to linedisp mapping
  * @list: List entry for the linedisp_attachments list
@@ -256,6 +252,16 @@ static ssize_t message_store(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR_RW(message);
 
+static ssize_t num_chars_show(struct device *dev, struct device_attribute *attr,
+			      char *buf)
+{
+	struct linedisp *linedisp = to_linedisp(dev);
+
+	return sysfs_emit(buf, "%u\n", linedisp->num_chars);
+}
+
+static DEVICE_ATTR_RO(num_chars);
+
 static ssize_t scroll_step_ms_show(struct device *dev,
 				   struct device_attribute *attr, char *buf)
 {
@@ -288,16 +294,6 @@ static ssize_t scroll_step_ms_store(struct device *dev,
 
 static DEVICE_ATTR_RW(scroll_step_ms);
 
-static ssize_t num_chars_show(struct device *dev, struct device_attribute *attr,
-			      char *buf)
-{
-	struct linedisp *linedisp = to_linedisp(dev);
-
-	return sysfs_emit(buf, "%u\n", linedisp->num_chars);
-}
-
-static DEVICE_ATTR_RO(num_chars);
-
 static ssize_t map_seg_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct linedisp *linedisp = to_linedisp(dev);
@@ -328,8 +324,8 @@ static DEVICE_ATTR(map_seg14, 0644, map_seg_show, map_seg_store);
 
 static struct attribute *linedisp_attrs[] = {
 	&dev_attr_message.attr,
-	&dev_attr_scroll_step_ms.attr,
 	&dev_attr_num_chars.attr,
+	&dev_attr_scroll_step_ms.attr,
 	&dev_attr_map_seg7.attr,
 	&dev_attr_map_seg14.attr,
 	NULL
@@ -433,7 +429,7 @@ static int linedisp_init_map(struct linedisp *linedisp)
  * @num_chars: the number of characters that can be displayed
  * @ops: character line display operations
  *
- * Directly attach the line-display sysfs attributes to the the passed device.
+ * Directly attach the line-display sysfs attributes to the passed device.
  * The caller is responsible for calling linedisp_detach() to release resources
  * after use.
  *
