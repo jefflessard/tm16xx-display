@@ -93,6 +93,9 @@ static inline unsigned int tm16xx_get_grid(const struct tm16xx_display *display,
 /**
  * tm16xx_display_flush_init() - Workqueue to configure controller and set brightness
  * @work: pointer to work_struct
+ *
+ * Configures controller and sets brightness. If an error occurs the error code
+ * is stored in flush_status for upper layers to handle.
  */
 static void tm16xx_display_flush_init(struct work_struct *work)
 {
@@ -113,6 +116,10 @@ static void tm16xx_display_flush_init(struct work_struct *work)
 /**
  * tm16xx_display_flush_data() - Workqueue to update display data to controller
  * @work: pointer to work_struct
+ *
+ * Updates all hardware grids with current display state. If an error occurs
+ * during any grid write, the operation is interrupted and the error code is
+ * stored in flush_status for upper layers to handle.
  */
 static void tm16xx_display_flush_data(struct work_struct *work)
 {
