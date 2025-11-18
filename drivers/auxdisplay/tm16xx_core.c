@@ -26,8 +26,7 @@
 
 #define TM16XX_DIGIT_SEGMENTS	7
 
-#define linedisp_to_tm16xx(display) \
-	container_of(display, struct tm16xx_display, linedisp)
+#define linedisp_to_tm16xx(display)	container_of(display, struct tm16xx_display, linedisp)
 
 /**
  * struct tm16xx_led - Individual LED icon mapping
@@ -87,8 +86,7 @@ static inline void tm16xx_set_seg(const struct tm16xx_display *display,
 static inline unsigned int tm16xx_get_grid(const struct tm16xx_display *display,
 					   const unsigned int index)
 {
-	return bitmap_read(display->state, index * display->num_hwseg,
-			   display->num_hwseg);
+	return bitmap_read(display->state, index * display->num_hwseg, display->num_hwseg);
 }
 
 /* main display */
@@ -149,8 +147,7 @@ static void tm16xx_display_flush_data(struct work_struct *work)
  * @led_cdev: pointer to led_classdev
  * @brightness: new brightness value
  */
-static void tm16xx_brightness_set(struct led_classdev *led_cdev,
-				  enum led_brightness brightness)
+static void tm16xx_brightness_set(struct led_classdev *led_cdev, enum led_brightness brightness)
 {
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
 
@@ -163,8 +160,7 @@ static void tm16xx_brightness_set(struct led_classdev *led_cdev,
  * @led_cdev: pointer to led_classdev
  * @value: new brightness (0/1)
  */
-static void tm16xx_led_set(struct led_classdev *led_cdev,
-			   enum led_brightness value)
+static void tm16xx_led_set(struct led_classdev *led_cdev, enum led_brightness value)
 {
 	struct tm16xx_led *led = container_of(led_cdev, struct tm16xx_led, cdev);
 	struct tm16xx_display *display = dev_get_drvdata(led_cdev->dev->parent);
