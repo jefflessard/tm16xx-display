@@ -11,13 +11,22 @@
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 10, 0)
 
+static inline int __devm_mutex_init(struct device *dev, struct mutex *lock)
+{
+	/*
+	 * When CONFIG_DEBUG_MUTEXES is off mutex_destroy() is just a nop so
+	 * no really need to register it in the devm subsystem.
+	 */
+	return 0;
+}
+
 #define devm_mutex_init(dev, mutex)			\
 ({							\
 	typeof(mutex) mutex_ = (mutex);			\
 							\
 	mutex_init(mutex_);				\
+	__devm_mutex_init(dev, mutex_);			\
 })
-
 
 DEFINE_FREE(fwnode_handle, struct fwnode_handle *, fwnode_handle_put(_T))
 
