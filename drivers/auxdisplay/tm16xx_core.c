@@ -330,12 +330,6 @@ static int tm16xx_parse_fwnode(struct device *dev, struct tm16xx_display *displa
 	return 0;
 }
 
-/**
- * tm16xx_probe() - Probe and initialize display device, register LEDs
- * @display: pointer to tm16xx_display
- *
- * Return: 0 on success, negative error code on failure
- */
 int tm16xx_probe(struct tm16xx_display *display)
 {
 	struct device *dev = display->dev;
@@ -431,10 +425,6 @@ unregister_leds:
 }
 EXPORT_SYMBOL_NS(tm16xx_probe, "TM16XX");
 
-/**
- * tm16xx_remove() - Remove display, unregister LEDs, blank output
- * @display: pointer to tm16xx_display
- */
 void tm16xx_remove(struct tm16xx_display *display)
 {
 	unsigned int nbits = tm16xx_led_nbits(display);

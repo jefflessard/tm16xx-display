@@ -132,12 +132,6 @@ static void tm16xx_keypad_poll(struct input_dev *input)
 	bitmap_copy(keypad->last_state, keypad->state, nbits);
 }
 
-/**
- * tm16xx_keypad_probe() - Initialize keypad/input device
- * @display: pointer to tm16xx_display
- *
- * Return: 0 on success, negative error code on failure
- */
 int tm16xx_keypad_probe(struct tm16xx_display *display)
 {
 	const unsigned int rows = display->controller->max_key_rows;
