@@ -96,9 +96,7 @@ static inline unsigned int tm16xx_get_grid(const struct tm16xx_display *display,
  */
 static void tm16xx_display_flush_init(struct work_struct *work)
 {
-	struct tm16xx_display *display = container_of(work,
-						      struct tm16xx_display,
-						      flush_init);
+	struct tm16xx_display *display = container_of(work, struct tm16xx_display, flush_init);
 	int ret;
 
 	if (display->controller->init) {
@@ -118,9 +116,7 @@ static void tm16xx_display_flush_init(struct work_struct *work)
  */
 static void tm16xx_display_flush_data(struct work_struct *work)
 {
-	struct tm16xx_display *display = container_of(work,
-						      struct tm16xx_display,
-						      flush_display);
+	struct tm16xx_display *display = container_of(work, struct tm16xx_display, flush_display);
 	unsigned int grid, i;
 	int ret = 0;
 
