@@ -3,6 +3,16 @@
  * TM16xx and compatible LED display/keypad controller driver
  * Supports TM16xx, FD6xx, PT6964, HBS658, AIP16xx and related chips.
  *
+* Concurrency model:
+ * - Atomic display state bitmap writes for LED triggers in atomic context
+ * - Non-atomic display state reads in flush work provide eventual consistency
+ * - Mutex serializes hardware I2C/SPI transactions (sleeping context)
+ * - Workqueue prevents same work item running concurrently
+ *
+ * Uses explicit resource management (non-devm) for LEDs and workqueues
+ * to enforce removal ordering: unregister LEDs first to stop triggers
+ * before hardware cleanup, preventing use-after-free.
+ *
  * Copyright (C) 2025 Jean-François Lessard
  */
 
@@ -70,6 +80,8 @@ static inline unsigned int tm16xx_led_nbits(const struct tm16xx_display *display
  * @hwgrid: grid index
  * @hwseg: segment index
  * @on: %true to turn on, %false to turn off
+ *
+ * Atomic display state bitmap writes. May execute in atomic context.
  */
 static inline void tm16xx_set_seg(const struct tm16xx_display *display,
 				  const u8 hwgrid, const u8 hwseg, const bool on)
@@ -81,6 +93,8 @@ static inline void tm16xx_set_seg(const struct tm16xx_display *display,
  * tm16xx_get_grid() - Get the current segment pattern for a grid
  * @display: pointer to tm16xx_display
  * @index: grid index
+ *
+ * Non-atomic display state reads. Flush work provide eventual consistency.
  *
  * Return: bit pattern of all segments for the given grid
  */
@@ -97,6 +111,9 @@ static inline unsigned int tm16xx_get_grid(const struct tm16xx_display *display,
  *
  * Configures controller and sets brightness. If an error occurs the error code
  * is stored in flush_status for upper layers to handle.
+ *
+ * Flush operations use mutex to serialize hardware transactions. Workqueue
+ * allows non-atomic context and ensures the same work never runs concurrently.
  */
 static void tm16xx_display_flush_init(struct work_struct *work)
 {
@@ -121,6 +138,9 @@ static void tm16xx_display_flush_init(struct work_struct *work)
  * Updates all hardware grids with current display state. If an error occurs
  * during any grid write, the operation is interrupted and the error code is
  * stored in flush_status for upper layers to handle.
+ *
+ * Flush operations use mutex to serialize hardware transactions. Workqueue
+ * allows non-atomic context and ensures the same work never runs concurrently.
  */
 static void tm16xx_display_flush_data(struct work_struct *work)
 {
@@ -149,6 +169,8 @@ static void tm16xx_display_flush_data(struct work_struct *work)
  * tm16xx_brightness_set() - Set display main LED brightness
  * @led_cdev: pointer to led_classdev
  * @brightness: new brightness value
+ *
+ * Cannot sleep. Display brightness can be set by LED trigger in atomic context.
  */
 static void tm16xx_brightness_set(struct led_classdev *led_cdev, enum led_brightness brightness)
 {
@@ -162,6 +184,8 @@ static void tm16xx_brightness_set(struct led_classdev *led_cdev, enum led_bright
  * tm16xx_led_set() - Set state of an individual LED icon
  * @led_cdev: pointer to led_classdev
  * @value: new brightness (0/1)
+ *
+ * Cannot sleep. LED brightness can be set by LED trigger in atomic context.
  */
 static void tm16xx_led_set(struct led_classdev *led_cdev, enum led_brightness value)
 {
@@ -352,6 +376,13 @@ int tm16xx_probe(struct tm16xx_display *display)
 	ret = devm_mutex_init(display->dev, &display->lock);
 	if (ret)
 		return ret;
+
+	/*
+	 * Explicit resource management required: Must unregister LEDs before
+	 * hardware cleanup to stop trigger callbacks. devm_led_*() would defer
+	 * unregistration to devres cleanup, creating race window where triggers
+	 * access freed hardware.
+	 */
 
 	INIT_WORK(&display->flush_init, tm16xx_display_flush_init);
 	INIT_WORK(&display->flush_display, tm16xx_display_flush_data);
