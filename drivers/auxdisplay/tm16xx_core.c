@@ -274,65 +274,56 @@ static int tm16xx_parse_fwnode(struct device *dev, struct tm16xx_display *displa
 		device_get_named_child_node(dev, "leds");
 
 	/* parse digits */
-	if (digits_node) {
-		display->num_digits = fwnode_get_child_node_count(digits_node);
+	display->num_digits = fwnode_get_child_node_count(digits_node);
+	if (display->num_digits) {
+		display->digits = devm_kcalloc(dev, display->num_digits,
+					       sizeof(*display->digits), GFP_KERNEL);
+		if (!display->digits)
+			return -ENOMEM;
 
-		if (display->num_digits) {
-			display->digits = devm_kcalloc(dev, display->num_digits,
-						       sizeof(*display->digits),
-						       GFP_KERNEL);
-			if (!display->digits)
-				return -ENOMEM;
+		i = 0;
+		fwnode_for_each_available_child_node_scoped(digits_node, child) {
+			digit = &display->digits[i];
 
-			i = 0;
-			fwnode_for_each_available_child_node_scoped(digits_node, child) {
-				digit = &display->digits[i];
+			ret = fwnode_property_read_u32(child, "reg", reg);
+			if (ret)
+				return ret;
 
-				ret = fwnode_property_read_u32(child, "reg", reg);
-				if (ret)
-					return ret;
+			ret = fwnode_property_read_u32_array(child, "segments", segments,
+							     TM16XX_DIGIT_SEGMENTS * 2);
+			if (ret < 0)
+				return ret;
 
-				ret = fwnode_property_read_u32_array(child,
-								     "segments", segments,
-								     TM16XX_DIGIT_SEGMENTS * 2);
-				if (ret < 0)
-					return ret;
-
-				for (j = 0; j < TM16XX_DIGIT_SEGMENTS; ++j) {
-					digit->hwgrids[j] = segments[2 * j];
-					digit->hwsegs[j] = segments[2 * j + 1];
-					max_hwgrid = umax(max_hwgrid, digit->hwgrids[j]);
-					max_hwseg = umax(max_hwseg, digit->hwsegs[j]);
-				}
-				i++;
+			for (j = 0; j < TM16XX_DIGIT_SEGMENTS; ++j) {
+				digit->hwgrids[j] = segments[2 * j];
+				digit->hwsegs[j] = segments[2 * j + 1];
+				max_hwgrid = umax(max_hwgrid, digit->hwgrids[j]);
+				max_hwseg = umax(max_hwseg, digit->hwsegs[j]);
 			}
+			i++;
 		}
 	}
 
 	/* parse leds */
-	if (leds_node) {
-		display->num_leds = fwnode_get_child_node_count(leds_node);
+	display->num_leds = fwnode_get_child_node_count(leds_node);
+	if (display->num_leds) {
+		display->leds = devm_kcalloc(dev, display->num_leds,
+					     sizeof(*display->leds), GFP_KERNEL);
+		if (!display->leds)
+			return -ENOMEM;
 
-		if (display->num_leds) {
-			display->leds = devm_kcalloc(dev, display->num_leds,
-						     sizeof(*display->leds),
-						     GFP_KERNEL);
-			if (!display->leds)
-				return -ENOMEM;
+		i = 0;
+		fwnode_for_each_available_child_node_scoped(leds_node, child) {
+			led = &display->leds[i];
+			ret = fwnode_property_read_u32_array(child, "reg", reg, 2);
+			if (ret < 0)
+				return ret;
 
-			i = 0;
-			fwnode_for_each_available_child_node_scoped(leds_node, child) {
-				led = &display->leds[i];
-				ret = fwnode_property_read_u32_array(child, "reg", reg, 2);
-				if (ret < 0)
-					return ret;
-
-				led->hwgrid = reg[0];
-				led->hwseg = reg[1];
-				max_hwgrid = umax(max_hwgrid, led->hwgrid);
-				max_hwseg = umax(max_hwseg, led->hwseg);
-				i++;
-			}
+			led->hwgrid = reg[0];
+			led->hwseg = reg[1];
+			max_hwgrid = umax(max_hwgrid, led->hwgrid);
+			max_hwseg = umax(max_hwseg, led->hwseg);
+			i++;
 		}
 	}
 
