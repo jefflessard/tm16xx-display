@@ -378,10 +378,12 @@ int tm16xx_probe(struct tm16xx_display *display)
 		return ret;
 
 	/*
-	 * Explicit resource management required: Must unregister LEDs before
-	 * hardware cleanup to stop trigger callbacks. devm_led_*() would defer
-	 * unregistration to devres cleanup, creating race window where triggers
-	 * access freed hardware.
+	 * Explicit (non-devm) resource management and specific order shutdown sequence
+	 * required to prevent hardware access races when triggers attempt to update
+	 * the display during removal:
+	 * 1. unregister LEDs to stop triggers
+	 * 2. clear display
+	 * 3. turn off display
 	 */
 
 	INIT_WORK(&display->flush_init, tm16xx_display_flush_init);
