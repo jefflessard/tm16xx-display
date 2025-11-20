@@ -389,11 +389,13 @@ int tm16xx_probe(struct tm16xx_display *display)
 
 	/* Initialize main LED properties */
 	led_init.fwnode = dev_fwnode(dev);
+	/* max_brightness: handle default value and enforce hardware ceiling */
 	main->max_brightness = display->controller->max_brightness;
 	device_property_read_u32(dev, "max-brightness", &main->max_brightness);
 	main->max_brightness = umin(main->max_brightness,
 				    display->controller->max_brightness);
 
+	/* brightness: handle default value and enforce max ceiling */
 	main->brightness = main->max_brightness;
 	device_property_read_u32(dev, "default-brightness", &main->brightness);
 	main->brightness = umin(main->brightness, main->max_brightness);
@@ -414,6 +416,7 @@ int tm16xx_probe(struct tm16xx_display *display)
 	fwnode_for_each_available_child_node_scoped(leds_node, child) {
 		led_init.fwnode = child;
 		led = &display->leds[i];
+		/* Individual leds are hardware-constrained to on/off */
 		led->cdev.max_brightness = 1;
 		led->cdev.brightness_set = tm16xx_led_set;
 		led->cdev.flags = LED_RETAIN_AT_SHUTDOWN | LED_CORE_SUSPENDRESUME;
