@@ -177,8 +177,8 @@ static int tm1628_data(struct tm16xx_display *display, u8 index,
 
 static int tm1628_keys(struct tm16xx_display *display)
 {
-	u8 *cmd = display->spi_buffer;
 	u8 *codes = display->spi_buffer;
+	u8 *cmd = display->spi_buffer;
 	unsigned int i;
 	int bit, byte;
 	bool value;
@@ -208,8 +208,8 @@ static int tm1628_keys(struct tm16xx_display *display)
 
 static int tm1638_keys(struct tm16xx_display *display)
 {
-	u8 *cmd = display->spi_buffer;
 	u8 *codes = display->spi_buffer;
+	u8 *cmd = display->spi_buffer;
 	unsigned int i;
 	int bit, byte;
 	bool value;
@@ -239,8 +239,8 @@ static int tm1638_keys(struct tm16xx_display *display)
 
 static int tm1618_keys(struct tm16xx_display *display)
 {
-	u8 *cmd = display->spi_buffer;
 	u8 *codes = display->spi_buffer;
+	u8 *cmd = display->spi_buffer;
 	unsigned int i;
 	int ret;
 
@@ -278,8 +278,8 @@ static int fd620_data(struct tm16xx_display *display, u8 index,
 
 static int fd620_keys(struct tm16xx_display *display)
 {
-	u8 *cmd = display->spi_buffer;
 	u8 *codes = display->spi_buffer;
+	u8 *cmd = display->spi_buffer;
 	unsigned int i;
 	int ret;
 

@@ -99,8 +99,8 @@ static void tm16xx_keypad_poll(struct input_dev *input)
 	struct tm16xx_keypad *keypad = display->keypad;
 	const unsigned short *keycodes = keypad->input->keycode;
 	unsigned int nbits = tm16xx_key_nbits(display);
-	unsigned int bit;
 	int row, col, scancode;
+	unsigned int bit;
 	bool pressed;
 	int ret;
 
@@ -136,9 +136,9 @@ int tm16xx_keypad_probe(struct tm16xx_display *display)
 {
 	const unsigned int rows = display->controller->max_key_rows;
 	const unsigned int cols = display->controller->max_key_cols;
+	unsigned int poll_interval, nbits;
 	struct tm16xx_keypad *keypad;
 	struct input_dev *input;
-	unsigned int poll_interval, nbits;
 	int ret;
 
 	if (!display->controller->keys || !rows || !cols)

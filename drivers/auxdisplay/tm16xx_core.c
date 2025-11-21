@@ -3,7 +3,7 @@
  * TM16xx and compatible LED display/keypad controller driver
  * Supports TM16xx, FD6xx, PT6964, HBS658, AIP16xx and related chips.
  *
-* Concurrency model:
+ * Concurrency model:
  * - Atomic display state bitmap writes for LED triggers in atomic context
  * - Non-atomic display state reads in flush work provide eventual consistency
  * - Mutex serializes hardware I2C/SPI transactions (sleeping context)
@@ -201,8 +201,8 @@ static int tm16xx_display_value(struct tm16xx_display *display, const char *buf,
 	struct linedisp *linedisp = &display->linedisp;
 	struct linedisp_map *map = linedisp->map;
 	struct tm16xx_digit *digit;
-	unsigned int i, j;
 	int seg_pattern, ret = 0;
+	unsigned int i, j;
 	bool val;
 
 	for (i = 0; i < display->num_digits; i++) {
@@ -260,13 +260,13 @@ static int tm16xx_display_init(struct tm16xx_display *display)
 
 static int tm16xx_parse_fwnode(struct device *dev, struct tm16xx_display *display)
 {
-	struct tm16xx_led *led;
-	struct tm16xx_digit *digit;
 	unsigned int max_hwgrid = 0, max_hwseg = 0;
-	unsigned int i, j;
-	int ret;
 	u32 segments[TM16XX_DIGIT_SEGMENTS * 2];
+	struct tm16xx_digit *digit;
+	struct tm16xx_led *led;
+	unsigned int i, j;
 	u32 reg[2];
+	int ret;
 
 	struct fwnode_handle *digits_node __free(fwnode_handle) =
 		device_get_named_child_node(dev, "digits");
@@ -347,9 +347,9 @@ static int tm16xx_parse_fwnode(struct device *dev, struct tm16xx_display *displa
 
 int tm16xx_probe(struct tm16xx_display *display)
 {
-	struct device *dev = display->dev;
 	struct led_classdev *main = &display->main_led;
 	struct led_init_data led_init = {};
+	struct device *dev = display->dev;
 	struct fwnode_handle *leds_node;
 	struct tm16xx_led *led;
 	unsigned int nbits, i;
