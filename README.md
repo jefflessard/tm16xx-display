@@ -87,7 +87,9 @@ Depending on the icons configured for the auxiliary display, additional led trig
 | Time seperator blink | `colon` | `timer` | `ledtrig_timer` | `CONFIG_LEDS_TRIGGER_TIMER=y` or `m` |
 | Network activity | `lan`, `wlan`, `bluetooth` | `netdev` | `ledtrig_netdev` | `CONFIG_LEDS_TRIGGER_NETDEV=y` or `m` |
 | USB activity | `usb` | `usbport` | `ledtrig-usbport` | `CONFIG_USB_LEDS_TRIGGER_USBPORT=y` or `m` |
-| SD/MMC activity | `sd` | `mmc0` | `mmc_core` | `CONFIG_MMC=y` or `m` |
+| SD/MMC activity | `sd` | `mmc0` (board specific, see note) | `mmc_core` | `CONFIG_MMC=y` or `m` |
+
+The `sd` icon defaults to the `mmc0` host, but mmc host numbering is board specific. On many Amlogic boxes (for example S905X2 / X96 Max) `mmc0` is the SDIO WiFi controller while the SD slot and eMMC are `mmc1` and `mmc2`, so the icon ends up following WiFi traffic and looks like it blinks at random. Override it (and the other icon triggers) in `/etc/default/display-service` without editing the script; see [Customize display service](#customize-display-service).
 
 ## Download
 ```sh
@@ -207,7 +209,24 @@ display-service -t "{your_message}"
 ```
 
 ## Customize display service
-Just edit the shell script at `/usr/sbin/display-service`
+For the common case of changing which activity each status icon follows, edit `/etc/default/display-service` instead of the script. It is sourced by the daemon at startup and lets you override the icon LED triggers and the network devices they watch:
+
+```sh
+# /etc/default/display-service
+
+# point the SD icon at the real card slot / eMMC instead of mmc0
+TRIGGER_SDCARD=mmc2
+
+# follow a different wired interface
+DEV_LAN=end0
+
+# leave an icon off (empty value)
+TRIGGER_USB=
+```
+
+Apply changes with `systemctl restart display`. List the triggers a given icon supports with `cat /sys/class/leds/display::sd/trigger`. The defaults reproduce the previous built-in behaviour, so an install without this file is unchanged.
+
+For anything beyond the icon triggers, edit the shell script at `/usr/sbin/display-service`.
 
 ## Customize display from shell
 ```sh

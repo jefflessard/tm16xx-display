@@ -60,6 +60,7 @@ service-install:
 	modprobe tm16xx
 	cp display-service /usr/sbin/
 	cp display.service /lib/systemd/system/
+	[ -f /etc/default/display-service ] || cp display-service.conf /etc/default/display-service
 	systemctl daemon-reload
 	systemctl enable display
 	systemctl restart display
