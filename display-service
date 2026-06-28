@@ -166,6 +166,11 @@ configure_trigger() {
 	module_name="$4"
 	trigger_path="$led_path/trigger"
 
+	if [ -z "$trigger_name" ]; then
+		log_info "$led_name LED trigger disabled (empty), leaving it off"
+		return 1
+	fi
+
 	if [ ! -d "$led_path" ]; then
 		log_info "$led_name LED not found"
 		return 1
@@ -207,32 +212,32 @@ daemon_init() {
 	display_clear
 	display_on
 
-	if configure_trigger "USB" "$LED_USB" "usbport" "ledtrig-usbport"; then
+	if configure_trigger "USB" "$LED_USB" "$TRIGGER_USB" "ledtrig-usbport"; then
 		for port in "$LED_USB"/ports/*; do
 			[ -f "$port" ] && echo 1 > "$port" 2>/dev/null || log_warn "Failed to enable USB port: $port"
 		done
 	fi
 
-	if configure_trigger "LAN" "$LED_LAN" "netdev" "ledtrig_netdev"; then
-		echo eth0 > "$LED_LAN/device_name" 2>/dev/null || log_warn "Failed to set LAN device name"
+	if configure_trigger "LAN" "$LED_LAN" "$TRIGGER_LAN" "ledtrig_netdev"; then
+		echo "$DEV_LAN" > "$LED_LAN/device_name" 2>/dev/null || log_warn "Failed to set LAN device name"
 		echo 1 > "$LED_LAN/link" 2>/dev/null || log_warn "Failed to enable LAN link monitoring"
 	fi
 
-	if configure_trigger "WiFi" "$LED_WIFI" "netdev" "ledtrig_netdev"; then
-		echo wlan0 > "$LED_WIFI/device_name" 2>/dev/null || log_warn "Failed to set WiFi device name"
+	if configure_trigger "WiFi" "$LED_WIFI" "$TRIGGER_WIFI" "ledtrig_netdev"; then
+		echo "$DEV_WIFI" > "$LED_WIFI/device_name" 2>/dev/null || log_warn "Failed to set WiFi device name"
 		echo 1 > "$LED_WIFI/link" 2>/dev/null || log_warn "Failed to enable WiFi link monitoring"
 	fi
 
-	if configure_trigger "Bluetooth" "$LED_BLUETOOTH" "netdev" "ledtrig_netdev"; then
-		echo hci0 > "$LED_BLUETOOTH/device_name" 2>/dev/null || log_warn "Failed to set Bluetooth device name"
+	if configure_trigger "Bluetooth" "$LED_BLUETOOTH" "$TRIGGER_BLUETOOTH" "ledtrig_netdev"; then
+		echo "$DEV_BLUETOOTH" > "$LED_BLUETOOTH/device_name" 2>/dev/null || log_warn "Failed to set Bluetooth device name"
 		echo 1 > "$LED_BLUETOOTH/link" 2>/dev/null || log_warn "Failed to enable Bluetooth link monitoring"
 	fi
 
-	configure_trigger "SD Card" "$LED_SDCARD" "mmc0" "mmc_core"
+	configure_trigger "SD Card" "$LED_SDCARD" "$TRIGGER_SDCARD" "mmc_core"
 }
 
 daemon_time_start() {
-	configure_trigger "Time Colon" "$LED_COLON" "timer" "ledtrig_timer"
+	configure_trigger "Time Colon" "$LED_COLON" "$TRIGGER_COLON" "ledtrig_timer"
 	daemon_time_update &
 	TIME_PID=$!
 	log_info "Time display started with PID $TIME_PID"
@@ -374,6 +379,25 @@ else
 	LED_BLUETOOTH="$DISPLAY_PATH::bluetooth"
 	LED_SDCARD="$DISPLAY_PATH::sd"
 	LED_COLON="$DISPLAY_PATH::colon"
+
+	# Optional per-device overrides for the icon LED triggers and the
+	# network devices the activity icons follow. Sourced as POSIX sh; see
+	# the shipped display-service.conf for what each setting does.
+	DISPLAY_SERVICE_CONF="${DISPLAY_SERVICE_CONF:-/etc/default/display-service}"
+	[ -r "$DISPLAY_SERVICE_CONF" ] && . "$DISPLAY_SERVICE_CONF"
+
+	# Defaults below reproduce the previous built-in behaviour, so an
+	# install without a config file behaves exactly as before. Set any
+	# trigger to an empty value to leave that icon off.
+	TRIGGER_USB="${TRIGGER_USB-usbport}"
+	TRIGGER_LAN="${TRIGGER_LAN-netdev}"
+	TRIGGER_WIFI="${TRIGGER_WIFI-netdev}"
+	TRIGGER_BLUETOOTH="${TRIGGER_BLUETOOTH-netdev}"
+	TRIGGER_SDCARD="${TRIGGER_SDCARD-mmc0}"
+	TRIGGER_COLON="${TRIGGER_COLON-timer}"
+	DEV_LAN="${DEV_LAN-eth0}"
+	DEV_WIFI="${DEV_WIFI-wlan0}"
+	DEV_BLUETOOTH="${DEV_BLUETOOTH-hci0}"
 
 	daemon_init
 	trap daemon_stop HUP TERM QUIT INT
